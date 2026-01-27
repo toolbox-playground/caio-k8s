@@ -515,6 +515,8 @@ kubectl get pod nginx-hostport -o yaml
 
 ### Configuração de Registry Local
 
+O Kind pode ser configurado para usar um registry Docker local, facilitando o desenvolvimento e testes de imagens customizadas. Registry Local é um container Docker rodando a imagem oficial `registry:2`, que serve para armazenar imagens Docker.
+
 ```yaml
 # registry-config.yaml
 kind: Cluster
