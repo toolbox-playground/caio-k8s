@@ -6,7 +6,7 @@ Bem-vindo ao curso completo de Kubernetes com abordagem 100% hands-on!
 
 ```
 curso-k8s/
-├── modulo-00-docker/          # Fundamentos de Docker (pré-requisito)
+├── modulo-00-docker.md        # Fundamentos de Docker (pré-requisito)
 ├── modulo-01-kind/            # Clusters Kubernetes locais
 └── modulo-02-deploy-app/      # Deploy e Resiliência ⭐ NOVO!
 ```
