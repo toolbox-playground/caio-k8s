@@ -142,60 +142,87 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: k8s-essentials
 
-# Configuração de rede para LoadBalancer
 networking:
-  # Por padrão, Kind usa 10.244.0.0/16 para pods
   podSubnet: "10.244.0.0/16"
-  # Por padrão, Kind usa 10.96.0.0/12 para services
   serviceSubnet: "10.96.0.0/12"
-  # Desabilitar CNI padrão (instalaremos Calico depois)
-  disableDefaultCNI: false
-  # Configurar range para LoadBalancer (MetalLB)
   kubeProxyMode: "ipvs"
 
-# Definir nós do cluster
 nodes:
-  # Control plane node
   - role: control-plane
-    kubeadmConfigPatches:
-    - |
-      kind: InitConfiguration
-      nodeRegistration:
-        kubeletExtraArgs:
-          node-labels: "ingress-ready=true"
     extraPortMappings:
-    # Permite acesso local ao Ingress Controller
     - containerPort: 80
       hostPort: 30080
       protocol: TCP
     - containerPort: 443
       hostPort: 30443
       protocol: TCP
-    # Porta para API Server (opcional)
-    - containerPort: 6443
-      hostPort: 6443
-      protocol: TCP
 
-  # Worker nodes
   - role: worker
-    labels:
-      node-type: "worker"
-      environment: "development"
-      
   - role: worker
-    labels:
-      node-type: "worker"
-      environment: "development"
-
-# Configurações de feature gates (opcional)
-featureGates:
-  "EphemeralContainers": true
-  "CronJobControllerV2": true
-
-# Configuração do runtime
-runtimeConfig:
-  "api/all": "true"
 ```
+
+#### 📋 Explicação Detalhada da Configuração
+
+**Linha 1-2: Tipo e Versão da API**
+```yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+```
+- `kind: Cluster` - Define que este YAML é uma configuração de **Cluster** do Kind
+- `apiVersion` - Especifica a versão v1alpha4 da API (única versão suportada atualmente)
+
+**Linha 3: Nome do Cluster**
+```yaml
+name: k8s-essentials
+```
+- Identificador usado em comandos: `kubectl config use-context kind-k8s-essentials`
+- Prefixo dos containers Docker: `k8s-essentials-control-plane`, `k8s-essentials-worker`
+
+**Linha 5-8: Configuração de Networking**
+```yaml
+networking:
+  podSubnet: "10.244.0.0/16"
+  serviceSubnet: "10.96.0.0/12"
+  kubeProxyMode: "ipvs"
+```
+
+| Parâmetro | Descrição | Impacto |
+|-----------|-----------|--------|
+| `podSubnet` | Range CIDR para IPs dos pods (65.536 endereços) | Cada node recebe uma fatia dessa rede |
+| `serviceSubnet` | Range CIDR para ClusterIPs (1.048.576 endereços) | Permite muito mais serviços que o padrão /16 |
+| `kubeProxyMode` | Modo IPVS para proxy de rede | ✅ Melhor performance<br>⚠️ Requer módulos kernel IPVS |
+
+**Linha 10-20: Control Plane com Port Mappings**
+```yaml
+nodes:
+  - role: control-plane
+    extraPortMappings:
+    - containerPort: 80
+      hostPort: 30080
+    - containerPort: 443
+      hostPort: 30443
+```
+
+- **Control Plane**: Executa API Server, Scheduler, Controller Manager e etcd
+- **Port Mapping 80→30080**: Acessa serviços HTTP via `localhost:30080`
+- **Port Mapping 443→30443**: Acessa serviços HTTPS via `localhost:30443`
+
+**Linha 22-23: Workers**
+```yaml
+  - role: worker
+  - role: worker
+```
+- Dois nodes adicionais para executar cargas de trabalho (pods)
+- Permitem testar distribuição de carga e rolling updates
+
+#### ⏱️ Características de Performance
+
+| Aspecto | Impacto no Tempo de Criação |
+|---------|-----------------------------|
+| **Multi-node (3 containers)** | ⏱️ +30-40s (vs single-node) |
+| **IPVS mode** | ⏱️ +10-20s (carrega módulos kernel) |
+| **Port mappings** | ⏱️ +5-10s (configuração de rede) |
+| **Total esperado** | 🕐 60-120 segundos |
 
 ```bash
 # Criar cluster com configuração personalizada

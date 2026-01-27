@@ -1,0 +1,47 @@
+# Tipo de recurso: Define que este YAML é uma configuração de Cluster do Kind
+kind: Cluster
+
+# Versão da API: Especifica a versão v1alpha4 da API do Kind (única versão suportada)
+apiVersion: kind.x-k8s.io/v1alpha4
+
+# Nome do cluster: Identificador usado em comandos kubectl e docker
+name: k8s-essentials
+
+# ========== SEÇÃO DE NETWORKING ==========
+networking:
+  # Range de IPs para Pods: Define a sub-rede CIDR usada para atribuir IPs aos pods
+  # Padrão: 10.244.0.0/16 (65.536 endereços). Cada node recebe uma fatia dessa rede
+  podSubnet: "10.244.0.0/16"
+  
+  # Range de IPs para Services: Define a sub-rede CIDR para IPs de serviços (ClusterIP)
+  # /12 = 1.048.576 endereços (padrão Kind é /16 = 65.536)
+  serviceSubnet: "10.96.0.0/12"
+  
+  # Modo do kube-proxy: Usa IPVS em vez de iptables
+  # IPVS oferece melhor performance com muitos serviços (hash table vs lista de regras)
+  # ⚠️ Requer módulos kernel IPVS no host (pode falhar no Windows/WSL se indisponíveis)
+  kubeProxyMode: "ipvs"
+
+# ========== SEÇÃO DE NODES ==========
+nodes:
+  # Node 1 - Control Plane (Master)
+  # Executa componentes críticos: API Server, Scheduler, Controller Manager, etcd
+  - role: control-plane
+    
+    # Mapeamento de portas extras: Expõe portas do container Docker para o host
+    extraPortMappings:
+    # Porta 80 → 30080: Para tráfego HTTP (Ingress Controller)
+    - containerPort: 80
+      hostPort: 30080
+      protocol: TCP
+    
+    # Porta 443 → 30443: Para tráfego HTTPS seguro
+    - containerPort: 443
+      hostPort: 30443
+      protocol: TCP
+
+  # Node 2 - Worker: Executa cargas de trabalho (pods de aplicações)
+  - role: worker
+  
+  # Node 3 - Worker: Node adicional para distribuição de carga
+  - role: worker
