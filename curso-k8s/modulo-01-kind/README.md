@@ -232,8 +232,11 @@ kind create cluster --config cluster-config.yaml
 kubectl get nodes --show-labels
 
 # Verificar mapeamento de portas
-docker ps | grep k8s-essentials # Linux
-docker ps | Select-String -Pattern "k8s-essentials" # Windows
+# Linux/macOS
+docker ps | grep k8s-essentials
+
+# Windows PowerShell
+docker ps | Select-String -Pattern "k8s-essentials"
 ```
 
 ### Passo 4: Configuração de Contexto e Multi-Cluster
@@ -410,7 +413,11 @@ kubectl get svc nginx-test
 kubectl port-forward svc/nginx-test 8080:80
 
 # Em outro terminal, teste:
+# Linux/macOS
 curl http://localhost:8080
+
+# Windows PowerShell
+Invoke-WebRequest http://localhost:8080
 ```
 
 **Método 2: Usando as Portas Mapeadas (30080/30443) com HostPort**
@@ -420,6 +427,7 @@ kubectl delete deployment nginx-test
 kubectl delete svc nginx-test
 
 # Criar Pod com HostPort (usa a porta mapeada do cluster-config.yaml)
+# Linux/macOS
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Pod
@@ -443,13 +451,41 @@ spec:
       protocol: TCP
 EOF
 
+# Windows PowerShell
+@"
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-hostport
+  labels:
+    app: nginx-hostport
+spec:
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
+  tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    effect: NoSchedule
+  containers:
+  - name: nginx
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+      hostPort: 80
+      protocol: TCP
+"@ | kubectl apply -f -
+
 # Aguardar o pod iniciar
 kubectl wait --for=condition=Ready pod/nginx-hostport --timeout=60s
-> Resposta esperada: pod/nginx-hostport condition met
+# Resposta esperada: pod/nginx-hostport condition met
 
 # ✅ Agora acesse via porta mapeada!
+# Linux/macOS
 curl http://localhost:30080
-# Ou no navegador: http://localhost:30080
+
+# Windows PowerShell
+Invoke-WebRequest http://localhost:30080 -UseBasicParsing
+
+# Ou no navegador (qualquer plataforma): http://localhost:30080
 ```
 
 **💡 Como Funciona o Mapeamento de Portas?**
@@ -511,45 +547,35 @@ kubectl describe pod nginx-hostport
 kubectl get pod nginx-hostport -o yaml
 ```
 
-## 🔧 Configurações Avançadas
+## 🔧 Carregamento de Imagens
 
-### Configuração de Registry Local
+O Kind não baixa imagens automaticamente da internet. Você precisa ter a imagem localmente e carregá-la manualmente em cada node do cluster.
 
-O Kind pode ser configurado para usar um registry Docker local, facilitando o desenvolvimento e testes de imagens customizadas. Registry Local é um container Docker rodando a imagem oficial `registry:2`, que serve para armazenar imagens Docker.
-
-```yaml
-# registry-config.yaml
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-name: k8s-with-registry
-containerdConfigPatches:
-- |-
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5001"]
-    endpoint = ["http://kind-registry:5000"]
-```
+⚠️ **IMPORTANTE**: Use sempre **versões específicas** das imagens (ex: `nginx:1.27`) ao invés de `latest` para evitar problemas de compatibilidade.
 
 ```bash
-# Criar registry local
-docker run -d --restart=always -p "127.0.0.1:5001:5000" --name "kind-registry" registry:2
+# 1. Fazer pull da imagem com versão específica
+docker pull nginx:1.27
 
-# Conectar registry ao cluster
-docker network connect "kind" "kind-registry" || true
+# 2. Verificar se o cluster correto está ativo
+kubectl config current-context
+# Deve retornar: kind-k8s-essentials
 
-# Criar cluster com registry
-kind create cluster --config registry-config.yaml
-```
+# Se não estiver, mude para o contexto correto
+kubectl config use-context kind-k8s-essentials
 
-### Carregamento de Imagens
+# 3. Carregar imagem para o cluster (carrega em todos os nodes)
+kind load docker-image nginx:1.27 --name k8s-essentials
 
-```bash
-# Carregar imagem para o cluster
-kind load docker-image nginx:latest --name k8s-essentials
+# ✅ Você verá mensagens como:
+# Image: "nginx:1.27" with ID "sha256:..." not yet present on node "k8s-essentials-control-plane", loading...
+# Image: "nginx:1.27" with ID "sha256:..." not yet present on node "k8s-essentials-worker", loading...
+# Isso é NORMAL - indica que está funcionando!
 
-# Carregar de arquivo
-docker save nginx:latest | kind load image-archive /dev/stdin --name k8s-essentials
-
-# Verificar imagens no nó
-docker exec -it k8s-essentials-control-plane crictl images
+# 4. Verificar se a imagem foi carregada em todos os nodes
+docker exec k8s-essentials-control-plane crictl images | grep nginx
+docker exec k8s-essentials-worker crictl images | grep nginx
+docker exec k8s-essentials-worker2 crictl images | grep nginx
 ```
 
 ## 🚨 Troubleshooting
@@ -560,7 +586,11 @@ docker exec -it k8s-essentials-control-plane crictl images
 kind create cluster --name debug --verbosity=1
 
 # Verificar containers Docker
+# Linux/macOS
 docker ps -a | grep kind
+
+# Windows PowerShell
+docker ps -a | Select-String -Pattern "kind"
 
 # Verificar logs do container
 docker logs k8s-essentials-control-plane
@@ -581,10 +611,18 @@ kubectl cluster-info
 ### Problema 3: Problemas de Rede
 ```bash
 # Verificar rede Docker
+# Linux/macOS
 docker network ls | grep kind
 
+# Windows PowerShell
+docker network ls | Select-String -Pattern "kind"
+
 # Verificar IPs dos containers
+# Linux/macOS
 docker inspect k8s-essentials-control-plane | grep IPAddress
+
+# Windows PowerShell
+docker inspect k8s-essentials-control-plane | Select-String -Pattern "IPAddress"
 
 # Testar conectividade interna
 docker exec -it k8s-essentials-control-plane ping 8.8.8.8
@@ -596,10 +634,57 @@ docker exec -it k8s-essentials-control-plane ping 8.8.8.8
 docker stats
 
 # Verificar logs de sistema
+# Linux/macOS
 docker exec -it k8s-essentials-control-plane dmesg | tail
+
+# Windows PowerShell
+docker exec -it k8s-essentials-control-plane dmesg | Select-Object -Last 10
 
 # Ajustar limites de recursos (em cluster-config.yaml)
 ```
+
+### Problema 5: Erro ao Carregar Imagens no Kind
+
+**Sintoma**: Erro `ctr: rpc error: code = NotFound desc = content digest sha256:... not found`
+
+**Causa**: Problema de compatibilidade entre Docker Desktop e containerd do Kind, especialmente com tag `latest`.
+
+**✅ Solução Recomendada - Sempre use versões específicas**:
+```bash
+# Use SEMPRE versões específicas das imagens
+docker pull nginx:1.27
+kind load docker-image nginx:1.27 --name k8s-essentials
+```
+
+**🔧 Solução Alternativa 1 - Recriar o cluster**:
+```bash
+# O containerd do cluster pode estar corrompido
+kind delete cluster --name k8s-essentials
+kind create cluster --config manifests/cluster-config.yaml
+
+# Aguardar cluster ficar pronto
+kubectl wait --for=condition=Ready nodes --all --timeout=300s
+
+# Agora tente carregar a imagem novamente
+docker pull nginx:1.27
+kind load docker-image nginx:1.27 --name k8s-essentials
+```
+**🔧 Solução Alternativa 2 - Use o image-archive**:
+
+```bash
+# Salva a imagem em um arquivo temporário
+docker save nginx:1.27 -o nginx_image.tar
+
+# Carrega o arquivo no cluster Kind
+kind load image-archive nginx_image.tar --name k8s-essentials
+
+# Limpeza
+rm nginx_image.tar
+
+**💡 Dicas de Prevenção**:
+- ✅ Use sempre **versões específicas** (ex: `nginx:1.27`) ao invés de `latest`
+- ✅ Faça `docker pull` antes de `kind load` para garantir que a imagem está local
+- ✅ Se o erro persistir, delete e recrie o cluster
 
 ## 🧹 Limpeza e Manutenção
 
@@ -612,10 +697,16 @@ kind delete clusters --all
 
 # Limpar imagens órfãs
 docker system prune -f
+# Atenção: Isso removerá todas as imagens, containers e redes não utilizados!
 
 # Verificar limpeza
 kind get clusters
+
+# Linux/macOS
 docker ps | grep kind
+
+# Windows PowerShell
+docker ps | Select-String -Pattern "kind"
 ```
 
 ## ✅ Checkpoint de Validação
