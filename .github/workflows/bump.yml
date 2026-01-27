@@ -1,0 +1,44 @@
+name: Bump version
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    name: "Bump version and create changelog with commitizen"
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3
+        with:
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          fetch-depth: 0
+      
+      - name: Create bump and changelog
+        id: cz
+        uses: commitizen-tools/commitizen-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Criar Release
+        if: steps.cz.outputs.version != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.cz.outputs.version }}
+          name: Release v${{ steps.cz.outputs.version }}
+          body: |
+            ## ✨ Release v${{ steps.cz.outputs.version }}
+            
+            **Changelog:**
+            ${{ steps.cz.outputs.changelog }}
+            
+            **Full Changelog:** ${{ github.server_url }}/${{ github.repository }}/compare/${{ steps.cz.outputs.previous_version }}...v${{ steps.cz.outputs.version }}
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

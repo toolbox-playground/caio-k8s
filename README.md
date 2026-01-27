@@ -1,0 +1,449 @@
+# 🚀 Kubernetes na Prática - Curso Hands-On
+
+> Aprenda Kubernetes através de laboratórios práticos, do básico ao avançado
+
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.29+-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
+[![Kind](https://img.shields.io/badge/Kind-Enabled-blue)](https://kind.sigs.k8s.io/)
+[![PowerShell](https://img.shields.io/badge/PowerShell-7+-5391FE?logo=powershell)](https://github.com/PowerShell/PowerShell)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+---
+
+## 📚 Sobre o Curso
+
+Este curso foi desenvolvido para ensinar **Kubernetes de forma prática**, através de laboratórios hands-on que você pode executar localmente no seu próprio computador. Cada módulo combina teoria essencial com exercícios práticos reais.
+
+**Filosofia do curso:**
+- 🎯 **Hands-on first**: Aprenda fazendo, não apenas lendo
+- 🔧 **Local development**: Tudo roda no seu laptop (Kind + Docker)
+- 📊 **Casos reais**: Aplicações e cenários do mundo real
+- 🚀 **Progressivo**: Do básico ao avançado, passo a passo
+
+---
+
+## 💡 Por Que Este Curso Vai Fazer Seus Olhos Brilharem
+
+### 👨‍🎓 Para Estudantes de DevOps
+
+Imagine entrar em uma entrevista e dizer: *"Eu não apenas sei teoria de Kubernetes, eu já fiz deploy de aplicações reais, testei resiliência deletando pods, configurei auto-scaling e vi tudo funcionando na minha máquina!"*
+
+**O que você ganha:**
+- ✨ **Portfolio prático**: Projetos reais para mostrar no GitHub
+- 🎮 **Aprendizado divertido**: Deploy de jogos (Super Mario, 2048) em vez de "Hello World"
+- 🔧 **Habilidades de mercado**: Exatamente o que empresas procuram
+- 💪 **Confiança**: Você realmente sabe como fazer, não apenas decorou slides
+
+### 👔 Para Tech Managers e Engenheiros
+
+Você está preocupado com:
+- 📈 "Como vou escalar meus serviços quando o tráfego aumentar 10x?"
+- 🔥 "O que acontece se um servidor cair às 3h da manhã?"
+- 💰 "Como otimizo custos sem sacrificar disponibilidade?"
+
+**Este curso mostra na prática:**
+- ✅ **Auto-scaling real**: Veja pods sendo criados automaticamente sob carga
+- ✅ **Auto-healing comprovado**: Delete um pod, veja outro subir em 10 segundos
+- ✅ **Zero downtime**: Aplicação continua funcionando durante falhas
+- ✅ **ROI rápido**: Em 1 hora você já entende como Kubernetes resolve esses problemas
+
+### 🎯 O Diferencial
+
+Este não é mais um curso teórico. Você vai:
+
+1. **Ver com seus próprios olhos**: Pod sendo deletado → novo pod criando → aplicação funcionando
+2. **Sentir na pele**: Gerar carga → CPU subindo → HPA criando mais pods → carga distribuída
+3. **Provar para si mesmo**: Não precisa acreditar, você vai testar e validar cada conceito
+
+**Como disse um aluno:**
+> "Quando eu vi meu jogo de Super Mario continuando a funcionar mesmo depois de deletar metade dos pods, eu finalmente entendi o poder do Kubernetes. Não foi em slides, foi acontecendo na minha tela!" 
+
+---
+
+## 🎓 Módulos do Curso
+
+### 📦 Módulo 00: Fundamentos de Docker
+**Pré-requisito** | **Duração:** 1 hora
+
+Conceitos fundamentais de containers e Docker necessários para entender Kubernetes.
+
+📖 [Ver conteúdo →](./curso-k8s/modulo-00-docker/)
+
+**O que você vai aprender:**
+- O que são containers e por que usá-los
+- Docker images, containers e registry
+- Dockerfile e build de imagens
+- Networking e volumes no Docker
+
+---
+
+### 🐳 Módulo 01: Cluster Kubernetes Local com Kind
+**Iniciante** | **Duração:** 2 horas
+
+Aprenda a criar e gerenciar clusters Kubernetes locais usando Kind (Kubernetes in Docker).
+
+📖 [Ir para módulo →](./curso-k8s/modulo-01-kind/)
+
+**O que você vai aprender:**
+- ✅ Instalar e configurar Kind
+- ✅ Criar clusters single-node e multi-node
+- ✅ Configurar networking básico
+- ✅ Gerenciar múltiplos clusters
+- ✅ Troubleshooting de problemas comuns
+
+**Laboratórios incluídos:**
+- [Lab 01: Primeiro Cluster](./curso-k8s/modulo-01-kind/laboratorios/lab-01-primeiro-cluster.md)
+- [Lab 02: Cluster Multi-Node](./curso-k8s/modulo-01-kind/laboratorios/lab-02-multi-node.md)
+- [Lab 03: Cluster Ingress-Ready](./curso-k8s/modulo-01-kind/laboratorios/lab-03-ingress-ready.md)
+- [Lab 04: Múltiplos Clusters](./curso-k8s/modulo-01-kind/laboratorios/lab-04-multiplos-clusters.md)
+
+---
+
+### 🎮 Módulo 02: Deploy de Aplicação e Resiliência
+**Intermediário** | **Duração:** 1h15min | **✨ NOVO!**
+
+Vá além da criação de clusters! Faça deploy de aplicações reais (**jogos Super Mario e 2048**) e explore os recursos de **auto-healing** e **auto-scaling** do Kubernetes.
+
+📖 [Ir para módulo →](./curso-k8s/modulo-02-deploy-app/)
+
+**O que você vai aprender:**
+- ✅ Fazer deploy de aplicações containerizadas
+- ✅ Expor serviços para acesso externo
+- ✅ Compreender auto-healing na prática
+- ✅ Configurar Horizontal Pod Autoscaler (HPA)
+- ✅ Executar testes de carga e resiliência
+- ✅ Monitorar métricas em tempo real
+
+**Laboratório prático:**
+- 🚀 [Lab Completo: Deploy, Auto-Healing e Auto-Scaling](./curso-k8s/modulo-02-deploy-app/laboratorios/lab-completo-resiliencia.md)
+
+**Destaques do módulo:**
+- 🎮 **Aplicação real**: Escolha entre Super Mario ou jogo 2048!
+- 🔧 **Auto-healing**: Delete pods e veja a recuperação automática
+- 📈 **Auto-scaling**: Gere carga e observe o scaling em tempo real
+- 📊 **Metrics Server**: Configuração e uso de métricas
+- 🤖 **Scripts de automação**: PowerShell para setup e testes
+
+**Início rápido com Super Mario:**
+```powershell
+cd curso-k8s\modulo-02-deploy-app\scripts
+
+# 1. Criar cluster
+.\setup-cluster.ps1
+
+# 2. Deploy do Super Mario
+kubectl create namespace games
+kubectl apply -f ..\manifests\01-deployment-mario.yaml
+kubectl apply -f ..\manifests\02-service-mario.yaml
+
+# 3. Jogar!
+Start-Process "http://localhost:30090"
+
+# 4. Testar resiliência
+.\test-autoheal.ps1
+```
+
+**Ou use o jogo 2048:**
+```powershell
+cd curso-k8s\modulo-02-deploy-app\scripts
+
+# 1. Criar cluster
+.\setup-cluster.ps1
+
+# 2. Deploy da aplicação
+.\deploy-app.ps1
+
+# 3. Testar auto-healing
+.\test-autoheal.ps1
+
+# 4. Testar auto-scaling
+.\load-test.ps1
+```
+
+---
+
+### 🔜 Módulos Futuros
+
+#### Módulo 03: Persistência e StatefulSets
+**Em desenvolvimento**
+- Volumes e Persistent Volumes
+- StatefulSets para aplicações stateful
+- Storage Classes
+- Backup e restore de dados
+
+#### Módulo 04: Networking Avançado
+**Em desenvolvimento**
+- Ingress Controllers
+- Network Policies
+- Service Mesh (Istio)
+- DNS e Service Discovery
+
+#### Módulo 05: Monitoramento e Observabilidade
+**Em desenvolvimento**
+- Prometheus e Grafana
+- Logs agregados com ELK/Loki
+- Distributed Tracing
+- Alertas e SLOs
+
+---
+
+## 🛠️ Pré-requisitos
+
+### Software Necessário
+
+| Software | Versão Mínima | Download |
+|----------|---------------|----------|
+| **Docker Desktop** | 24.0+ | [docker.com](https://www.docker.com/products/docker-desktop) |
+| **Kind** | 0.20.0+ | [kind.sigs.k8s.io](https://kind.sigs.k8s.io/docs/user/quick-start/) |
+| **kubectl** | 1.28.0+ | [kubernetes.io](https://kubernetes.io/docs/tasks/tools/) |
+| **PowerShell** | 5.1+ ou Core 7+ | [github.com/PowerShell](https://github.com/PowerShell/PowerShell) |
+
+### Recursos do Sistema
+
+- **CPU**: 2+ cores (4+ recomendado)
+- **RAM**: 4GB disponível (8GB+ recomendado)
+- **Disco**: 20GB espaço livre
+- **SO**: Windows 10/11, macOS, ou Linux
+
+### Verificação Rápida
+
+```powershell
+# Docker
+docker --version
+docker ps
+
+# Kind
+kind version
+
+# kubectl
+kubectl version --client
+
+# PowerShell
+$PSVersionTable.PSVersion
+```
+
+---
+
+## 🚀 Início Rápido
+
+### Para Iniciantes
+
+Se você está começando do zero:
+
+```powershell
+# 1. Clone este repositório
+git clone <url-do-repo>
+cd k8s-caio
+
+# 2. Leia os fundamentos de Docker (opcional)
+cat curso-k8s\modulo-00-docker\README.md
+
+# 3. Comece pelo Módulo 01
+cd curso-k8s\modulo-01-kind
+cat README.md
+
+# 4. Faça o primeiro lab
+cd laboratorios
+cat lab-01-primeiro-cluster.md
+```
+
+### Para Quem Já Conhece o Básico
+
+Se você já sabe o que é Kubernetes:
+
+```powershell
+# Vá direto para o Módulo 02 (deploy e resiliência)
+cd curso-k8s\modulo-02-deploy-app
+
+# Leia o README
+cat README.md
+
+# Execute o lab completo
+cd laboratorios
+cat lab-completo-resiliencia.md
+
+# Ou use os scripts de automação
+cd ..\scripts
+.\setup-cluster.ps1
+.\deploy-app.ps1
+```
+
+---
+
+## 📖 Como Usar Este Curso
+
+### Estrutura de Cada Módulo
+
+```
+modulo-XX-nome/
+├── README.md              # Visão geral e conceitos
+├── laboratorios/          # Labs hands-on
+│   ├── lab-01-*.md
+│   ├── lab-02-*.md
+│   └── ...
+├── manifests/             # Arquivos YAML Kubernetes
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   └── ...
+└── scripts/               # Scripts de automação
+    ├── setup.ps1
+    └── ...
+```
+
+### Fluxo de Aprendizado Recomendado
+
+```
+1. 📖 Ler README do módulo
+   ↓
+2. 🧠 Entender conceitos fundamentais
+   ↓
+3. 🔧 Seguir laboratórios passo-a-passo
+   ↓
+4. 🧪 Experimentar e modificar
+   ↓
+5. 📝 Fazer anotações e documentar aprendizados
+   ↓
+6. 🎯 Completar todos os labs do módulo
+   ↓
+7. ⏭️  Avançar para próximo módulo
+```
+
+### Dicas de Estudo
+
+- ✅ **Não pule os labs**: A prática é essencial
+- ✅ **Experimente variações**: Modifique configurações e observe resultados
+- ✅ **Use os scripts**: Mas entenda o que eles fazem
+- ✅ **Consulte a documentação oficial**: Links fornecidos em cada módulo
+- ✅ **Anote comandos úteis**: Crie seu próprio cheatsheet
+
+---
+
+## 🎯 Objetivos de Aprendizado
+
+Ao completar este curso, você será capaz de:
+
+### Nível Básico (Módulos 00-01)
+- ✅ Entender arquitetura de Kubernetes
+- ✅ Criar e gerenciar clusters locais
+- ✅ Trabalhar com recursos básicos (Pods, Deployments, Services)
+- ✅ Fazer troubleshooting básico
+
+### Nível Intermediário (Módulo 02+)
+- ✅ Deployar aplicações completas em Kubernetes
+- ✅ Configurar auto-scaling e auto-healing
+- ✅ Entender e usar métricas
+- ✅ Implementar serviços resilientes
+- ✅ Executar testes de carga e validação
+
+### Nível Avançado (Módulos Futuros)
+- ✅ Gerenciar dados persistentes
+- ✅ Configurar networking avançado
+- ✅ Implementar observabilidade completa
+- ✅ Aplicar security best practices
+- ✅ Preparar aplicações para produção
+
+---
+
+## 🤝 Contribuindo
+
+Contribuições são bem-vindas! Se você encontrou um erro, tem uma sugestão ou quer adicionar conteúdo:
+
+1. Abra uma issue descrevendo o problema/sugestão
+2. Fork o repositório
+3. Crie uma branch para sua feature
+4. Faça commit das mudanças
+5. Abra um Pull Request
+
+### Áreas para Contribuição
+
+- 📝 Correções de typos e melhorias de documentação
+- 🧪 Novos laboratórios e exercícios
+- 🔧 Scripts de automação
+- 🌐 Traduções para outros idiomas
+- 📊 Diagramas e visualizações
+
+---
+
+## 📞 Suporte
+
+### Encontrou um problema?
+
+- 🐛 **Bugs**: Abra uma issue no GitHub
+- ❓ **Dúvidas**: Consulte a documentação ou abra uma discussion
+- 💡 **Sugestões**: Issues ou discussions são bem-vindas
+
+### Recursos Adicionais
+
+- [Documentação Oficial Kubernetes](https://kubernetes.io/docs/)
+- [Kind Documentation](https://kind.sigs.k8s.io/)
+- [Kubectl Cheat Sheet](https://kubernetes.io/docs/reference/kubectl/cheatsheet/)
+- [Kubernetes Patterns](https://k8spatterns.io/)
+
+---
+
+## 📝 Licença
+
+Este projeto está sob a licença MIT. Veja arquivo [LICENSE](LICENSE) para mais detalhes.
+
+---
+
+## 🙏 Agradecimentos
+
+Este curso foi inspirado por:
+- Comunidade Kubernetes
+- Projetos de exemplo do Google Cloud Skills
+- Feedback de alunos e praticantes de K8s
+
+---
+
+## 🗺️ Roadmap
+
+### Versão Atual: 1.0
+
+- ✅ Módulo 00: Fundamentos Docker
+- ✅ Módulo 01: Cluster Local com Kind
+- ✅ Módulo 02: Deploy e Resiliência
+
+### Próximas Versões
+
+**v1.1** (Próximo)
+- 🔄 Módulo 03: Persistência e StatefulSets
+- 🔄 Módulo 04: Networking Avançado
+
+**v2.0** (Futuro)
+- 📅 Módulo 05: Monitoramento e Observabilidade
+- 📅 Módulo 06: Security e RBAC
+- 📅 Módulo 07: GitOps com ArgoCD/Flux
+
+**v3.0** (Visão de Longo Prazo)
+- 📅 Módulo 08: CI/CD Pipelines
+- 📅 Módulo 09: Service Mesh (Istio)
+- 📅 Módulo 10: Multi-cluster Management
+
+---
+
+## 📊 Progresso do Curso
+
+```
+Módulos Completos:    ████████░░░░░░  40% (2/5 planejados)
+Labs Disponíveis:     █████░░░░░░░░░  33% (5 labs)
+Scripts de Automação: ████████░░░░░░  50% (4 scripts)
+Jogos Deployáveis:    ██████████████  100% (Super Mario + 2048)
+```
+
+---
+
+<div align="center">
+
+## 🚀 Comece Agora!
+
+**Escolha seu caminho:**
+
+[🎓 Iniciante: Módulo 01](./curso-k8s/modulo-01-kind/) | [🎮 Intermediário: Módulo 02](./curso-k8s/modulo-02-deploy-app/) | [📖 Fundamentos Docker](./curso-k8s/modulo-00-docker/)
+
+---
+
+**Feito com ❤️ para a comunidade Kubernetes**
+
+⭐ Se este curso foi útil, dê uma estrela no repositório!
+
+</div>
