@@ -232,7 +232,8 @@ kind create cluster --config cluster-config.yaml
 kubectl get nodes --show-labels
 
 # Verificar mapeamento de portas
-docker ps | grep k8s-essentials
+docker ps | grep k8s-essentials # Linux
+docker ps | Select-String -Pattern "k8s-essentials" # Windows
 ```
 
 ### Passo 4: Configuração de Contexto e Multi-Cluster
@@ -257,6 +258,12 @@ kubectl config current-context
 # Executar comandos em contexto específico
 kubectl get nodes --context kind-k8s-essentials
 kubectl get nodes --context kind-cluster-dev
+
+# Remover o cluster extra
+kind delete cluster --name cluster-dev
+
+# Configurar o contexto padrão de volta
+kubectl config use-context kind-k8s-essentials
 ```
 
 ### Passo 5: Testando o Cluster
