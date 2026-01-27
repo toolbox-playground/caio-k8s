@@ -266,27 +266,218 @@ kind delete cluster --name cluster-dev
 kubectl config use-context kind-k8s-essentials
 ```
 
+### 🌐 Entendendo o Mapeamento de Portas no Kind
+
+Antes de testar aplicações, é fundamental entender **como o Kind expõe serviços** para o host Windows. Existem 3 conceitos diferentes que podem causar confusão:
+
+#### 📖 Os Três Tipos de Exposição de Portas
+
+**1️⃣ extraPortMappings (Configuração do Kind)**
+- **O que é**: Mapeia portas do **container Docker** para o **host** (Windows/Linux/Mac)
+- **Onde configurar**: No arquivo `cluster-config.yaml`
+- **Exemplo**: 
+  ```yaml
+  extraPortMappings:
+  - containerPort: 80    # Porta dentro do container Docker
+    hostPort: 30080      # Porta no seu computador
+  ```
+- **Como funciona**: Docker mapeia `localhost:30080` → `container:80`
+- **Limitação**: Só funciona no node onde foi configurado (normalmente control-plane)
+
+**2️⃣ HostPort (Kubernetes)**
+- **O que é**: Vincula a porta do **pod** diretamente à porta do **node**
+- **Onde configurar**: No manifest do Pod
+- **Exemplo**:
+  ```yaml
+  ports:
+  - containerPort: 80
+    hostPort: 80        # Pod usa a porta 80 do node
+  ```
+- **Como funciona**: Pod ocupa a porta 80 do node (que pode estar mapeada via extraPortMappings)
+- **Limitação**: Só pode ter 1 pod usando aquela porta por node
+
+**3️⃣ NodePort (Kubernetes Service)**
+- **O que é**: Service que aloca uma porta no range 30000-32767 em **todos os nodes**
+- **Onde configurar**: No Service com `type: NodePort`
+- **Exemplo**:
+  ```yaml
+  type: NodePort
+  ports:
+  - port: 80
+    nodePort: 31234    # Porta aleatória ou específica
+  ```
+- **Como funciona**: Kubernetes roteia tráfego da porta do node para os pods
+- **Limitação**: No Kind, essa porta **NÃO** está mapeada para o host automaticamente
+
+#### 🔄 Fluxo de Tráfego Completo
+
+**Cenário: Acessar NGINX via localhost:30080**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Seu Navegador (Windows)                                        │
+│  http://localhost:30080                                         │
+└────────────────────┬────────────────────────────────────────────┘
+                     │
+                     │ ① extraPortMappings (Kind)
+                     │    hostPort: 30080 → containerPort: 80
+                     ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Container Docker: k8s-essentials-control-plane                 │
+│  Porta 80 do container                                          │
+└────────────────────┬────────────────────────────────────────────┘
+                     │
+                     │ ② HostPort (Kubernetes)
+                     │    containerPort: 80 → hostPort: 80
+                     ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Pod: nginx-hostport                                            │
+│  Porta 80 do nginx                                              │
+│  🌐 Welcome to nginx!                                           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### 🆚 Comparação Prática
+
+| Característica | extraPortMappings | HostPort | NodePort |
+|----------------|-------------------|----------|----------|
+| **Configurado em** | cluster-config.yaml | Pod manifest | Service manifest |
+| **Camada** | Docker/Kind | Kubernetes | Kubernetes |
+| **Range de portas** | Qualquer | Qualquer | 30000-32767 |
+| **Acesso no host** | ✅ Sim (localhost) | ✅ Sim (se + extraPortMappings) | ❌ Não (só interno) |
+| **Escala** | Não escala | 1 pod por node | Múltiplos pods |
+| **Uso comum** | Ingress, desenvolvimento | Debugging, testes | Produção (com LB) |
+
+#### 💡 Regras de Ouro para Iniciantes
+
+1. **Quer acessar do navegador Windows?** → Use **extraPortMappings + HostPort**
+2. **Está testando rápido?** → Use **kubectl port-forward** (mais simples!)
+3. **Em produção?** → Use **NodePort + LoadBalancer** ou **Ingress**
+4. **Múltiplos pods?** → **NÃO** use HostPort (use NodePort/Ingress)
+
+#### 🎯 Exemplo Prático: Quando Usar Cada Um
+
+**Cenário A: Desenvolvimento Local (1 pod)**
+```yaml
+# ✅ MELHOR: extraPortMappings + HostPort
+# Acessa via localhost:30080
+extraPortMappings:
+- containerPort: 80
+  hostPort: 30080
+
+# No pod:
+ports:
+- containerPort: 80
+  hostPort: 80
+```
+
+**Cenário B: Teste Rápido**
+```bash
+# ✅ MELHOR: Port Forward (sem configuração!)
+kubectl port-forward pod/nginx 8080:80
+# Acessa via localhost:8080
+```
+
+**Cenário C: Múltiplos Pods (Produção)**
+```yaml
+# ✅ MELHOR: Service NodePort + Ingress Controller
+# NodePort expõe, Ingress roteia
+type: NodePort
+```
+
 ### Passo 5: Testando o Cluster
 
 #### Teste 1: Deploy de Aplicação Simples
+
+**Método 1: Usando NodePort (porta aleatória)**
 ```bash
 # Criar deployment de teste
 kubectl create deployment nginx-test --image=nginx:latest
 
+# Ver a criação do pod
+kubectl get pods -l app=nginx-test -o wide
+# Aguarde até o STATUS ser "Running"
+
 # Expor como NodePort
 kubectl expose deployment nginx-test --port=80 --type=NodePort
 
-# Obter porta do NodePort
+# Obter a porta do NodePort atribuída (exemplo: 31790)
 kubectl get svc nginx-test
 
-# Testar acesso (substituir <porta> pela porta real)
-curl http://localhost:<porta>
+# ⚠️ NodePort NÃO usa as portas extraPortMappings!
+# Acesse via porta do node interno (não funciona diretamente no localhost)
+# Para testar, use port-forward:
+kubectl port-forward svc/nginx-test 8080:80
+
+# Em outro terminal, teste:
+curl http://localhost:8080
 ```
+
+**Método 2: Usando as Portas Mapeadas (30080/30443) com HostPort**
+```bash
+# Limpar o teste anterior
+kubectl delete deployment nginx-test
+kubectl delete svc nginx-test
+
+# Criar Pod com HostPort (usa a porta mapeada do cluster-config.yaml)
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-hostport
+  labels:
+    app: nginx-hostport
+spec:
+  # ⚠️ Importante: precisa rodar no control-plane onde a porta está mapeada
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
+  tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    effect: NoSchedule
+  containers:
+  - name: nginx
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+      hostPort: 80  # Mapeia para a porta 80 do node (que está mapeada para 30080 no host)
+      protocol: TCP
+EOF
+
+# Aguardar o pod iniciar
+kubectl wait --for=condition=Ready pod/nginx-hostport --timeout=60s
+> Resposta esperada: pod/nginx-hostport condition met
+
+# ✅ Agora acesse via porta mapeada!
+curl http://localhost:30080
+# Ou no navegador: http://localhost:30080
+```
+
+**💡 Como Funciona o Mapeamento de Portas?**
+
+No [`cluster-config.yaml`](manifests/cluster-config.yaml), configuramos:
+```yaml
+extraPortMappings:
+- containerPort: 80      # Porta DENTRO do container Docker
+  hostPort: 30080        # Porta no host Windows
+```
+
+**Fluxo de tráfego:**
+```
+Host Windows:30080 → Container control-plane:80 → Pod com hostPort:80 → nginx
+```
+
+**Diferenças importantes:**
+| Tipo | Porta | Onde Funciona | Uso |
+|------|-------|---------------|-----|
+| **NodePort** | 30000-32767 | Dentro do cluster | Produção (com Load Balancer) |
+| **HostPort** | Qualquer | Node específico | Desenvolvimento (acesso direto) |
+| **extraPortMappings** | Configurável | Host → Container | Kind (mapeia Docker→Host) |
 
 #### Teste 2: Verificação de Recursos
 ```bash
 # Verificar recursos do cluster
-kubectl top nodes 2>/dev/null || echo "Metrics server não instalado (normal)"
+kubectl top nodes 2>$null; if (-not $?) { echo "Metrics server não instalado (normal)" }  # Windows PowerShell
+kubectl top nodes 2>/dev/null || echo "Metrics server não instalado (normal)"  # Linux/macOS
 
 # Verificar capacidade dos nós
 kubectl describe nodes
@@ -297,14 +488,27 @@ kubectl get events --sort-by=.metadata.creationTimestamp
 
 #### Teste 3: Logs e Troubleshooting
 ```bash
-# Ver logs de um pod
-kubectl logs deployment/nginx-test
+# Ver logs do pod nginx-hostport (criado no Método 2)
+kubectl logs nginx-hostport
 
-# Executar comandos dentro de um pod
-kubectl exec -it deployment/nginx-test -- /bin/bash
+# Executar comandos dentro do pod
+kubectl exec -it nginx-hostport -- /bin/bash
+# Dentro do container, você pode executar:
+# - cat /etc/nginx/nginx.conf
+# - curl localhost
+# - exit (para sair)
+
+# Ver logs de qualquer deployment (exemplo genérico)
+kubectl logs deployment/<nome-do-deployment>
 
 # Verificar configuração do cluster
 kubectl cluster-info dump > cluster-info.yaml
+
+# Ver eventos recentes do pod
+kubectl describe pod nginx-hostport
+
+# Verificar recursos do pod
+kubectl get pod nginx-hostport -o yaml
 ```
 
 ## 🔧 Configurações Avançadas
