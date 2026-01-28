@@ -1,26 +1,50 @@
+# Tipo de recurso: Configuração de cluster do Kind
 kind: Cluster
+
+# Versão da API do Kind
 apiVersion: kind.x-k8s.io/v1alpha4
+
+# Nome do cluster: Pré-configurado para Ingress Controller
 name: ingress-ready
+
+# ========== SEÇÃO DE NODES ==========
 nodes:
-- role: control-plane
-  kubeadmConfigPatches:
-  - |
-    kind: InitConfiguration
-    nodeRegistration:
-      kubeletExtraArgs:
-        node-labels: "ingress-ready=true"
-  extraPortMappings:
-  - containerPort: 80
-    hostPort: 80
-    protocol: TCP
-  - containerPort: 443
-    hostPort: 443
-    protocol: TCP
-- role: worker
-  labels:
-    tier: compute
-    zone: zone-a
-- role: worker
-  labels:
-    tier: compute
-    zone: zone-b
+  # Node 1 - Control Plane (configurado para Ingress)
+  - role: control-plane
+    
+    # Patches do kubeadm: Modificam configuração inicial do Kubernetes
+    kubeadmConfigPatches:
+    - |
+      # Configuração de inicialização do node
+      kind: InitConfiguration
+      nodeRegistration:
+        # Argumentos extras para o kubelet
+        kubeletExtraArgs:
+          # Label especial: Marca node como pronto para Ingress
+          node-labels: "ingress-ready=true"
+    
+    # Mapeamento de portas: Expõe portas do container para o host
+    extraPortMappings:
+    # Porta HTTP (80): Tráfego web não-criptografado
+    - containerPort: 80   # Porta dentro do container Docker
+      hostPort: 80        # Porta no host (localhost:80)
+      protocol: TCP
+    
+    # Porta HTTPS (443): Tráfego web criptografado (TLS/SSL)
+    - containerPort: 443  # Porta dentro do container
+      hostPort: 443       # Porta no host (localhost:443)
+      protocol: TCP
+  
+  # Node 2 - Worker (Zone A)
+  # Executa pods de aplicações
+  - role: worker
+    labels:
+      tier: compute
+      zone: zone-a
+  
+  # Node 3 - Worker (Zone B)
+  # Distribui carga entre zonas
+  - role: worker
+    labels:
+      tier: compute
+      zone: zone-b

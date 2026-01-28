@@ -1,5 +1,15 @@
+# Tipo de recurso: Configuração de cluster do Kind
 kind: Cluster
+
+# Versão da API do Kind (única versão disponível)
 apiVersion: kind.x-k8s.io/v1alpha4
+
+# Nome do cluster: Identificador usado em comandos kubectl
 name: single-node
+
+# ========== SEÇÃO DE NODES ==========
 nodes:
-- role: control-plane
+  # Node único: Executa tanto control-plane quanto workloads
+  # Control-plane: API Server, Scheduler, Controller Manager, etcd
+  # Workload: Pods de aplicações também rodam neste node
+  - role: control-plane

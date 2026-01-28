@@ -1,28 +1,55 @@
+# Tipo de recurso: Configuração de cluster do Kind
 kind: Cluster
+
+# Versão da API do Kind
 apiVersion: kind.x-k8s.io/v1alpha4
+
+# Nome do cluster: Configuração de Alta Disponibilidade (HA)
 name: ha-cluster
+
+# ========== SEÇÃO DE NODES ==========
+# Configuração HA: 3 control-planes + 3 workers
+# Tolerância a falhas: Suporta perda de 1 control-plane (quorum 2/3)
+
 nodes:
-- role: control-plane
-  labels:
-    tier: control
-    zone: zone-a
-- role: control-plane
-  labels:
-    tier: control
-    zone: zone-b
-- role: control-plane
-  labels:
-    tier: control
-    zone: zone-c
-- role: worker
-  labels:
-    tier: compute
-    zone: zone-a
-- role: worker
-  labels:
-    tier: compute
-    zone: zone-b
-- role: worker
-  labels:
-    tier: compute
-    zone: zone-c
+  # Control Plane 1 (Zone A)
+  # Executa: API Server, Scheduler, Controller Manager, etcd
+  - role: control-plane
+    labels:
+      tier: control
+      zone: zone-a  # Zona de disponibilidade A
+  
+  # Control Plane 2 (Zone B)
+  # Replica componentes críticos para redundância
+  - role: control-plane
+    labels:
+      tier: control
+      zone: zone-b  # Zona de disponibilidade B
+  
+  # Control Plane 3 (Zone C)
+  # Garante quorum do etcd (maioria 2/3)
+  - role: control-plane
+    labels:
+      tier: control
+      zone: zone-c  # Zona de disponibilidade C
+  
+  # Worker 1 (Zone A)
+  # Executa cargas de trabalho (pods)
+  - role: worker
+    labels:
+      tier: compute
+      zone: zone-a
+  
+  # Worker 2 (Zone B)
+  # Distribui pods entre zonas
+  - role: worker
+    labels:
+      tier: compute
+      zone: zone-b
+  
+  # Worker 3 (Zone C)
+  # Alta disponibilidade dos workloads
+  - role: worker
+    labels:
+      tier: compute
+      zone: zone-c

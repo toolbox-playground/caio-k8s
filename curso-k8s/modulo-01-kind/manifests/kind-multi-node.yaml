@@ -1,15 +1,31 @@
+# Tipo de recurso: Configuração de cluster do Kind
 kind: Cluster
+
+# Versão da API do Kind
 apiVersion: kind.x-k8s.io/v1alpha4
+
+# Nome do cluster: Identificador para multi-node
 name: multi-node
+
+# ========== SEÇÃO DE NODES ==========
 nodes:
-- role: control-plane
-  labels:
-    tier: control
-- role: worker
-  labels:
-    tier: compute
-    zone: zone-a
-- role: worker
-  labels:
-    tier: compute
-    zone: zone-b
+  # Node 1 - Control Plane (Master)
+  # Gerencia o cluster: API Server, Scheduler, Controller Manager, etcd
+  - role: control-plane
+    # Labels customizadas para organização e seletores
+    labels:
+      tier: control  # Indica função de controle
+  
+  # Node 2 - Worker (Zone A)
+  # Executa cargas de trabalho (pods de aplicações)
+  - role: worker
+    labels:
+      tier: compute    # Indica função de computação
+      zone: zone-a     # Simula zona de disponibilidade A
+  
+  # Node 3 - Worker (Zone B)
+  # Permite distribuição de carga entre zonas
+  - role: worker
+    labels:
+      tier: compute    # Indica função de computação
+      zone: zone-b     # Simula zona de disponibilidade B

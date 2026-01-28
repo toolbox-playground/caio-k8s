@@ -1042,6 +1042,7 @@ Fortio é uma ferramenta de teste de carga HTTP desenvolvida pela comunidade Ist
 - 📊 Geração de métricas detalhadas
 - 🎯 Controle preciso de QPS (queries per second) e concorrência
 - ✅ Amplamente usado em ambientes Kubernetes
+- URL oficial: [https://fortio.org/](https://fortio.org/)
 
 ### 🚀 Uso Rápido
 

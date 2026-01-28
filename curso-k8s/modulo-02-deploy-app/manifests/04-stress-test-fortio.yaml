@@ -1,55 +1,116 @@
+# ========================================
+# POD 1: Fortio Stress Test (Automático)
+# ========================================
+# Versão da API: v1 para Pods (core)
 apiVersion: v1
+
+# Tipo de recurso: Pod (menor unidade deployável)
 kind: Pod
+
+# ========== METADADOS ==========
 metadata:
+  # Nome do pod: Identificador único
   name: fortio-stress-test
+  
+  # Namespace: Mesmo do Super Mario
   namespace: games
+  
+  # Labels: Para organização e seletores
   labels:
     app: stress-test
     tool: fortio
+
+# ========== ESPECIFICAÇÃO DO POD ==========
 spec:
+  # Lista de containers no pod
   containers:
+  # Container: Fortio load testing
   - name: fortio
+    
+    # Imagem: Fortio (ferramenta profissional de stress test HTTP)
+    # Usada pelo Istio e comunidade Kubernetes
     image: fortio/fortio:latest
+    
+    # Argumentos: Comando executado ao iniciar
     args:
-    - load
-    - -c
-    - "50"        # 50 conexões concorrentes
-    - -qps
-    - "0"         # QPS ilimitado (máxima carga)
-    - -t
-    - "10m"       # Durar 10 minutos
-    - -loglevel
-    - "Warning"   # Menos verboso
+    - load                  # Comando: Teste de carga
+    - -c                    # Flag: Connections (conexões)
+    - "50"                  # Valor: 50 conexões concorrentes simultâneas
+    - -qps                  # Flag: Queries Per Second (requisições/seg)
+    - "0"                   # Valor: 0 = ilimitado (máxima carga possível)
+    - -t                    # Flag: Time (duração do teste)
+    - "10m"                 # Valor: 10 minutos de teste contínuo
+    - -loglevel             # Flag: Nível de log
+    - "Warning"             # Valor: Apenas avisos (menos verboso)
+    # URL alvo: Service DNS interno do Super Mario
+    # Formato: <service>.<namespace>.svc.cluster.local:<port>/<path>
     - http://super-mario-service.games.svc.cluster.local:8080/
+  
+  # Política de restart: Never = não reinicia após conclusão
+  # Apropriado para jobs de teste que devem rodar uma vez
   restartPolicy: Never
-  # Timeout de 15 minutos (margem de segurança)
+  
+  # Deadline ativo: Tempo máximo de vida do pod (segundos)
+  # 900s = 15 minutos (margem de segurança sobre teste de 10min)
+  # Após esse tempo, pod é terminado automaticamente
   activeDeadlineSeconds: 900
+
 ---
+# ========================================
+# POD 2: Fortio Interactive (Manual)
+# ========================================
+# Versão da API: v1 para Pods
 apiVersion: v1
+
+# Tipo de recurso: Pod
 kind: Pod
+
+# ========== METADADOS ==========
 metadata:
+  # Nome do pod: Para testes manuais
   name: fortio-interactive
+  
+  # Namespace: games
   namespace: games
+  
+  # Labels: Para identificação
   labels:
     app: monitoring
     tool: fortio
+
+# ========== ESPECIFICAÇÃO DO POD ==========
 spec:
+  # Container interativo
   containers:
   - name: fortio
+    
+    # Imagem: Mesma ferramenta Fortio
     image: fortio/fortio:latest
+    
+    # Comando customizado: Usa shell para executar script
     command:
-    - /bin/sh
-    - -c
+    - /bin/sh              # Shell bash
+    - -c                   # Flag: Executa comando inline
+    # Script inline (heredoc style)
     - |
+      # Mensagens de boas-vindas (exibidas ao conectar)
       echo "🔍 Fortio Interactive Pod"
       echo "Use 'kubectl exec -it fortio-interactive -n games -- /bin/sh' para acessar"
       echo ""
       echo "Comandos úteis:"
+      # Exemplo 1: 10 conexões, 100 requests totais
       echo "  fortio load -c 10 -n 100 http://super-mario-service:8080/"
+      # Exemplo 2: 50 conexões, QPS ilimitado, 30 segundos
       echo "  fortio load -c 50 -qps 0 -t 30s http://super-mario-service:8080/"
+      # Exemplo 3: Curl simples para testes rápidos
       echo "  fortio curl http://super-mario-service:8080/"
       echo ""
       
-      # Manter pod rodando
+      # Comando: Mantém pod rodando indefinidamente
+      # tail -f /dev/null: Lê infinitamente de arquivo vazio (truque comum)
+      # Permite kubectl exec para entrar no pod
       tail -f /dev/null
+  
+  # Política de restart: Always = reinicia sempre que falhar
+  # Mantém pod disponível para testes manuais
   restartPolicy: Always
