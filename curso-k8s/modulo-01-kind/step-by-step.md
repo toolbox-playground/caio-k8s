@@ -22,11 +22,18 @@ docker info | Select-String "CPUs", "Total Memory"
 ### Windows (PowerShell)
 
 ```powershell
-# Método 1: Chocolatey
+# Método 1: Winget (RECOMENDADO - Windows 10/11)
+winget install Kubernetes.kind
+
+# Método 2: Scoop (alternativa moderna)
+scoop bucket add main
+scoop install main/kind
+
+# Método 3: Chocolatey
 choco install kind
 
-# Método 2: Download direto
-$kindVersion = "v0.20.0"
+# Método 4: Download direto
+$kindVersion = "v0.31.0"
 curl.exe -Lo kind-windows-amd64.exe "https://kind.sigs.k8s.io/dl/${kindVersion}/kind-windows-amd64.exe"
 Move-Item .\kind-windows-amd64.exe C:\Windows\System32\kind.exe
 
@@ -38,7 +45,7 @@ kind version
 
 ```bash
 # Download e instalação
-curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.31.0/kind-linux-amd64
 chmod +x ./kind
 sudo mv ./kind /usr/local/bin/kind
 
@@ -167,10 +174,10 @@ nodes:
 - role: control-plane
   extraPortMappings:
   - containerPort: 80
-    hostPort: 30080
+    hostPort: 80
     protocol: TCP
   - containerPort: 443
-    hostPort: 30443
+    hostPort: 443
     protocol: TCP
 - role: worker
 - role: worker
@@ -182,7 +189,13 @@ kind create cluster --name ingress-ready --config kind-ingress-config.yaml
 # Verificar
 kubectl get nodes
 docker port ingress-ready-control-plane
+
+# Testar acesso (após instalar Ingress Controller)
+# curl http://localhost
+# curl https://localhost
 ```
+
+> **💡 Gateway API**: Considere usar [Gateway API](https://gateway-api.sigs.k8s.io/) ao invés de Ingress tradicional para novos projetos.
 
 ---
 

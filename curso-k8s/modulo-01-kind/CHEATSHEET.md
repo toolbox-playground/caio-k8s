@@ -7,15 +7,22 @@ Referência rápida de comandos essenciais para Kind (Kubernetes in Docker).
 ## 📦 Instalação
 
 ```powershell
+# Windows (Winget - Recomendado)
+winget install Kubernetes.kind
+
+# Windows (Scoop)
+scoop bucket add main
+scoop install main/kind
+
 # Windows (Chocolatey)
 choco install kind
 
 # Windows (Download direto)
-curl.exe -Lo kind.exe https://kind.sigs.k8s.io/dl/v0.20.0/kind-windows-amd64.exe
+curl.exe -Lo kind.exe https://kind.sigs.k8s.io/dl/v0.31.0/kind-windows-amd64.exe
 Move-Item kind.exe C:\Windows\System32\
 
 # Linux
-curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.31.0/kind-linux-amd64
 chmod +x ./kind
 sudo mv ./kind /usr/local/bin/
 
@@ -121,6 +128,8 @@ nodes:
 
 ### Ingress Ready (Port Mapping)
 
+### Ingress-Ready (Port Mapping)
+
 ```yaml
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -128,26 +137,36 @@ nodes:
 - role: control-plane
   extraPortMappings:
   - containerPort: 80
-    hostPort: 30080
+    hostPort: 80      # Acesso: http://localhost
     protocol: TCP
   - containerPort: 443
-    hostPort: 30443
+    hostPort: 443     # Acesso: https://localhost
     protocol: TCP
 - role: worker
 - role: worker
 ```
 
-### Com Versão Específica
+> **💡 Gateway API**: Considere [Gateway API](https://gateway-api.sigs.k8s.io/) para novos projetos.
+
+### Com Versão Específica do Kubernetes
 
 ```yaml
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
-  image: kindest/node:v1.27.3
+  image: kindest/node:v1.30.0  # K8s 1.30
 - role: worker
-  image: kindest/node:v1.27.3
+  image: kindest/node:v1.30.0
 ```
+
+**Versões populares:**
+- `v1.31.0` - Kubernetes 1.31 (mais recente)
+- `v1.30.0` - Kubernetes 1.30
+- `v1.29.0` - Kubernetes 1.29
+- `v1.28.0` - Kubernetes 1.28
+
+> Verifique versões disponíveis em: https://github.com/kubernetes-sigs/kind/releases
 
 ---
 

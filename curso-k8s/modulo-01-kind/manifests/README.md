@@ -120,8 +120,8 @@ kind delete cluster --name <nome>
 ### 4️⃣ kind-ingress-ready.yaml
 
 **Características:**
-- Port mapping 80:30080
-- Port mapping 443:30443
+- Port mapping 80:80 (HTTP)
+- Port mapping 443:443 (HTTPS)
 - Label `ingress-ready=true`
 - 2 workers para distribuição
 
@@ -132,8 +132,13 @@ kind delete cluster --name <nome>
 - Preparação para Módulo 02
 
 **Acesso:**
-- HTTP: `http://localhost:30080`
-- HTTPS: `https://localhost:30443`
+- HTTP: `http://localhost:80` (ou apenas `http://localhost`)
+- HTTPS: `https://localhost:443` (ou apenas `https://localhost`)
+
+> **💡 Dica**: Para usar portas alternativas (ex: 8080), altere `hostPort` no manifest.
+
+**🔔 Nota sobre Gateway API:**  
+Considere usar [Gateway API](https://gateway-api.sigs.k8s.io/) para novos projetos - é a evolução do Ingress tradicional.
 
 ---
 

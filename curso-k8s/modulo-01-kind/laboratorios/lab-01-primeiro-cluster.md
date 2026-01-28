@@ -63,7 +63,7 @@ kind version
 
 **Saída esperada:**
 ```
-kind v0.20.0 go1.20.4 windows/amd64
+kind v0.31.0 go1.25.5 windows/amd64
 ```
 
 ### Linux/WSL

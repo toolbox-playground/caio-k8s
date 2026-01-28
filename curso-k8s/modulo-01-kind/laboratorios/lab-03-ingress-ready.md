@@ -60,10 +60,10 @@ nodes:
         node-labels: \"ingress-ready=true\"
   extraPortMappings:
   - containerPort: 80
-    hostPort: 30080
+    hostPort: 80
     protocol: TCP
   - containerPort: 443
-    hostPort: 30443
+    hostPort: 443
     protocol: TCP
 - role: worker
 - role: worker
@@ -75,9 +75,14 @@ Get-Content ".\temp-configs\kind-ingress-ready.yaml"
 
 **💡 Explicação:**
 - `extraPortMappings`: Mapeia portas do container para o host
-- `containerPort: 80` → `hostPort: 30080`: HTTP acessível em `localhost:30080`
-- `containerPort: 443` → `hostPort: 30443`: HTTPS acessível em `localhost:30443`
+- `containerPort: 80` → `hostPort: 80`: HTTP acessível em `localhost:80`
+- `containerPort: 443` → `hostPort: 443`: HTTPS acessível em `localhost:443`
 - `node-labels`: Label especial para Ingress Controller
+
+> **🔔 Nota sobre Gateway API:**  
+> O Kubernetes está migrando do Ingress tradicional para o [Gateway API](https://gateway-api.sigs.k8s.io/).  
+> O Gateway API oferece mais flexibilidade e é recomendado para novos projetos.  
+> Para migração, veja o [guia oficial](https://gateway-api.sigs.k8s.io/guides/migrating-from-ingress/).
 
 ---
 
@@ -532,6 +537,8 @@ Neste laboratório, você:
 - [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/)
 - [Nginx Ingress Controller](https://kubernetes.github.io/ingress-nginx/)
 - [Kind Ingress](https://kind.sigs.k8s.io/docs/user/ingress/)
+- [🆕 Gateway API](https://gateway-api.sigs.k8s.io/) - Evolução do Ingress
+- [Migrating from Ingress to Gateway API](https://gateway-api.sigs.k8s.io/guides/migrating-from-ingress/)
 
 ---
 

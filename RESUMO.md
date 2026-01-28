@@ -42,7 +42,10 @@ docker info | Select-String "CPUs", "Total Memory"
 
 ### Instalação Rápida (se necessário)
 ```powershell
-# Windows - Kind
+# Windows - Kind (Winget - Recomendado)
+winget install Kubernetes.kind
+
+# Windows - Kind (Chocolatey)
 choco install kind
 
 # Windows - kubectl

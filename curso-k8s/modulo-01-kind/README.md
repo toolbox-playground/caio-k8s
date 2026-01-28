@@ -86,18 +86,25 @@ graph TB
 
 #### Windows (PowerShell)
 ```powershell
-# Via Chocolatey
+# Método 1: Winget (Recomendado - Windows 10/11)
+winget install Kubernetes.kind
+
+# Método 2: Scoop
+scoop bucket add main
+scoop install main/kind
+
+# Método 3: Chocolatey
 choco install kind
 
-# Via manual download
-curl.exe -Lo kind-windows-amd64.exe https://kind.sigs.k8s.io/dl/v0.20.0/kind-windows-amd64
+# Método 4: Download manual
+curl.exe -Lo kind-windows-amd64.exe https://kind.sigs.k8s.io/dl/v0.31.0/kind-windows-amd64
 Move-Item .\kind-windows-amd64.exe c:\some-dir-in-your-PATH\kind.exe
 ```
 
 #### Linux/macOS
 ```bash
 # Via package manager (Linux)
-curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.31.0/kind-linux-amd64
 chmod +x ./kind
 sudo mv ./kind /usr/local/bin/kind
 
@@ -743,11 +750,68 @@ Gerencie 3 clusters simultâneos: dev, staging, prod.
 ### Exercício 3: Troubleshooting
 Simule e resolva problemas comuns de criação de cluster.
 
+## � Recursos Avançados (Opcional)
+
+### Cloud Provider KIND - LoadBalancers Reais
+
+Para Services do tipo LoadBalancer funcionarem no Kind, você pode usar o **Cloud Provider KIND**:
+
+```powershell
+# Instalar Cloud Provider KIND
+go install sigs.k8s.io/cloud-provider-kind@latest
+
+# Executar em background
+cloud-provider-kind
+```
+
+Isso provisionará containers LoadBalancer automaticamente para seus Services.
+
+**Documentação**: [Kind LoadBalancer](https://kind.sigs.k8s.io/docs/user/loadbalancer/)
+
+### Rootless Docker/Podman (Segurança)
+
+Para ambientes que requerem execução sem privilégios root:
+
+```bash
+# Com Rootless Docker
+export DOCKER_HOST=unix://${XDG_RUNTIME_DIR}/docker.sock
+kind create cluster
+
+# Com Rootless Podman
+KIND_EXPERIMENTAL_PROVIDER=podman kind create cluster
+
+# Com Rootless nerdctl (containerd 1.7+)
+KIND_EXPERIMENTAL_PROVIDER=nerdctl kind create cluster
+```
+
+### Dual-Stack Networking (IPv4 + IPv6)
+
+Para clusters que suportam IPv4 e IPv6 simultaneamente:
+
+```yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  ipFamily: dual  # Requer Kind 0.11+ e K8s 1.20+
+```
+
+### Considerações para WSL2 (Windows)
+
+Se estiver usando Docker Desktop no WSL2:
+
+- ✅ Garanta recursos adequados (Settings → Resources)
+- ✅ Use caminhos Linux dentro do WSL2
+- ✅ Configure DNS corretamente se houver problemas de rede
+- ✅ Considere usar Docker Desktop's Kubernetes para produção
+
 ## 📚 Recursos Adicionais
 
 - [Documentação oficial do Kind](https://kind.sigs.k8s.io/)
 - [Kind GitHub Repository](https://github.com/kubernetes-sigs/kind)
 - [Configurações avançadas](https://kind.sigs.k8s.io/docs/user/configuration/)
+- [Gateway API](https://gateway-api.sigs.k8s.io/) - Evolução do Ingress
+- [Cloud Provider KIND](https://kind.sigs.k8s.io/docs/user/loadbalancer/)
+- [Rootless Containers](https://kind.sigs.k8s.io/docs/user/rootless/)
 
 ## ➡️ Próximo Módulo
 
