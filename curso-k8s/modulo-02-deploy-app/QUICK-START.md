@@ -9,12 +9,13 @@ Um curso completo sobre **Deploy de Aplicações e Resiliência no Kubernetes** 
 - ✅ Laboratório hands-on completo (1h15min)
 - ✅ Documentação detalhada dos manifestos
 - ✅ Guia completo dos scripts de automação
+- ✅ Boas práticas com port-forward
 
 ### 🔧 Recursos Práticos
-- ✅ 5 manifestos Kubernetes (2048 + Super Mario + HPA)
-- ✅ 4 scripts PowerShell de automação
+- ✅ Manifestos Kubernetes para Super Mario
+- ✅ Scripts PowerShell de automação
 - ✅ Configuração completa de metrics server
-- ✅ **2 jogos para escolher**: Super Mario 🍄 ou 2048 🎯
+- ✅ HPA (Horizontal Pod Autoscaler)
 
 ---
 
@@ -35,61 +36,21 @@ kubectl apply -f ..\manifests\01-deployment-mario.yaml
 kubectl apply -f ..\manifests\02-service-mario.yaml
 kubectl apply -f ..\manifests\03-hpa.yaml
 
-# 3. Jogar Super Mario!
-Start-Process "http://localhost:30090"
+# 3. Acessar via port-forward (boas práticas!)
+kubectl port-forward -n games service/super-mario-service 8080:80
 
-# 4. Testar auto-healing (2-3 min)
+# 4. Abrir no navegador
+Start-Process "http://localhost:8080"
+
+# Em outro terminal:
+# 5. Testar auto-healing (2-3 min)
 .\test-autoheal.ps1
 
-# 5. Testar auto-scaling (5-10 min)
+# 6. Testar auto-scaling (5-10 min)
 .\load-test.ps1
 ```
 
-### Opção 2: Execução Rápida com 2048 (15 minutos) 🎯
-
-```powershell
-# Navegue até a pasta de scripts
-cd curso-k8s\modulo-02-deploy-app\scripts
-
-# 1. Criar cluster (3-5 min)
-.\setup-cluster.ps1
-
-# 2. Deploy da aplicação (1-2 min)
-.\deploy-app.ps1
-
-# 3. Acessar o jogo
-Start-Process "http://localhost:30080"
-
-# 4. Testar auto-healing (2-3 min)
-.\test-autoheal.ps1
-
-# 5. Testar auto-scaling (5-10 min)
-.\load-test.ps1
-```
-
-### Opção 2: Execução Rápida com 2048 (15 minutos) 🎯
-
-```powershell
-# Navegue até a pasta de scripts
-cd curso-k8s\modulo-02-deploy-app\scripts
-
-# 1. Criar cluster (3-5 min)
-.\setup-cluster.ps1
-
-# 2. Deploy do jogo 2048
-.\deploy-app.ps1
-
-# 3. Jogar 2048!
-Start-Process "http://localhost:30080"
-
-# 4. Testar auto-healing (2-3 min)
-.\test-autoheal.ps1
-
-# 5. Testar auto-scaling (5-10 min)
-.\load-test.ps1
-```
-
-### Opção 3: Laboratório Completo (1h15min)
+### Opção 2: Laboratório Completo (1h15min)
 
 ```powershell
 # Abra o laboratório hands-on
@@ -114,8 +75,8 @@ curso-k8s/modulo-02-deploy-app/
 ├── laboratorios/
 │   └── lab-completo-resiliencia.md   # Lab hands-on passo-a-passo
 ├── manifests/
-│   ├── 01-deployment.yaml             # Deployment do jogo 2048
-│   ├── 02-service.yaml                # Service NodePort
+│   ├── 01-deployment-mario.yaml       # Deployment do Super Mario
+│   ├── 02-service-mario.yaml          # Service ClusterIP
 │   ├── 03-hpa.yaml                    # Horizontal Pod Autoscaler
 │   └── README.md                      # Documentação dos manifestos
 └── scripts/
@@ -152,22 +113,24 @@ curso-k8s/modulo-02-deploy-app/
 
 ## 🎮 Aplicação de Demonstração
 
-**Jogo 2048** - Um jogo web interativo
+**Super Mario** - O clássico jogo que todo mundo conhece!
 
-### Por que esta aplicação?
+### Por que Super Mario?
 
 - ✅ Interface web visual (você pode realmente jogar!)
-- ✅ Leve e rápida para deploy
+- ✅ WOW factor para demos e apresentações
 - ✅ Stateless (perfeito para demonstrar resiliência)
 - ✅ Fácil de gerar carga
 - ✅ Múltiplas réplicas funcionam perfeitamente
+- ✅ Acesso via port-forward (boas práticas)
 
 ### Cenários Demonstrados
 
 1. **Deploy Inicial**: 2 réplicas rodando
-2. **Auto-Healing**: Deletar pod → recuperação automática em ~10s
-3. **High Load**: Gerar carga → HPA escala de 2 para 6-10 pods
-4. **Scale Down**: Remover carga → HPA reduz para 2 pods gradualmente
+2. **Port-Forward**: Acesso seguro ao serviço
+3. **Auto-Healing**: Deletar pod → recuperação automática em ~10s
+4. **High Load**: Gerar carga → HPA escala de 2 para 6-10 pods
+5. **Scale Down**: Remover carga → HPA reduz para 2 pods gradualmente
 
 ---
 

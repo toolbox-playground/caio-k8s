@@ -121,9 +121,8 @@ kind delete clusters --all
 
 ## 🚀 Deploy de Aplicação
 
-### Deploy Rápido (Super Mario ou 2048)
+### Deploy Rápido - Super Mario 🍄
 
-#### Super Mario (porta 30090)
 ```powershell
 # Criar namespace
 kubectl create namespace games
@@ -131,24 +130,22 @@ kubectl create namespace games
 # Deployment
 kubectl create deployment super-mario --image=pengbai/docker-supermario -n games
 
-# Expor serviço
-kubectl expose deployment super-mario --port=8080 --target-port=8080 --type=NodePort --name=mario-svc -n games
+# Expor serviço (ClusterIP)
+kubectl expose deployment super-mario --port=8080 --target-port=8080 --name=super-mario-service -n games
 
-# Ajustar NodePort para 30090
-kubectl patch service mario-svc -n games -p '{"spec":{"ports":[{"port":8080,"nodePort":30090}]}}'
+# Acessar via port-forward (método profissional)
+kubectl port-forward -n games service/super-mario-service 8080:8080
 
-# Acessar
-Start-Process "http://localhost:30090"
+# Acessar no navegador
+Start-Process "http://localhost:8080"
 ```
 
-#### Jogo 2048 (porta 30080)
-```powershell
-kubectl create namespace games
-kubectl create deployment game-2048 --image=alexwhen/docker-2048 -n games
-kubectl expose deployment game-2048 --port=80 --target-port=80 --type=NodePort --name=game-svc -n games
-kubectl patch service game-svc -n games -p '{"spec":{"ports":[{"port":80,"nodePort":30080}]}}'
-Start-Process "http://localhost:30080"
-```
+### Por que Port-Forward?
+
+- 🔒 **Segurança**: Não expõe portas publicamente
+- 🏢 **Profissional**: Método usado em produção
+- 🎯 **Boas Práticas**: Acesso controlado aos serviços
+- 🔧 **Debugging**: Facilita troubleshooting
 
 ### Deploy com YAML (Produção)
 
@@ -823,7 +820,7 @@ docker system prune -a -f
 **Se você tem tempo:**
 - 📖 Leia o curso completo em `curso-k8s/`
 - 🧪 Faça os laboratórios práticos
-- 🎮 Deploy Super Mario e 2048
+- 🎮 Deploy Super Mario com port-forward
 - 📊 Configure monitoring avançado
 
 **Se está com pressa:**

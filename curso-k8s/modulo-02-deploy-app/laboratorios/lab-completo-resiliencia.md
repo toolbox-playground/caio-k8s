@@ -4,6 +4,17 @@
 **Dificuldade**: ⭐⭐☆☆☆  
 **Objetivo**: Fazer deploy de uma aplicação real, testar auto-healing e auto-scaling
 
+> **⚠️ NOTA IMPORTANTE:**  
+> Este laboratório está sendo atualizado para usar **Super Mario** ao invés do jogo 2048, e **port-forward** ao invés de NodePort.  
+> Para a versão mais atualizada, use o script automatizado:
+> ```powershell
+> .\scripts\deploy-app.ps1 -StartPortForward
+> ```
+> Para referências atualizadas, consulte:
+> - [manifests/README.md](../manifests/README.md) - Manifestos atualizados
+> - [QUICK-START.md](../QUICK-START.md) - Guia rápido
+> - [README.md](../README.md) - Documentação principal
+
 ---
 
 ## 📋 Pré-requisitos
@@ -39,7 +50,7 @@ docker info | Select-String "CPUs", "Total Memory"
 Este laboratório é dividido em 5 partes:
 
 1. **Setup do Cluster** (15 min) - Criar cluster com metrics-server
-2. **Deploy da Aplicação** (15 min) - Deployar jogo 2048 com Service
+2. **Deploy da Aplicação** (15 min) - Deployar Super Mario com Service e Port-Forward
 3. **Testar Auto-Healing** (15 min) - Deletar pods e observar recuperação
 4. **Configurar Auto-Scaling** (15 min) - Configurar HPA
 5. **Testar Auto-Scaling** (15 min) - Gerar carga e observar scaling
@@ -148,11 +159,11 @@ Se `kubectl top nodes` retornar erro:
 
 ---
 
-## 📖 Parte 2: Deploy da Aplicação (Jogo 2048)
+## 📚 Parte 2: Deploy da Aplicação (Super Mario)
 
 ### 2.1 Criar Deployment
 
-Vamos criar um Deployment para o jogo 2048:
+Vamos criar um Deployment para o Super Mario:
 
 ```powershell
 # Criar namespace para organização

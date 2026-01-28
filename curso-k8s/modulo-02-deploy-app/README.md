@@ -281,9 +281,7 @@ Estude os arquivos YAML em `manifests/` para entender:
 
 ## 📊 O que você vai construir
 
-**Escolha sua aplicação:**
-
-### Opção 1: Super Mario 🍄
+### Super Mario 🍄
 O clássico jogo Super Mario rodando no Kubernetes!
 
 **Por que Super Mario?**
@@ -291,53 +289,40 @@ O clássico jogo Super Mario rodando no Kubernetes!
 - 🌟 **Visual impressionante**: Perfeito para demos e apresentações
 - 🚀 **Mesma complexidade**: Tudo que funciona para Mario funciona para apps reais
 - 💼 **WOW factor**: Imagine mostrar isso numa entrevista ou reunião!
+- 🔒 **Boas práticas**: Acesso via port-forward (método profissional)
 
 **Deploy rápido:**
 ```powershell
 kubectl create namespace games
 kubectl apply -f manifests/01-deployment-mario.yaml
 kubectl apply -f manifests/02-service-mario.yaml
-# Acesse: http://localhost:30090
+# Acesse via port-forward (método profissional)
+kubectl port-forward -n games service/super-mario-service 8080:80
+# Abra no navegador: http://localhost:8080
 ```
 
-### Opção 2: Jogo 2048 🎯
-Clone web do famoso jogo de puzzle
+### 💡 Por que Port-Forward?
 
-**Por que 2048?**
-- ✅ Leve e rápido para deploy
-- ✅ Interface limpa e moderna
-- ✅ Não requer banco de dados ou estado
-- ✅ Perfeita para demonstrar resiliência
+| Benefício | Descrição |
+|-----------|-----------|
+| 🔒 Segurança | Não expõe portas publicamente |
+| 🏢 Profissional | Método usado em ambientes reais de produção |
+| 🎯 Aprendizado | Ensina boas práticas desde o início |
+| 🌐 Flexibilidade | Funciona em qualquer ambiente (local, cloud, etc) |
+| 🔧 Debugging | Facilita troubleshooting e desenvolvimento |
 
-**Deploy rápido:**
-```powershell
-kubectl create namespace games
-kubectl apply -f manifests/01-deployment.yaml
-kubectl apply -f manifests/02-service.yaml
-# Acesse: http://localhost:30080
-```
-
-### 💡 Escolha Baseada em Seu Objetivo
-
-| Objetivo | Jogo Recomendado |
-|----------|------------------|
-| Demo/Apresentação | 🍄 Super Mario (visual impressionante!) |
-| Aprendizado rápido | 🎯 2048 (mais leve) |
-| Portfolio GitHub | 🍄 Super Mario (diferencial!) |
-| Workshop/Treinamento | 🎯 2048 (foco nos conceitos) |
-| Impressionar tech manager | 🍄 Super Mario (WOW factor) |
-
-**Importante:** Ambos demonstram **exatamente os mesmos conceitos** de Kubernetes! A escolha é puramente por preferência visual e impacto.
+**Importante:** Este é o método recomendado para acessar serviços Kubernetes durante desenvolvimento e troubleshooting!
 
 ---
 
 ## 🎯 Cenários de Teste
 
-**Aplicáveis a qualquer jogo escolhido:**
+**Você vai testar:**
 
-1. **Deploy inicial**: Aplicação rodando com 2 réplicas
-2. **Auto-healing**: Deletar pods e observar recuperação automática
-3. **Auto-scaling**: Gerar carga alta e ver pods sendo criados automaticamente
+1. **Deploy inicial**: Super Mario rodando com 2 réplicas
+2. **Port-Forward**: Acesso seguro via kubectl port-forward
+3. **Auto-healing**: Deletar pods e observar recuperação automática
+4. **Auto-scaling**: Gerar carga alta e ver pods sendo criados automaticamente
 4. **Scale down**: Remover carga e observar redução de pods
 
 ## 🎯 Resultados Esperados

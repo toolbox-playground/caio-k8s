@@ -6,12 +6,22 @@ Configurações YAML prontas para uso com Kind.
 
 ## 📚 Lista de Manifests
 
+### Configurações de Cluster
+
 | Arquivo | Descrição | Nodes | Uso |
 |---------|-----------|-------|-----|
 | [kind-single-node.yaml](./kind-single-node.yaml) | Cluster minimalista | 1 CP | Dev rápido |
 | [kind-multi-node.yaml](./kind-multi-node.yaml) | Cluster distribuído | 1 CP + 2 Workers | Testes de scheduling |
 | [kind-ha-cluster.yaml](./kind-ha-cluster.yaml) | Alta disponibilidade | 3 CP + 3 Workers | Simular produção |
 | [kind-ingress-ready.yaml](./kind-ingress-ready.yaml) | Pronto para Ingress | 1 CP + 2 Workers | Networking avançado |
+| [cluster-config.yaml](./cluster-config.yaml) | Configuração completa | 1 CP + 2 Workers | Exemplo documentado |
+
+### Deployments de Aplicações
+
+| Arquivo | Descrição | Tipo | Uso |
+|---------|-----------|------|-----|
+| [nginx.yaml](./nginx.yaml) | Nginx web server | Deployment + Services | Exemplo completo ⭐ |
+| [nginx-usage.md](./nginx-usage.md) | Guia de uso do nginx | Documentação | Tutorial passo a passo |
 
 ---
 

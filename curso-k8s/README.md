@@ -38,15 +38,16 @@ Aprenda a criar e gerenciar clusters Kubernetes locais.
 ---
 
 ### 3️⃣ Módulo 02: Deploy e Resiliência ⭐
-**Intermediário** | **~1h15min** | **Super Mario + 2048**
+**Intermediário** | **~1h15min** | **Super Mario 🍄**
 
 **O módulo que vai fazer seus olhos brilharem!** 🤩
 
-Faça deploy de jogos reais (Super Mario ou 2048) e teste:
+Faça deploy do Super Mario e teste:
 - ✅ Auto-healing (pods se recuperam sozinhos)
 - ✅ Auto-scaling (HPA ajusta réplicas automaticamente)
 - ✅ Load balancing (tráfego distribuído)
 - ✅ Métricas em tempo real
+- ✅ Acesso via port-forward (método profissional)
 
 📖 [Acessar módulo](./modulo-02-deploy-app/)
 
@@ -55,7 +56,9 @@ Faça deploy de jogos reais (Super Mario ou 2048) e teste:
 cd modulo-02-deploy-app/scripts
 .\setup-cluster.ps1
 .\deploy-app.ps1
-Start-Process "http://localhost:30080"
+# Acesse via port-forward
+kubectl port-forward -n games service/super-mario-service 8080:80
+# Abra: http://localhost:8080
 ```
 
 ---
@@ -112,19 +115,18 @@ cat QUICK-START.md
 
 ---
 
-## 🎮 Aplicações de Demonstração
+## 🎮 Aplicação de Demonstração
 
 ### Super Mario 🍄
-- **Porta:** 30090
+- **Acesso:** Port-Forward (kubectl)
 - **WOW Factor:** ⭐⭐⭐⭐⭐
-- **Ideal para:** Demos, apresentações, portfolio
+- **Ideal para:** Demos, apresentações, portfolio, aprendizado
 
-### Jogo 2048 🎯
-- **Porta:** 30080
-- **Leveza:** ⭐⭐⭐⭐⭐
-- **Ideal para:** Aprendizado, testes rápidos
-
-**Ambos demonstram os mesmos conceitos de Kubernetes!**
+**Por que Port-Forward?**
+- ✅ Método profissional usado em produção
+- ✅ Mais seguro (sem exposição de portas NodePort)
+- ✅ Simula ambiente real de desenvolvimento
+- ✅ Ensina boas práticas desde o início
 
 ---
 

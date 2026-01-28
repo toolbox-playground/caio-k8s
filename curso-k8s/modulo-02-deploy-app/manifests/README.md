@@ -1,15 +1,15 @@
 # 📦 Manifestos Kubernetes
 
-Esta pasta contém os manifestos YAML para deploy de **duas aplicações de demonstração**: Super Mario 🍄 e Jogo 2048 🎯.
+Esta pasta contém os manifestos YAML para deploy do **Super Mario 🍄** no Kubernetes.
 
 ## 📁 Arquivos
 
-### Super Mario 🍄 (Recomendado para Demos!)
+### Super Mario 🍄
 
 | Arquivo | Descrição | Recurso |
 |---------|-----------|---------|
 | `01-deployment-mario.yaml` | Deployment do Super Mario | Deployment |
-| `02-service-mario.yaml` | Service NodePort (porta 30090) | Service |
+| `02-service-mario.yaml` | Service ClusterIP | Service |
 | `03-hpa.yaml` | Horizontal Pod Autoscaler | HPA |
 
 **Por que Super Mario?**
@@ -17,19 +17,48 @@ Esta pasta contém os manifestos YAML para deploy de **duas aplicações de demo
 - 🎮 Nostalgia + aprendizado
 - 💼 WOW factor em entrevistas e demos
 - 🚀 Mesmo setup de produção
+- 🔒 Acesso via port-forward (boas práticas)
 
-### Jogo 2048 🎯 (Recomendado para Aprendizado)
+---
 
-| Arquivo | Descrição | Recurso |
-|---------|-----------|---------|
-| `01-deployment.yaml` | Deployment do jogo 2048 | Deployment |
-| `02-service.yaml` | Service NodePort (porta 30080) | Service |
-| `03-hpa.yaml` | Horizontal Pod Autoscaler | HPA |
+## ⚙️ Pré-requisito: Metrics Server
 
-**Por que 2048?**
-- ✅ Leve e rápido
-- ✅ Interface limpa
-- ✅ Foco nos conceitos K8s
+O HPA (Horizontal Pod Autoscaler) **requer** o Metrics Server para funcionar. Instale antes de fazer o deploy:
+
+### Verificar se já está instalado
+
+```powershell
+# Verificar deployment do Metrics Server
+kubectl get deployment metrics-server -n kube-system
+
+# Testar se está funcionando
+kubectl top nodes
+```
+
+### Instalar Metrics Server (se necessário)
+
+```powershell
+# Instalar Metrics Server (versão oficial mais recente)
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+# ⚠️ APENAS para ambientes locais (Kind/Docker Desktop)
+# Adicionar flag --kubelet-insecure-tls (NÃO use em produção!)
+kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+
+# Aguardar deployment estar pronto
+kubectl wait --for=condition=available --timeout=120s deployment/metrics-server -n kube-system
+
+# Verificar funcionamento
+kubectl top nodes
+kubectl top pods -n kube-system
+```
+
+**⚠️ Nota de Segurança:**
+- O flag `--kubelet-insecure-tls` desabilita verificação de certificados TLS
+- **Use APENAS em ambientes locais** (Kind, Minikube, Docker Desktop)
+- **NUNCA use em produção** - configure certificados adequados
+
+**✅ Metrics Server instalado quando:** `kubectl top nodes` mostra uso de CPU/memória.
 
 ---
 
@@ -37,13 +66,11 @@ Esta pasta contém os manifestos YAML para deploy de **duas aplicações de demo
 
 ### Deploy Super Mario 🍄
 
-### Deploy Super Mario 🍄
-
 ```powershell
 # 1. Criar namespace
 kubectl create namespace games
 
-# 2. Aplicar manifestos do Super Mario
+# 2. Aplicar manifestos
 kubectl apply -f 01-deployment-mario.yaml
 kubectl apply -f 02-service-mario.yaml
 kubectl apply -f 03-hpa.yaml
@@ -51,187 +78,128 @@ kubectl apply -f 03-hpa.yaml
 # 3. Verificar
 kubectl get all -n games
 
-# 4. Acessar
-Start-Process "http://localhost:30090"
+# 4. Acessar via port-forward (método profissional)
+kubectl port-forward -n games service/super-mario-service 8080:8080
+
+# 5. Abrir no navegador
+Start-Process "http://localhost:8080"
 ```
 
-### Deploy Jogo 2048 🎯
+### 💡 Por que Port-Forward?
 
-```powershell
-# 1. Criar namespace
-kubectl create namespace games
-
-# 2. Aplicar manifestos do 2048
-kubectl apply -f 01-deployment.yaml
-kubectl apply -f 02-service.yaml
-kubectl apply -f 03-hpa.yaml
-
-# OU aplicar todos de uma vez
-kubectl apply -f .
-
-# 3. Verificar
-kubectl get all -n games
-
-# 4. Acessar
-Start-Process "http://localhost:30080"
-```
-
-### ⚡ Qual escolher?
-
-| Situação | Jogo Recomendado | Porta |
-|----------|------------------|-------|
-| 🎤 Demo/Apresentação | Super Mario 🍄 | 30090 |
-| 📚 Estudo/Aprendizado | 2048 🎯 | 30080 |
-| 💼 Portfolio/Entrevista | Super Mario 🍄 | 30090 |
-| 🏃 Teste Rápido | 2048 🎯 | 30080 |
-| 👔 Apresentar para Manager | Super Mario 🍄 | 30090 |
-
-**Dica:** Ambos usam o mesmo HPA! Você pode deployar os dois simultaneamente (portas diferentes).
+| Benefício | Descrição |
+|-----------|-----------|
+| 🔒 Segurança | Não expõe portas publicamente |
+| 🏢 Profissional | Método usado em produção |
+| 🎯 Aprendizado | Boas práticas desde o início |
+| 🌐 Flexibilidade | Funciona em qualquer ambiente |
+| 🔧 Debugging | Facilita troubleshooting |
 
 ---
 
-## 🎮 Deployando Ambos os Jogos
-
-```powershell
-# Criar namespace
-kubectl create namespace games
-
-# Deploy Super Mario (porta 30090)
-kubectl apply -f 01-deployment-mario.yaml
-kubectl apply -f 02-service-mario.yaml
-
-# Deploy 2048 (porta 30080)
-kubectl apply -f 01-deployment.yaml
-kubectl apply -f 02-service.yaml
-
-# HPA compartilhado (ou crie um para cada)
-kubectl apply -f 03-hpa.yaml
-
-# Acessar ambos
-Start-Process "http://localhost:30090"  # Super Mario
-Start-Process "http://localhost:30080"  # 2048
-
-# Ver todos os recursos
-kubectl get all -n games
-```
-
-### Verificar recursos criados
-
-```powershell
-# Ver todos os recursos
-kubectl get all -n games
-
-# Ver deployment
-kubectl get deployment game-2048 -n games
-
-# Ver pods
-kubectl get pods -n games -o wide
-
-# Ver service
-kubectl get service game-2048-service -n games
-
-# Ver HPA
-kubectl get hpa game-2048-hpa -n games
-```
+## 📖 Detalhamento dos Manifestos
 
 ## 📖 Detalhamento dos Manifestos
 
-### 01-deployment.yaml
+### 01-deployment-mario.yaml
 
 **Características principais:**
 
 - **Réplicas:** 2 (estado inicial)
-- **Imagem:** `alexwhen/docker-2048:latest`
+- **Imagem:** `pengbai/docker-supermario:latest`
 - **Recursos:**
-  - Request: 50m CPU, 64Mi RAM
-  - Limit: 100m CPU, 128Mi RAM
+  - Request: 100m CPU, 128Mi RAM
+  - Limit: 200m CPU, 256Mi RAM
 - **Health Checks:**
-  - Liveness Probe: HTTP GET / (porta 80) a cada 10s
-  - Readiness Probe: HTTP GET / (porta 80) a cada 5s
+  - Liveness Probe: HTTP GET / (porta 8080) a cada 10s
+  - Readiness Probe: HTTP GET / (porta 8080) a cada 5s
 
 **Por que esses valores?**
 
 | Configuração | Valor | Motivo |
 |--------------|-------|--------|
 | `replicas: 2` | 2 pods | Garante HA básica + demonstra load balancing |
-| `cpu: 50m` | 50 milicores | App leve, não precisa de muito CPU |
-| `memory: 64Mi` | 64 MiB | Jogo HTML/JS simples, pouca memória |
-| `limits.cpu: 100m` | 100 milicores | Dobro do request = headroom para picos |
+| `cpu: 100m` | 100 milicores | Jogo mais complexo, precisa de mais recursos |
+| `memory: 128Mi` | 128 MiB | Interface rica, mais assets |
+| `limits.cpu: 200m` | 200 milicores | Dobro do request = headroom para picos |
 
 **Comandos úteis:**
 
 ```powershell
 # Ver detalhes do deployment
-kubectl describe deployment game-2048 -n games
+kubectl describe deployment super-mario -n games
 
 # Ver histórico de rollout
-kubectl rollout history deployment/game-2048 -n games
+kubectl rollout history deployment/super-mario -n games
 
 # Escalar manualmente
-kubectl scale deployment game-2048 --replicas=5 -n games
+kubectl scale deployment super-mario --replicas=5 -n games
 
 # Ver eventos relacionados
-kubectl get events -n games | Select-String "game-2048"
+kubectl get events -n games | Select-String "super-mario"
 ```
 
-### 02-service.yaml
+### 02-service-mario.yaml
 
 **Características principais:**
 
-- **Tipo:** NodePort
-- **Porta do Service:** 80 (ClusterIP interno)
-- **Target Port:** 80 (porta do container)
-- **NodePort:** 30080 (acesso externo)
-- **Selector:** `app: game-2048`
+- **Tipo:** ClusterIP (acesso interno - melhor prática)
+- **Porta do Service:** 80
+- **Target Port:** 8080 (porta do container)
+- **Selector:** `app: super-mario`
+- **Acesso:** Via kubectl port-forward
 
-**Fluxo de tráfego:**
+**Por que ClusterIP ao invés de NodePort?**
+
+| Aspecto | ClusterIP + Port-Forward | NodePort |
+|---------|-------------------------|----------|
+| 🔒 Segurança | Não expõe porta publicamente | Expõe porta em todos os nós |
+| 🏢 Produção | Método usado em ambientes reais | Raramente usado em prod |
+| 🎯 Flexibilidade | Qualquer porta local | Porta fixa 30000-32767 |
+| 🔧 Debug | Fácil troubleshooting | Mais complexo |
+
+**Fluxo de tráfego com port-forward:**
 
 ```
-Browser (http://localhost:30080)
+Browser (http://localhost:8080)
     ↓
-NodePort (30080) no host
+kubectl port-forward (túnel seguro)
     ↓
 Service (porta 80) no cluster
     ↓
 Load balancing (round-robin)
     ↓
-Pods (targetPort 80)
+Pods (targetPort 8080)
     ↓
-Container (porta 80)
+Container (porta 8080)
 ```
 
 **Comandos úteis:**
 
 ```powershell
+# Acessar via port-forward (recomendado)
+kubectl port-forward -n games service/super-mario-service 8080:80
+
 # Testar acesso interno
-kubectl run -n games test-pod --image=busybox --restart=Never --rm -it -- wget -O- http://game-2048-service
+kubectl run -n games test-pod --image=busybox --restart=Never --rm -it -- wget -O- http://super-mario-service
 
 # Ver endpoints (IPs dos pods)
-kubectl get endpoints game-2048-service -n games
+kubectl get endpoints super-mario-service -n games
 
 # Descrever service
-kubectl describe service game-2048-service -n games
-
-# Testar externamente
-curl http://localhost:30080
+kubectl describe service super-mario-service -n games
 ```
 
-**Tipos de Service alternativos:**
+**Port-forward em background:**
 
-```yaml
-# ClusterIP (padrão - apenas interno)
-spec:
-  type: ClusterIP
-  ports:
-  - port: 80
-    targetPort: 80
+```powershell
+# Executar port-forward em background
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "kubectl port-forward -n games service/super-mario-service 8080:80"
 
-# LoadBalancer (em clouds - AWS ELB, GCP LB, etc)
-spec:
-  type: LoadBalancer
-  ports:
-  - port: 80
-    targetPort: 80
+# Ou criar um alias
+function Start-MarioPortForward {
+    kubectl port-forward -n games service/super-mario-service 8080:80
+}
 ```
 
 ### 03-hpa.yaml
@@ -274,13 +242,13 @@ kubectl get hpa -n games
 kubectl get hpa -n games --watch
 
 # Ver detalhes e eventos
-kubectl describe hpa game-2048-hpa -n games
+kubectl describe hpa super-mario-hpa -n games
 
 # Ver métricas atuais
 kubectl top pods -n games
 
 # Desabilitar HPA temporariamente
-kubectl delete hpa game-2048-hpa -n games
+kubectl delete hpa super-mario-hpa -n games
 ```
 
 **HPA com múltiplas métricas (exemplo avançado):**
@@ -308,14 +276,14 @@ spec:
 ### Aumentar recursos para cargas maiores
 
 ```yaml
-# 01-deployment.yaml
+# 01-deployment-mario.yaml
 resources:
   requests:
-    cpu: 100m
-    memory: 128Mi
+    cpu: 200m
+    memory: 256Mi
   limits:
     cpu: 500m
-    memory: 256Mi
+    memory: 512Mi
 ```
 
 ### Ajustar limites de auto-scaling
@@ -333,17 +301,19 @@ spec:
         averageUtilization: 70  # Mais tolerante
 ```
 
-### Usar LoadBalancer em vez de NodePort
+### Usar LoadBalancer (em ambientes cloud)
 
 ```yaml
-# 02-service.yaml
+# 02-service-mario.yaml (para ambientes cloud)
 spec:
   type: LoadBalancer
   ports:
   - port: 80
-    targetPort: 80
-  # nodePort removido (será alocado automaticamente)
+    targetPort: 8080
+  # Automaticamente provisiona um LB externo
 ```
+
+**Nota:** ClusterIP + port-forward é recomendado para desenvolvimento local.
 
 ## 🧪 Testes de Validação
 
@@ -351,35 +321,36 @@ spec:
 
 ```powershell
 # Validar sem aplicar
-kubectl apply -f 01-deployment.yaml --dry-run=client -o yaml
+kubectl apply -f 01-deployment-mario.yaml --dry-run=client -o yaml
 
 # Validar com server-side
-kubectl apply -f 01-deployment.yaml --dry-run=server
+kubectl apply -f 01-deployment-mario.yaml --dry-run=server
 ```
 
 ### Testar deployment isoladamente
 
 ```powershell
 # Aplicar apenas deployment
-kubectl apply -f 01-deployment.yaml
+kubectl apply -f 01-deployment-mario.yaml
 
 # Aguardar rollout completar
-kubectl rollout status deployment/game-2048 -n games
+kubectl rollout status deployment/super-mario -n games
 
 # Verificar pods
 kubectl get pods -n games
 ```
 
-### Testar service
+### Testar service com port-forward
 
 ```powershell
 # Aplicar service
-kubectl apply -f 02-service.yaml
+kubectl apply -f 02-service-mario.yaml
 
-# Port-forward para teste local
-kubectl port-forward -n games service/game-2048-service 8080:80
+# Port-forward para teste local (método recomendado)
+kubectl port-forward -n games service/super-mario-service 8080:80
 
-# Testar: http://localhost:8080
+# Abrir no navegador
+Start-Process "http://localhost:8080"
 ```
 
 ### Testar HPA
@@ -404,10 +375,10 @@ kubectl get hpa -n games
 kubectl logs -n games <pod-name>
 
 # Logs de todos os pods do deployment
-kubectl logs -n games -l app=game-2048 --all-containers=true
+kubectl logs -n games -l app=super-mario --all-containers=true
 
 # Seguir logs em tempo real
-kubectl logs -n games -l app=game-2048 -f
+kubectl logs -n games -l app=super-mario -f
 ```
 
 ### Eventos
@@ -417,7 +388,7 @@ kubectl logs -n games -l app=game-2048 -f
 kubectl get events -n games --sort-by='.lastTimestamp'
 
 # Eventos de um recurso específico
-kubectl describe deployment game-2048 -n games | Select-String "Events:" -A 20
+kubectl describe deployment super-mario -n games | Select-String "Events:" -A 20
 ```
 
 ### Métricas
@@ -439,8 +410,8 @@ kubectl describe node <node-name>
 
 ```powershell
 kubectl delete -f 03-hpa.yaml
-kubectl delete -f 02-service.yaml
-kubectl delete -f 01-deployment.yaml
+kubectl delete -f 02-service-mario.yaml
+kubectl delete -f 01-deployment-mario.yaml
 ```
 
 ### Remover tudo de uma vez
@@ -457,7 +428,10 @@ kubectl delete namespace games
 - [Deployment Best Practices](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#writing-a-deployment-spec)
 - [Service Types](https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types)
 - [HPA Walkthrough](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/)
+- [Port Forwarding](https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/)
 
 ---
+
+**Dica:** Use `kubectl port-forward` para acesso seguro aos serviços durante desenvolvimento!
 
 **Próximo passo:** Volte ao [Laboratório](../laboratorios/lab-completo-resiliencia.md) para usar esses manifestos!

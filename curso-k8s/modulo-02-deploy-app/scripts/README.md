@@ -5,9 +5,9 @@ Esta pasta contém scripts PowerShell para automatizar tarefas comuns do laborat
 ## 📁 Scripts Disponíveis
 
 | Script | Descrição | Duração |
-|--------|-----------|---------|
+|--------|-----------|---------|  
 | `setup-cluster.ps1` | Cria cluster Kind com Metrics Server | ~3-5 min |
-| `deploy-app.ps1` | Deploy completo da aplicação | ~1-2 min |
+| `deploy-app.ps1` | Deploy completo do Super Mario | ~1-2 min |
 | `test-autoheal.ps1` | Testa auto-healing (deleta pods) | ~2-3 min |
 | `load-test.ps1` | Gera carga para testar auto-scaling | ~5-10 min |
 
@@ -85,23 +85,24 @@ kubectl top nodes  # Aguarde até funcionar
 
 ### deploy-app.ps1
 
-**Descrição:** Faz deploy completo da aplicação 2048 (Deployment, Service, HPA).
+**Descrição:** Faz deploy completo do Super Mario (Deployment, Service ClusterIP, HPA).
 
 **O que faz:**
 - ✅ Verifica se há cluster ativo
 - ✅ Cria namespace se não existir
-- ✅ Aplica manifests (Deployment, Service, HPA)
+- ✅ Aplica manifestos (Deployment, Service, HPA)
 - ✅ Aguarda rollout completar
 - ✅ Verifica recursos criados
-- ✅ Oferece abrir navegador
+- ✅ Oferece iniciar port-forward automaticamente
 
 **Parâmetros:**
 
 ```powershell
 .\deploy-app.ps1 `
-    -Namespace "games" `  # Namespace (padrão: "games")
-    -Replicas 2 `         # Réplicas iniciais (padrão: 2)
-    -SkipHPA              # Pula criação do HPA (opcional)
+    -Namespace "games" `      # Namespace (padrão: "games")
+    -Replicas 2 `             # Réplicas iniciais (padrão: 2)
+    -SkipHPA `                # Pula criação do HPA (opcional)
+    -StartPortForward         # Inicia port-forward automaticamente
 ```
 
 **Exemplos:**
@@ -116,8 +117,8 @@ kubectl top nodes  # Aguarde até funcionar
 # Deploy sem HPA (para criar manualmente depois)
 .\deploy-app.ps1 -SkipHPA
 
-# Deploy em namespace customizado
-.\deploy-app.ps1 -Namespace "meu-namespace"
+# Deploy e iniciar port-forward automaticamente
+.\deploy-app.ps1 -StartPortForward
 ```
 
 **Verificação pós-deploy:**
@@ -126,11 +127,12 @@ kubectl top nodes  # Aguarde até funcionar
 # Ver tudo
 kubectl get all -n games
 
-# Testar acesso
-curl http://localhost:30080
+# Acessar via port-forward
+kubectl port-forward -n games service/super-mario-service 8080:80
+# Abra: http://localhost:8080
 
 # Ver logs
-kubectl logs -n games -l app=game-2048
+kubectl logs -n games -l app=super-mario -f
 ```
 
 ---
