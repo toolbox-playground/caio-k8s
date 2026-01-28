@@ -861,9 +861,179 @@ kubectl describe node <node-name>
 
 ---
 
-## 🔥 Teste de Stress com Polinux
+## � Auto-Healing - Recuperação Automática
 
-Esta seção ensina como usar pods Polinux para gerar carga e testar o auto-scaling (HPA) em ação.
+O **Auto-Healing** é uma das funcionalidades mais poderosas do Kubernetes, garantindo que sua aplicação permaneça disponível mesmo diante de falhas.
+
+### 📖 O Que é Auto-Healing?
+
+Auto-healing é a capacidade do Kubernetes de **detectar e corrigir falhas automaticamente**, sem intervenção humana. O **ReplicaSet Controller** monitora constantemente:
+
+- ✅ Número de pods rodando
+- ✅ Estado desejado (definido no Deployment)
+- ✅ Se algum pod falhou ou foi deletado
+
+**Fluxo de auto-recuperação:**
+```
+Estado Desejado: 2 réplicas
+Estado Atual: 1 réplica (1 pod foi deletado/falhou)
+→ Kubernetes AUTOMATICAMENTE cria 1 novo pod
+→ Estado restaurado: 2 réplicas ✓
+
+Timeline típica:
+0s   - Pod deletado ou falhou
+1s   - Kubernetes detecta (ReplicaSet vê diferença)
+2s   - Novo pod é criado (status: Pending)
+3-8s - Container sendo criado
+8-15s- Pod fica Running e Ready
+```
+
+### 💡 Por Que Auto-Healing é Importante?
+
+| Sem Auto-Healing | Com Auto-Healing (Kubernetes) |
+|-------------------|-------------------------------|
+| 🔴 Servidor cai às 3h da manhã | ✅ Novo pod criado em 10s |
+| 🔴 Precisa chamar alguém no pager | ✅ Problema resolvido automaticamente |
+| 🔴 Downtime de minutos/horas | ✅ Downtime de segundos |
+| 🔴 Perda de receita | ✅ Alta disponibilidade |
+| 🔴 Clientes insatisfeitos | ✅ Experiência sem interrupção |
+
+---
+
+### 🧪 Como Testar Auto-Healing (Passo a Passo)
+
+#### 1. Verificar pods rodando
+
+```powershell
+# Ver os pods do Super Mario
+kubectl get pods -n games -l app=super-mario
+
+# Saída esperada:
+# NAME                          READY   STATUS    RESTARTS   AGE
+# super-mario-xxxxxxxxx-xxxxx   1/1     Running   0          2m
+# super-mario-xxxxxxxxx-xxxxx   1/1     Running   0          2m
+```
+
+#### 2. Deletar um pod manualmente (simular falha)
+
+```powershell
+# Copiar o nome de um dos pods e deletar
+kubectl delete pod super-mario-xxxxxxxxx-xxxxx -n games
+
+# Você verá:
+# pod "super-mario-xxxxxxxxx-xxxxx" deleted
+```
+
+#### 3. Observar auto-healing em ação
+
+```powershell
+# Monitorar em tempo real
+kubectl get pods -n games -l app=super-mario --watch
+
+# Você verá a sequência:
+# super-mario-xxxxxxxxx-xxxxx   1/1   Terminating         0     5m
+# super-mario-xxxxxxxxx-NEW     0/1   Pending             0     0s   ← NOVO POD CRIADO!
+# super-mario-xxxxxxxxx-NEW     0/1   ContainerCreating   0     1s
+# super-mario-xxxxxxxxx-NEW     1/1   Running             0     10s  ← PRONTO!
+```
+
+#### 4. Verificar que temos 2 pods novamente
+
+```powershell
+kubectl get pods -n games -l app=super-mario
+
+# Novamente 2 pods rodando! ✅
+```
+
+---
+
+### 🎯 Cenários de Teste Avançados
+
+#### Deletar TODOS os pods de uma vez
+
+```powershell
+# Deletar todos os 2 pods
+kubectl delete pods -n games -l app=super-mario
+
+# Kubernetes vai RECRIAR TODOS automaticamente!
+kubectl get pods -n games --watch
+```
+
+#### Simular falha de container
+
+```powershell
+# Entrar no pod e matar o processo principal
+kubectl exec -n games <pod-name> -- kill 1
+
+# Kubernetes detecta que o container morreu e reinicia automaticamente
+kubectl get pods -n games --watch
+
+# Você verá RESTARTS aumentar
+# NAME                          READY   STATUS    RESTARTS   AGE
+# super-mario-xxxxxxxxx-xxxxx   1/1     Running   1          5m
+```
+
+#### Teste rápido em uma linha
+
+```powershell
+# Deletar primeiro pod e monitorar recuperação
+kubectl delete pod $(kubectl get pods -n games -l app=super-mario -o jsonpath='{.items[0].metadata.name}') -n games && kubectl get pods -n games --watch
+```
+
+---
+
+### 📊 Comandos Úteis para Monitorar Auto-Healing
+
+```powershell
+# Ver status do deployment
+kubectl get deployment super-mario -n games
+
+# Ver detalhes do ReplicaSet (gerenciador de réplicas)
+kubectl get replicaset -n games
+
+# Ver eventos de criação/destruição de pods
+kubectl get events -n games --sort-by='.lastTimestamp' | Select-Object -Last 20
+
+# Você verá eventos como:
+# "Killing container"
+# "Created container"  
+# "Started container"
+
+# Descrever deployment (ver condições e eventos)
+kubectl describe deployment super-mario -n games
+
+# Ver histórico de rollout
+kubectl rollout history deployment/super-mario -n games
+```
+
+---
+
+### 🎓 Resumo: Auto-Healing em Ação
+
+**Auto-Healing = Kubernetes mantém seus pods vivos automaticamente**
+
+✅ **Você deleta um pod** → Kubernetes cria outro em ~10s  
+✅ **Container trava** → Kubernetes reinicia automaticamente  
+✅ **Node falha** → Kubernetes move pods para outro node  
+✅ **Aplicação fica instável** → Health probes detectam e reiniciam  
+
+**Resultado:** Sistema resiliente que **se recupera sozinho** de falhas! 🚀
+
+**Experimente agora:**
+```powershell
+# Teste rápido de auto-healing
+kubectl delete pod $(kubectl get pods -n games -l app=super-mario -o jsonpath='{.items[0].metadata.name}') -n games
+kubectl get pods -n games --watch
+# Pressione Ctrl+C para sair do watch
+```
+
+Veja a mágica do Kubernetes acontecer na sua tela! 🪄✨
+
+---
+
+## 🔥 Teste de Stress com Fortio
+
+Esta seção ensina como usar Fortio para gerar carga e testar o auto-scaling (HPA) em ação.
 
 ### O que é Fortio?
 
