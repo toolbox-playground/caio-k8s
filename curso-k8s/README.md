@@ -57,7 +57,7 @@ cd modulo-02-deploy-app/scripts
 .\setup-cluster.ps1
 .\deploy-app.ps1
 # Acesse via port-forward
-kubectl port-forward -n games service/super-mario-service 8080:80
+kubectl port-forward -n games service/super-mario-service 8080:8080
 # Abra: http://localhost:8080
 ```
 

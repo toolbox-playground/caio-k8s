@@ -1,29 +1,48 @@
 # 🎮 Módulo 02: Deploy de Aplicação e Resiliência no Kubernetes
 
+## � Índice
+
+1. [Visão Geral](#-visão-geral)
+2. [Objetivos de Aprendizado](#-objetivos-de-aprendizado)
+3. [Por Que Este Módulo](#-por-que-este-módulo-vai-fazer-seus-olhos-brilharem)
+4. [Pré-requisitos](#-pré-requisitos)
+5. [Conceitos Fundamentais](#-conceitos-fundamentais)
+6. [Estrutura do Módulo](#-estrutura-do-módulo)
+7. [Início Rápido](#-início-rápido)
+8. [Laboratório Completo](#-laboratório-hands-on)
+9. [Manifestos Kubernetes](#-manifestos-kubernetes)
+10. [Teste de Stress e HPA](#-teste-de-stress-com-polinux)
+11. [Recursos Adicionais](#-recursos-adicionais)
+
+---
+
 ## 📚 Visão Geral
 
 Neste módulo prático, você vai além da criação de clusters e aprende a fazer deploy de aplicações reais, explorando os recursos de **auto-healing** e **auto-scaling** do Kubernetes. Através de um laboratório hands-on, você irá:
 
-- Subir um cluster Kubernetes local
-- Fazer deploy de um jogo web interativo
-- Testar a resiliência do cluster deletando pods
-- Simular alta carga para observar o auto-scaling em ação
+- ✅ Subir um cluster Kubernetes local
+- ✅ Fazer deploy de um jogo web interativo (Super Mario 🍄)
+- ✅ Testar a resiliência do cluster deletando pods
+- ✅ Simular alta carga para observar o auto-scaling em ação
+- ✅ Monitorar métricas em tempo real
 
 ## 🎯 Objetivos de Aprendizado
 
 Ao final deste módulo, você será capaz de:
 
 - ✅ Fazer deploy de aplicações containerizadas no Kubernetes
-- ✅ Expor serviços para acesso externo
+- ✅ Expor serviços para acesso via port-forward (boas práticas)
 - ✅ Compreender o comportamento de auto-healing (recuperação automática)
 - ✅ Configurar e testar Horizontal Pod Autoscaler (HPA)
 - ✅ Executar testes de carga para validar resiliência
 - ✅ Monitorar métricas de recursos em tempo real
 - ✅ Aplicar boas práticas de deployment em produção
 
-## ⏱️ Duração Estimada: 1 hora e 15 minutos
+**⏱️ Duração Estimada:** 1 hora e 15 minutos
 
-## � Por Que Este Módulo Vai Fazer Seus Olhos Brilharem
+---
+
+## 🌟 Por Que Este Módulo Vai Fazer Seus Olhos Brilharem
 
 ### 👨‍🎓 Para Estudantes e Iniciantes em DevOps
 
@@ -189,17 +208,17 @@ CPU alvo: 50%
 │                      Cluster Kubernetes                      │
 │                                                               │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │                  Service (NodePort)                     │ │
-│  │              Expõe na porta 30080                       │ │
+│  │            Service (ClusterIP + Port-Forward)           │ │
+│  │              Porta 8080 → 8080                          │ │
 │  └─────────────┬──────────────────────────────────────────┘ │
 │                │ Load Balancing                              │
 │                ▼                                              │
 │  ┌─────────────────────────────────────────────────────────┐│
-│  │              Deployment (2048-game)                      ││
+│  │              Deployment (super-mario)                    ││
 │  │                                                          ││
 │  │  ┌──────┐  ┌──────┐  ┌──────┐  ┌──────┐               ││
 │  │  │ Pod1 │  │ Pod2 │  │ Pod3 │  │ ...  │               ││
-│  │  │ 🎮   │  │ 🎮   │  │ 🎮   │  │ 🎮   │               ││
+│  │  │ 🍄   │  │ 🍄   │  │ 🍄   │  │ 🍄   │               ││
 │  │  └──────┘  └──────┘  └──────┘  └──────┘               ││
 │  │                                                          ││
 │  │  ▲ Auto-healing: Recria pods deletados                  ││
@@ -213,22 +232,87 @@ CPU alvo: 50%
 │                                                               │
 └───────────────────────────────────────────────────────────────┘
          ▲
-         │ Acesso via http://localhost:30080
-         │
+         │ kubectl port-forward (túnel seguro)
+         │ http://localhost:8080
    ┌─────┴─────┐
    │  Browser  │
    └───────────┘
 ```
 
+---
+
 ## 📚 Estrutura do Módulo
 
 ```
 modulo-02-deploy-app/
-├── README.md                          # Este arquivo
+├── README.md                          # 📖 Este arquivo - Guia completo do módulo
+├── QUICK-START.md                     # ⚡ Guia de início rápido
 ├── laboratorios/
-│   └── lab-completo-resiliencia.md   # Lab hands-on completo
-├── manifests/
-│   ├── 01-deployment.yaml             # Deployment da aplicação
+│   └── lab-completo-resiliencia.md   # 🧪 Lab hands-on completo
+└── manifests/
+    ├── 01-deployment-mario.yaml       # 🚀 Deployment da aplicação
+    ├── 02-service-mario.yaml          # 🌐 Service ClusterIP
+    ├── 03-hpa.yaml                    # 📈 Horizontal Pod Autoscaler
+    ├── 04-stress-test-fortio.yaml     # 🔥 Pods de stress test (Fortio)
+    ├── README.md                      # 📋 Documentação dos manifestos
+    └── STRESS-TEST-GUIDE.md          # 🎯 Guia de testes de stress
+```
+
+---
+
+## 🚀 Início Rápido
+
+### Deploy Passo a Passo
+
+```powershell
+# 1. Criar namespace
+kubectl create namespace games
+
+# 2. Aplicar manifestos
+kubectl apply -f manifests/01-deployment-mario.yaml
+kubectl apply -f manifests/02-service-mario.yaml
+kubectl apply -f manifests/03-hpa.yaml
+
+# 3. Verificar status
+kubectl get all -n games
+
+# 4. Aguardar pods ficarem prontos
+kubectl wait --for=condition=ready pod -l app=super-mario -n games --timeout=120s
+
+# 5. Acessar aplicação
+kubectl port-forward -n games service/super-mario-service 8080:8080
+```
+
+### 🎯 Próximos Passos
+
+Após o deploy inicial:
+
+1. 📖 **Laboratório Completo**: Siga o [Lab de Resiliência](./laboratorios/lab-completo-resiliencia.md)
+2. 🔥 **Teste de Stress**: Use o [Guia de Stress Test](#-teste-de-stress-com-polinux)
+3. 🔧 **Auto-Healing**: Teste deletando pods manualmente
+4. 📊 **Monitoramento**: Configure [dashboards em tempo real](#monitoramento-em-tempo-real)
+
+---
+
+## 🧪 Laboratório Hands-On
+
+Para a experiência completa de aprendizado, siga o laboratório detalhado:
+
+📖 **[Lab Completo - Deploy e Resiliência](./laboratorios/lab-completo-resiliencia.md)**
+
+**O que você vai fazer no lab:**
+- ✅ Criar cluster Kubernetes local
+- ✅ Instalar Metrics Server
+- ✅ Fazer deploy do Super Mario
+- ✅ Testar auto-healing (deletar pods)
+- ✅ Testar auto-scaling (gerar carga)
+- ✅ Monitorar métricas em tempo real
+
+**Tempo estimado:** 60-90 minutos
+
+---
+
+## 📦 Manifestos Kubernetes
 │   ├── 02-service.yaml                # Service NodePort
 │   ├── 03-hpa.yaml                    # Horizontal Pod Autoscaler
 │   └── README.md                      # Guia dos manifestos
@@ -351,15 +435,777 @@ Se encontrar algum problema:
 2. Descreva o recurso: `kubectl describe <resource> <name>`
 3. Verifique eventos: `kubectl get events --sort-by='.lastTimestamp'`
 
-## ⏭️ Próximos Passos
-
-Após completar este módulo, você estará pronto para:
-- Módulo 03: Persistência e StatefulSets (em breve)
-- Módulo 04: Networking Avançado e Ingress (em breve)
-- Módulo 05: Monitoramento e Observabilidade (em breve)
-
 ---
 
 **Vamos começar! 🚀**
 
 Vá para: [Lab Completo - Deploy e Resiliência](./laboratorios/lab-completo-resiliencia.md)
+
+---
+
+# 📦 Manifestos Kubernetes
+
+Esta pasta contém os manifestos YAML para deploy do **Super Mario 🍄** no Kubernetes.
+
+## 📁 Arquivos
+
+### Super Mario 🍄
+
+| Arquivo | Descrição | Recurso |
+|---------|-----------|---------|
+| `01-deployment-mario.yaml` | Deployment do Super Mario | Deployment |
+| `02-service-mario.yaml` | Service ClusterIP | Service |
+| `03-hpa.yaml` | Horizontal Pod Autoscaler | HPA |
+
+**Por que Super Mario?**
+- 🌟 Visual impressionante para apresentações
+- 🎮 Nostalgia + aprendizado
+- 💼 WOW factor em entrevistas e demos
+- 🚀 Mesmo setup de produção
+- 🔒 Acesso via port-forward (boas práticas)
+
+---
+
+## ⚙️ Pré-requisito: Metrics Server
+
+O HPA (Horizontal Pod Autoscaler) **requer** o Metrics Server para funcionar. Instale antes de fazer o deploy:
+
+### Verificar se já está instalado
+
+```powershell
+# Verificar deployment do Metrics Server
+kubectl get deployment metrics-server -n kube-system
+
+# Testar se está funcionando
+kubectl top nodes
+```
+
+### Instalar Metrics Server (se necessário)
+
+```powershell
+# Instalar Metrics Server (versão oficial mais recente)
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+# ⚠️ APENAS para ambientes locais (Kind/Docker Desktop)
+# Adicionar flag --kubelet-insecure-tls (NÃO use em produção!)
+kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+
+# Aguardar deployment estar pronto
+kubectl wait --for=condition=available --timeout=120s deployment/metrics-server -n kube-system
+
+# Verificar funcionamento
+kubectl top nodes
+kubectl top pods -n kube-system
+```
+
+**⚠️ Nota de Segurança:**
+- O flag `--kubelet-insecure-tls` desabilita verificação de certificados TLS
+- **Use APENAS em ambientes locais** (Kind, Minikube, Docker Desktop)
+- **NUNCA use em produção** - configure certificados adequados
+
+**✅ Metrics Server instalado quando:** `kubectl top nodes` mostra uso de CPU/memória.
+
+---
+
+## 🚀 Uso Rápido
+
+### Deploy Super Mario 🍄
+
+```powershell
+# 1. Criar namespace
+kubectl create namespace games
+
+# 2. Carregar imagem Docker no Kind
+kind load docker-image pengbai/docker-supermario:latest --name k8s-essentials
+
+# Alternativa: Acessar worker node e puxar imagem manualmente
+docker exec -it k8s-essentials-worker bash
+ctr -n k8s.io images pull docker.io/pengbai/docker-supermario:latest
+
+# 3. Aplicar manifestos
+kubectl apply -f manifests/01-deployment-mario.yaml
+kubectl apply -f manifests/02-service-mario.yaml
+kubectl apply -f manifests/03-hpa.yaml
+
+# 4. Verificar
+kubectl get all -n games
+
+# 5. Acessar via port-forward (método profissional)
+kubectl port-forward -n games service/super-mario-service 8080:8080
+
+# 6. Abrir no navegador
+Start-Process "http://localhost:8080"
+```
+
+### 💡 Por que Port-Forward?
+
+| Benefício | Descrição |
+|-----------|-----------|
+| 🔒 Segurança | Não expõe portas publicamente |
+| 🏢 Profissional | Método usado em produção |
+| 🎯 Aprendizado | Boas práticas desde o início |
+| 🌐 Flexibilidade | Funciona em qualquer ambiente |
+| 🔧 Debugging | Facilita troubleshooting |
+
+---
+
+## 📖 Detalhamento dos Manifestos
+
+### 01-deployment-mario.yaml
+
+**Características principais:**
+
+- **Réplicas:** 2 (estado inicial)
+- **Imagem:** `pengbai/docker-supermario:latest`
+- **Recursos:**
+  - Request: 100m CPU, 256Mi RAM
+  - Limit: 500m CPU, 512Mi RAM
+- **Health Checks:**
+  - Liveness Probe: HTTP GET / (porta 8080) a cada 10s
+  - Readiness Probe: HTTP GET / (porta 8080) a cada 5s
+
+**Por que esses valores?**
+
+| Configuração | Valor | Motivo |
+|--------------|-------|--------|
+| `replicas: 2` | 2 pods | Garante HA básica + demonstra load balancing |
+| `cpu: 100m` | 100 milicores | Tomcat precisa de recursos adequados |
+| `memory: 256Mi` | 256 MiB | Servidor Java requer memória suficiente |
+| `limits.cpu: 500m` | 500 milicores | Headroom para picos de carga |
+| `limits.memory: 512Mi` | 512 MiB | Previne OOM (Out of Memory) |
+
+**Comandos úteis:**
+
+```powershell
+# Ver detalhes do deployment
+kubectl describe deployment super-mario -n games
+
+# Ver histórico de rollout
+kubectl rollout history deployment/super-mario -n games
+
+# Escalar manualmente
+kubectl scale deployment super-mario --replicas=5 -n games
+
+# Ver eventos relacionados
+kubectl get events -n games | Select-String "super-mario"
+```
+
+### 02-service-mario.yaml
+
+**Características principais:**
+
+- **Tipo:** ClusterIP (acesso interno - melhor prática)
+- **Porta do Service:** 8080
+- **Target Port:** 8080 (porta do container)
+- **Selector:** `app: super-mario`
+- **Acesso:** Via kubectl port-forward
+
+**Por que ClusterIP ao invés de NodePort?**
+
+| Aspecto | ClusterIP + Port-Forward | NodePort |
+|---------|-------------------------|----------|
+| 🔒 Segurança | Não expõe porta publicamente | Expõe porta em todos os nós |
+| 🏢 Produção | Método usado em ambientes reais | Raramente usado em prod |
+| 🎯 Flexibilidade | Qualquer porta local | Porta fixa 30000-32767 |
+| 🔧 Debug | Fácil troubleshooting | Mais complexo |
+
+**Fluxo de tráfego com port-forward:**
+
+```
+Browser (http://localhost:8080)
+    ↓
+kubectl port-forward (túnel seguro)
+    ↓
+Service (porta 8080) no cluster
+    ↓
+Load balancing (round-robin)
+    ↓
+Pods (targetPort 8080)
+    ↓
+Container (porta 8080)
+```
+
+**Comandos úteis:**
+
+```powershell
+# Acessar via port-forward (recomendado)
+kubectl port-forward -n games service/super-mario-service 8080:8080
+
+# Testar acesso interno
+kubectl run -n games test-pod --image=busybox --restart=Never --rm -it -- wget -O- http://super-mario-service:8080
+# Ver endpoints (IPs dos pods)
+kubectl get endpoints super-mario-service -n games
+
+# Descrever service
+kubectl describe service super-mario-service -n games
+```
+
+**Port-forward em background:**
+
+```powershell
+# Executar port-forward em background
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "kubectl port-forward -n games service/super-mario-service 8080:8080"
+
+# Ou criar um alias
+function Start-MarioPortForward {
+    kubectl port-forward -n games service/super-mario-service 8080:8080
+}
+```
+
+### 03-hpa.yaml
+
+**Características principais:**
+
+- **Min réplicas:** 2
+- **Max réplicas:** 10
+- **Métrica:** CPU utilization @ 50%
+- **Scale Up:** Rápido (100% ou +2 pods a cada 15s)
+- **Scale Down:** Gradual (50% a cada 15s após 60s de estabilização)
+
+**Fórmula de scaling:**
+
+```
+desiredReplicas = ⌈currentReplicas × (currentMetric / targetMetric)⌉
+
+Exemplos:
+- 2 pods @ 80% CPU → ⌈2 × (80/50)⌉ = 4 pods
+- 4 pods @ 90% CPU → ⌈4 × (90/50)⌉ = 8 pods
+- 8 pods @ 30% CPU → ⌈8 × (30/50)⌉ = 5 pods (após 60s)
+```
+
+**Comportamentos configurados:**
+
+| Ação | Configuração | Motivo |
+|------|--------------|--------|
+| Scale Up | Imediato (0s window) | Responder rápido à demanda |
+| Scale Up | 100% ou +2 pods | Scaling agressivo |
+| Scale Down | Aguardar 60s | Evitar flapping (oscilações) |
+| Scale Down | 50% por vez | Redução gradual e segura |
+
+**Comandos úteis:**
+
+```powershell
+# Ver status do HPA
+kubectl get hpa -n games
+
+# Monitorar continuamente
+kubectl get hpa -n games --watch
+
+# Ver detalhes e eventos
+kubectl describe hpa super-mario-hpa -n games
+
+# Ver métricas atuais
+kubectl top pods -n games
+
+# Desabilitar HPA temporariamente
+kubectl delete hpa super-mario-hpa -n games
+```
+
+**HPA com múltiplas métricas (exemplo avançado):**
+
+```yaml
+spec:
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+  # HPA escalará quando QUALQUER métrica exceder o limite
+```
+
+## 🔧 Customizações Comuns
+
+### Aumentar recursos para cargas maiores
+
+```yaml
+# 01-deployment-mario.yaml
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+```
+
+### Ajustar limites de auto-scaling
+
+```yaml
+# 03-hpa.yaml
+spec:
+  minReplicas: 3      # Mais HA
+  maxReplicas: 20     # Suporta mais carga
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        averageUtilization: 70  # Mais tolerante
+```
+
+### Usar LoadBalancer (em ambientes cloud)
+
+```yaml
+# 02-service-mario.yaml (para ambientes cloud)
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8080
+  # Automaticamente provisiona um LB externo
+```
+
+**Nota:** ClusterIP + port-forward é recomendado para desenvolvimento local.
+
+## 🧪 Testes de Validação
+
+### Validar sintaxe YAML
+
+```powershell
+# Validar sem aplicar
+kubectl apply -f manifests/01-deployment-mario.yaml --dry-run=client -o yaml
+
+# Validar com server-side
+kubectl apply -f manifests/01-deployment-mario.yaml --dry-run=server
+```
+
+### Testar deployment isoladamente
+
+```powershell
+# Aplicar apenas deployment
+kubectl apply -f manifests/01-deployment-mario.yaml
+
+# Aguardar rollout completar
+kubectl rollout status deployment/super-mario -n games
+
+# Verificar pods
+kubectl get pods -n games
+```
+
+### Testar service com port-forward
+
+```powershell
+# Aplicar service
+kubectl apply -f manifests/02-service-mario.yaml
+
+# Port-forward para teste local (método recomendado)
+kubectl port-forward -n games service/super-mario-service 8080:8080
+
+# Abrir no navegador
+Start-Process "http://localhost:8080"
+```
+
+### Testar HPA
+
+```powershell
+# Aplicar HPA
+kubectl apply -f manifests/03-hpa.yaml
+
+# Aguardar métricas (1-2 minutos)
+Start-Sleep -Seconds 120
+
+# Verificar
+kubectl get hpa -n games
+```
+
+## 📊 Monitoramento e Observabilidade
+
+### Logs
+
+```powershell
+# Logs de um pod específico
+kubectl logs -n games <pod-name>
+
+# Logs de todos os pods do deployment
+kubectl logs -n games -l app=super-mario --all-containers=true
+
+# Seguir logs em tempo real
+kubectl logs -n games -l app=super-mario -f
+```
+
+### Eventos
+
+```powershell
+# Eventos do namespace
+kubectl get events -n games --sort-by='.lastTimestamp'
+
+# Eventos de um recurso específico
+kubectl describe deployment super-mario -n games | Select-String "Events:" -A 20
+```
+
+### Métricas
+
+```powershell
+# CPU e memória dos pods
+kubectl top pods -n games
+
+# CPU e memória dos nós
+kubectl top nodes
+
+# Uso detalhado
+kubectl describe node <node-name>
+```
+
+---
+
+**Dica:** Use `kubectl port-forward` para acesso seguro aos serviços durante desenvolvimento!
+
+---
+
+## 🔥 Teste de Stress com Polinux
+
+Esta seção ensina como usar pods Polinux para gerar carga e testar o auto-scaling (HPA) em ação.
+
+### O que é Fortio?
+
+Fortio é uma ferramenta de teste de carga HTTP desenvolvida pela comunidade Istio, perfeita para:
+- 🔥 Testes de carga HTTP de alta performance
+- 📊 Geração de métricas detalhadas
+- 🎯 Controle preciso de QPS (queries per second) e concorrência
+- ✅ Amplamente usado em ambientes Kubernetes
+
+### 🚀 Uso Rápido
+
+#### 1. Aplicar o manifesto de stress test
+
+```bash
+# Baixar a imagem Fortio
+docker pull fortio/fortio:latest
+
+# Carregar no cluster Kind
+kind load docker-image fortio/fortio:latest --name k8s-essentials
+
+# Alternativa: Acessar worker node e puxar imagem manualmente
+docker exec -it k8s-essentials-worker bash
+ctr -n k8s.io images pull docker.io/fortio/fortio:latest
+exit
+
+# Aplicar pods de teste
+kubectl apply -f manifests/04-stress-test-fortio.yaml
+
+# Verificar se os pods foram criados
+kubectl get pods -n games -l tool=fortio
+```
+
+Você terá dois pods:
+- **fortio-stress-test**: Gera carga automática de alta intensidade (50 conexões, 10 min)
+- **fortio-interactive**: Pod interativo para testes manuais personalizados
+
+#### 2. Monitorar o HPA em ação
+
+Abra **3 terminais** diferentes para monitorar simultaneamente:
+
+**Terminal 1 - Monitorar HPA:**
+```powershell
+kubectl get hpa -n games --watch
+```
+
+**O que observar:**
+- `TARGETS`: Uso atual de CPU (ex: 85%/50%)
+- `REPLICAS`: Número de pods ativos
+- Quando CPU > 50%, HPA aumenta réplicas
+
+**Terminal 2 - Monitorar Pods:**
+```powershell
+kubectl get pods -n games -l app=super-mario --watch
+```
+
+**O que observar:**
+- Novos pods sendo criados quando CPU > 50%
+- Status: `Pending → ContainerCreating → Running`
+- Pods sendo terminados quando carga diminui
+
+**Terminal 3 - Monitorar Métricas:**
+```bash
+# Ver métricas de CPU/Memória
+kubectl top pods -n games -l app=super-mario
+```
+
+#### 3. Ver logs do stress test
+
+```bash
+# Ver logs em tempo real do stress test
+kubectl logs -n games fortio-stress-test -f
+```
+
+### 📊 Monitoramento em Tempo Real
+
+#### Monitoramento Contínuo
+
+Use múltiplos terminais com comandos `--watch`:
+
+```bash
+# Terminal 1 - Monitorar HPA
+kubectl get hpa -n games --watch
+
+# Terminal 2 - Monitorar pods
+kubectl get pods -n games -l app=super-mario --watch
+
+# Ver status do stress test
+kubectl get pods -n games -l app=stress-test
+```
+
+### 🎯 Cenário de Teste Completo
+
+#### Timeline Esperada (10-12 minutos)
+
+```
+00:00 - ✅ Teste de stress inicia
+00:30 - 📈 CPU começa a subir (20% → 60%)
+00:45 - 🚀 HPA detecta necessidade de escalar
+01:00 - 🔢 Novos pods são criados (2 → 4 pods)
+01:30 - ✅ Pods adicionais ficam Running
+02:00 - 📊 Carga é distribuída, CPU estabiliza ~50%
+03:00 - 📈 Se carga continua alta, escala mais (4 → 6 → 8)
+...
+10:00 - ⏹️  Stress test termina (timeout 600s)
+10:30 - 📉 CPU cai para 10-20%
+11:00 - ⏸️  HPA aguarda 60s (stabilizationWindow)
+11:30 - 📉 HPA inicia scale down gradual (8 → 6 → 4 → 2)
+12:00 - ✅ Volta ao mínimo de 2 réplicas
+```
+
+### 🔧 Uso Avançado
+
+#### Pod Interativo para Debugging
+
+```bash
+# Acessar shell do pod interativo
+kubectl exec -it fortio-interactive -n games -- /bin/sh
+
+# Dentro do pod, você pode:
+
+# 1. Teste básico (100 requisições, 10 concorrentes)
+fortio load -c 10 -n 100 http://super-mario-service:8080/
+
+# 2. Teste de stress moderado (30 segundos, 50 conexões)
+fortio load -c 50 -qps 0 -t 30s http://super-mario-service:8080/
+
+# 3. Teste customizado com QPS específico (200 QPS)
+fortio load -c 20 -qps 200 -t 1m http://super-mario-service:8080/
+
+# 4. Curl simples para testar conectividade
+fortio curl http://super-mario-service:8080/
+```
+
+#### Customizar Intensidade do Stress
+
+Edite `manifests/04-stress-test-fortio.yaml` ou crie pods manualmente:
+
+```bash
+# Parâmetros do Fortio:
+# -c  = Número de conexões concorrentes
+# -qps = Queries per second (0 = ilimitado)
+# -t  = Duração do teste
+
+# Exemplos de intensidade:
+
+# 🔥 Stress leve (20 conexões, 100 QPS)
+kubectl run stress-light -n games --image=fortio/fortio --restart=Never -- \
+  load -c 20 -qps 100 -t 5m http://super-mario-service:8080/
+
+# 🔥🔥 Stress moderado (50 conexões, sem limite QPS)
+kubectl run stress-medium -n games --image=fortio/fortio --restart=Never -- \
+  load -c 50 -qps 0 -t 5m http://super-mario-service:8080/
+
+# 🔥🔥🔥 Stress intenso (100 conexões, sem limite QPS)
+kubectl run stress-heavy -n games --image=fortio/fortio --restart=Never -- \
+  load -c 100 -qps 0 -t 5m http://super-mario-service:8080/
+```
+
+#### Múltiplos Pods de Stress
+
+Para stress distribuído mais intenso, crie pods manualmente:
+
+```bash
+# Criar múltiplos pods de stress
+kubectl run stress-1 -n games --image=fortio/fortio --restart=Never -- \
+  load -c 50 -qps 0 -t 10m http://super-mario-service:8080/
+
+kubectl run stress-2 -n games --image=fortio/fortio --restart=Never -- \
+  load -c 50 -qps 0 -t 10m http://super-mario-service:8080/
+
+kubectl run stress-3 -n games --image=fortio/fortio --restart=Never -- \
+  load -c 50 -qps 0 -t 10m http://super-mario-service:8080/
+
+# Verificar pods de stress
+kubectl get pods -n games | grep stress
+
+# Limpar depois
+kubectl delete pod stress-1 stress-2 stress-3 -n games
+```
+
+### 📋 Comandos Úteis de Monitoramento
+
+```bash
+# Ver eventos do namespace (útil para troubleshooting)
+kubectl get events -n games --sort-by='.lastTimestamp'
+
+# Ver detalhes do HPA
+kubectl describe hpa super-mario-hpa -n games
+
+# Métricas detalhadas de um pod
+kubectl top pod <pod-name> -n games --containers
+
+# Ver histórico de scaling
+kubectl describe hpa super-mario-hpa -n games | Select-String -Pattern "ScalingReplicaSet|SuccessfulRescale"
+```
+
+### 🧹 Limpeza
+
+```powershell
+### Remover recursos individualmente
+kubectl delete -f manifests/04-stress-test-fortio.yaml
+kubectl delete -f manifests/03-hpa.yaml
+kubectl delete -f manifests/02-service-mario.yaml
+kubectl delete -f manifests/01-deployment-mario.yaml
+```
+
+### Remover tudo de uma vez
+
+```powershell
+kubectl delete -f manifests/
+
+# OU deletar o namespace inteiro
+kubectl delete namespace games
+
+# Aguardar scale down automático (1-2 minutos)
+# OU forçar reset manual para 2 réplicas
+kubectl scale deployment super-mario -n games --replicas=2
+```
+
+### 📝 Comparação: Métodos de Stress Test
+
+| Método | Complexidade | Intensidade | Controle | Uso |
+|--------|--------------|-------------|----------|-----|
+| **Fortio** | Baixa | Muito Alta | Excelente | ⭐ Recomendado - Profissional |
+| **Apache Bench (ab)** | Baixa | Alta | Médio | Testes rápidos simples |
+| **Busybox (wget loop)** | Muito baixa | Média | Baixo | Testes básicos |
+| **Múltiplos pods** | Média | Variável | Alto | Stress distribuído |
+
+**Recomendação:** Use **Fortio** - é a ferramenta profissional usada pela comunidade Istio/Kubernetes! 🚀
+
+---
+
+## 📚 Recursos Adicionais
+
+### Documentação Oficial
+
+- [Kubernetes Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) - Documentação oficial sobre Deployments
+- [Kubernetes Services](https://kubernetes.io/docs/concepts/services-networking/service/) - Guia completo de Services
+- [Horizontal Pod Autoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) - HPA walkthrough oficial
+- [Port Forwarding](https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/) - Guia de port-forward
+- [Metrics Server](https://github.com/kubernetes-sigs/metrics-server) - Repositório oficial do Metrics Server
+
+### Arquivos do Módulo
+
+- 📖 [README.md](./README.md) - Este arquivo (guia completo)
+- ⚡ [QUICK-START.md](./QUICK-START.md) - Guia de início rápido
+- 🧪 [Lab Completo](./laboratorios/lab-completo-resiliencia.md) - Laboratório hands-on
+- 📋 [Manifestos](./manifests/README.md) - Documentação dos manifestos
+- 🔥 [Stress Test Guide](./manifests/STRESS-TEST-GUIDE.md) - Guia detalhado de testes
+
+### 🤝 Suporte e Troubleshooting
+
+#### Problemas Comuns
+
+| Problema | Solução |
+|----------|---------|
+| Pods em `CrashLoopBackOff` | Aumente recursos (CPU/memória) no deployment |
+| HPA mostra `<unknown>` | Aguarde 1-2 minutos para métricas serem coletadas |
+| Metrics Server não funciona | Adicione flag `--kubelet-insecure-tls` (apenas local) |
+| Port-forward falha | Verifique se o pod está `Running` e na porta correta |
+| Imagem não encontrada | Execute `kind load docker-image` ou mude `imagePullPolicy` |
+
+#### Comandos de Debug
+
+```powershell
+# Ver logs de um pod
+kubectl logs -n games <pod-name>
+
+# Descrever pod (ver eventos e status)
+kubectl describe pod -n games <pod-name>
+
+# Ver todos os eventos do namespace
+kubectl get events -n games --sort-by='.lastTimestamp'
+
+# Verificar recursos de um pod
+kubectl top pod -n games <pod-name>
+
+# Entrar no shell de um pod
+kubectl exec -it -n games <pod-name> -- /bin/sh
+
+# Ver configuração do HPA
+kubectl get hpa -n games -o yaml
+
+# Verificar endpoints do service
+kubectl get endpoints -n games super-mario-service
+```
+
+#### Resetar Ambiente
+
+```powershell
+# Deletar namespace (remove tudo)
+kubectl delete namespace games
+
+# Recriar do zero
+kubectl create namespace games
+kubectl apply -f manifests/
+
+# OU deletar cluster e começar novamente
+kind delete cluster --name k8s-essentials
+.\scripts\setup-cluster.ps1
+```
+
+---
+
+## 🎓 Conclusão
+
+Parabéns! Ao completar este módulo, você:
+
+✅ **Deployou** uma aplicação real no Kubernetes  
+✅ **Configurou** auto-healing e auto-scaling  
+✅ **Testou** resiliência em cenários práticos  
+✅ **Monitorou** métricas e recursos em tempo real  
+✅ **Aplicou** boas práticas de produção (port-forward, ClusterIP)  
+✅ **Ganhou** experiência hands-on valiosa para o mercado  
+
+### 💡 Principais Aprendizados
+
+1. **Auto-Healing** garante alta disponibilidade sem intervenção manual
+2. **Auto-Scaling** otimiza recursos baseado em demanda real
+3. **Port-Forward** é o método profissional para acessar serviços
+4. **Metrics Server** é essencial para HPA funcionar
+5. **Health Probes** garantem que apenas pods saudáveis recebam tráfego
+
+### 🚀 Você Está Pronto Para
+
+- Fazer deploys em ambientes de produção
+- Configurar aplicações resilientes e escaláveis
+- Troubleshooting de problemas em clusters Kubernetes
+- Demonstrar conhecimento prático em entrevistas
+- Contribuir em projetos DevOps reais
+
+---
+
+**🎮 Continue Praticando:** Jogue um pouco de Super Mario enquanto observa o Kubernetes gerenciando os pods. É isso que fazemos na vida real - criamos sistemas que funcionam sozinhos! 🍄
+
+**📖 Próximo Módulo:** [Módulo 03 - Ingress Controllers](#) *(em breve)*
+
+---
+
+<div align="center">
+
+**Feito com ❤️ para estudantes e profissionais de Kubernetes**
+
+[⬆️ Voltar ao topo](#-módulo-02-deploy-de-aplicação-e-resiliência-no-kubernetes)
+
+</div>

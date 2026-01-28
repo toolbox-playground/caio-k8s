@@ -765,11 +765,13 @@ kubectl describe pod <pod-name> -n games
 ### Load test não gera carga suficiente
 
 **Solução:**
-```powershell
-# Aumentar número de geradores
-for ($i=1; $i -le 10; $i++) {
-    kubectl run -n games "load-gen-$i" --image=busybox --restart=Never -- /bin/sh -c "while true; do wget -q -O- http://game-2048-service; done"
-}
+```bash
+# Criar múltiplos geradores de carga manualmente
+kubectl run -n games load-gen-1 --image=busybox --restart=Never -- /bin/sh -c "while true; do wget -q -O- http://game-2048-service; done"
+kubectl run -n games load-gen-2 --image=busybox --restart=Never -- /bin/sh -c "while true; do wget -q -O- http://game-2048-service; done"
+kubectl run -n games load-gen-3 --image=busybox --restart=Never -- /bin/sh -c "while true; do wget -q -O- http://game-2048-service; done"
+
+# Repita conforme necessário para aumentar a carga
 ```
 
 ---

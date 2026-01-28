@@ -8,54 +8,89 @@ Um curso completo sobre **Deploy de Aplicações e Resiliência no Kubernetes** 
 - ✅ README principal com conceitos de auto-healing e auto-scaling
 - ✅ Laboratório hands-on completo (1h15min)
 - ✅ Documentação detalhada dos manifestos
-- ✅ Guia completo dos scripts de automação
+- ✅ Guia completo de testes de stress
 - ✅ Boas práticas com port-forward
 
 ### 🔧 Recursos Práticos
 - ✅ Manifestos Kubernetes para Super Mario
-- ✅ Scripts PowerShell de automação
-- ✅ Configuração completa de metrics server
+- ✅ Configuração completa de Metrics Server
 - ✅ HPA (Horizontal Pod Autoscaler)
+- ✅ Pods de stress test com Polinux
 
 ---
 
 ## 🚀 Como Usar
 
-### Opção 1: Execução Rápida com Super Mario (15 minutos) 🍄
+### Deploy Passo a Passo do Super Mario (15 minutos) 🍄
 
 ```powershell
-# Navegue até a pasta de scripts
-cd curso-k8s\modulo-02-deploy-app\scripts
-
 # 1. Criar cluster (3-5 min)
-.\setup-cluster.ps1
+kind create cluster --name k8s-essentials
 
-# 2. Deploy do Super Mario
+# 2. Instalar Metrics Server
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+# Patch para ambientes locais
+kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+
+# Aguardar estar pronto
+kubectl wait --for=condition=available --timeout=120s deployment/metrics-server -n kube-system
+
+# 3. Deploy do Super Mario
 kubectl create namespace games
-kubectl apply -f ..\manifests\01-deployment-mario.yaml
-kubectl apply -f ..\manifests\02-service-mario.yaml
-kubectl apply -f ..\manifests\03-hpa.yaml
+kubectl apply -f manifests/01-deployment-mario.yaml
+kubectl apply -f manifests/02-service-mario.yaml
+kubectl apply -f manifests/03-hpa.yaml
 
-# 3. Acessar via port-forward (boas práticas!)
-kubectl port-forward -n games service/super-mario-service 8080:80
+# 4. Aguardar pods ficarem prontos
+kubectl wait --for=condition=ready pod -l app=super-mario -n games --timeout=120s
 
-# 4. Abrir no navegador
+# 5. Acessar via port-forward (boas práticas!)
+kubectl port-forward -n games service/super-mario-service 8080:8080
+
+# Em outro terminal, abra o navegador
 Start-Process "http://localhost:8080"
-
-# Em outro terminal:
-# 5. Testar auto-healing (2-3 min)
-.\test-autoheal.ps1
-
-# 6. Testar auto-scaling (5-10 min)
-.\load-test.ps1
 ```
 
-### Opção 2: Laboratório Completo (1h15min)
+### Testar Auto-Healing (5 minutos)
 
 ```powershell
-# Abra o laboratório hands-on
-cd curso-k8s\modulo-02-deploy-app\laboratorios
-code lab-completo-resiliencia.md
+# 1. Ver pods rodando
+kubectl get pods -n games
+
+# 2. Deletar um pod
+kubectl delete pod <pod-name> -n games
+
+# 3. Observar novo pod sendo criado automaticamente
+kubectl get pods -n games --watch
+```
+
+### Testar Auto-Scaling com HPA (10 minutos)
+
+```powershell
+# 1. Aplicar pod de stress test
+kubectl apply -f manifests/04-stress-test-fortio.yaml
+
+# 2. Em terminal separado, monitorar HPA
+kubectl get hpa -n games --watch
+
+# 3. Em outro terminal, monitorar pods
+kubectl get pods -n games --watch
+
+# 4. Observar pods sendo criados conforme CPU aumenta
+kubectl top pods -n games
+
+# 5. Após 10 min, limpar teste
+kubectl delete -f manifests/04-stress-test-fortio.yaml
+```
+
+### Laboratório Completo (1h15min)
+
+Para experiência completa de aprendizado:
+
+```powershell
+# Abrir o laboratório hands-on
+code laboratorios/lab-completo-resiliencia.md
 
 # Siga passo a passo:
 # 1. Setup do Cluster (15 min)
@@ -72,19 +107,16 @@ code lab-completo-resiliencia.md
 ```
 curso-k8s/modulo-02-deploy-app/
 ├── README.md                          # Visão geral e conceitos
+├── QUICK-START.md                     # Este arquivo
 ├── laboratorios/
 │   └── lab-completo-resiliencia.md   # Lab hands-on passo-a-passo
-├── manifests/
-│   ├── 01-deployment-mario.yaml       # Deployment do Super Mario
-│   ├── 02-service-mario.yaml          # Service ClusterIP
-│   ├── 03-hpa.yaml                    # Horizontal Pod Autoscaler
-│   └── README.md                      # Documentação dos manifestos
-└── scripts/
-    ├── setup-cluster.ps1              # Cria cluster + metrics server
-    ├── deploy-app.ps1                 # Deploy completo da app
-    ├── test-autoheal.ps1              # Testa auto-healing
-    ├── load-test.ps1                  # Gera carga para HPA
-    └── README.md                      # Guia dos scripts
+└── manifests/
+    ├── 01-deployment-mario.yaml       # Deployment do Super Mario
+    ├── 02-service-mario.yaml          # Service ClusterIP
+    ├── 03-hpa.yaml                    # Horizontal Pod Autoscaler
+    ├── 04-stress-test-fortio.yaml     # Pods de stress test (Fortio)
+    ├── README.md                      # Documentação dos manifestos
+    └── STRESS-TEST-GUIDE.md          # Guia de testes de stress
 ```
 
 ---
@@ -102,7 +134,7 @@ curso-k8s/modulo-02-deploy-app/
 ### Habilidades Práticas
 
 - ✅ Deploy de aplicações containerizadas
-- ✅ Exposição de serviços via NodePort
+- ✅ Exposição de serviços via port-forward (ClusterIP)
 - ✅ Configuração de health checks
 - ✅ Setup de Metrics Server
 - ✅ Configuração de HPA
@@ -122,12 +154,12 @@ curso-k8s/modulo-02-deploy-app/
 - ✅ Stateless (perfeito para demonstrar resiliência)
 - ✅ Fácil de gerar carga
 - ✅ Múltiplas réplicas funcionam perfeitamente
-- ✅ Acesso via port-forward (boas práticas)
+- ✅ Acesso via port-forward (boas práticas de produção)
 
 ### Cenários Demonstrados
 
 1. **Deploy Inicial**: 2 réplicas rodando
-2. **Port-Forward**: Acesso seguro ao serviço
+2. **Port-Forward**: Acesso seguro ao serviço (método profissional)
 3. **Auto-Healing**: Deletar pod → recuperação automática em ~10s
 4. **High Load**: Gerar carga → HPA escala de 2 para 6-10 pods
 5. **Scale Down**: Remover carga → HPA reduz para 2 pods gradualmente
@@ -143,16 +175,7 @@ curso-k8s/modulo-02-deploy-app/
 | [README.md](README.md) | Conceitos, arquitetura, guia do módulo |
 | [lab-completo-resiliencia.md](laboratorios/lab-completo-resiliencia.md) | Lab passo-a-passo de 1h15min |
 | [manifests/README.md](manifests/README.md) | Explicação detalhada dos YAMLs |
-| [scripts/README.md](scripts/README.md) | Guia completo dos scripts |
-
-### Scripts de Automação
-
-| Script | Função | Tempo |
-|--------|--------|-------|
-| `setup-cluster.ps1` | Cria cluster + metrics server | 3-5 min |
-| `deploy-app.ps1` | Deploy completo | 1-2 min |
-| `test-autoheal.ps1` | Demonstra auto-healing | 2-3 min |
-| `load-test.ps1` | Testa auto-scaling | 5-10 min |
+| [STRESS-TEST-GUIDE.md](manifests/STRESS-TEST-GUIDE.md) | Guia completo de testes de stress |
 
 ---
 
@@ -170,83 +193,96 @@ kubectl get hpa -n games --watch
 kubectl get pods -n games --watch
 
 # Terminal 3 - Métricas
-while ($true) {
-    Clear-Host
-    kubectl top pods -n games
-    Start-Sleep -Seconds 5
-}
+kubectl top pods -n games --watch
 ```
 
 ---
 
-## 🧪 Testes Incluídos
+## 🧪 Testes Manuais
 
 ### Teste de Auto-Healing
 
-**O que faz:**
-- Deleta pods aleatoriamente
-- Mede tempo de recuperação
-- Valida que estado desejado é restaurado
+**Procedimento:**
+1. Ver pods rodando: `kubectl get pods -n games`
+2. Deletar um pod: `kubectl delete pod <pod-name> -n games`
+3. Observar recuperação: `kubectl get pods -n games --watch`
 
 **Resultado esperado:**
-- Pod deletado → novo pod criado em ~10s
+- Pod deletado → novo pod criado em ~10-30s
 - Zero downtime (Service continua funcionando)
+- Estado desejado é restaurado automaticamente
 
 ### Teste de Auto-Scaling
 
-**O que faz:**
-- Cria 5 pods geradores de carga (wget loop)
-- Monitora CPU e scaling
-- Aguarda 5 minutos
-- Para carga e observa scale down
+**Procedimento:**
+1. Aplicar stress test: `kubectl apply -f manifests/04-stress-test-fortio.yaml`
+2. Monitorar HPA: `kubectl get hpa -n games --watch`
+3. Monitorar pods: `kubectl get pods -n games --watch`
+4. Ver métricas: `kubectl top pods -n games`
 
-**Resultado esperado:**
+**Timeline esperada:**
 ```
-Tempo 0s:   2 pods @ 5% CPU
-Tempo 30s:  2 pods @ 80% CPU → HPA detecta
-Tempo 45s:  4 pods @ 50% CPU → Scaled up
-Tempo 60s:  6-8 pods @ 40% CPU → Scaled up novamente
-Tempo 300s: Carga removida
-Tempo 360s: 4 pods → Scale down gradual
-Tempo 420s: 2 pods → Voltou ao mínimo
+Tempo 0s:   2 pods @ 5% CPU (estado inicial)
+Tempo 30s:  2 pods @ 70% CPU → HPA detecta necessidade
+Tempo 60s:  4 pods @ 45% CPU → Scaled up
+Tempo 90s:  6-8 pods @ 35% CPU → Scaled up novamente
+Tempo 600s: Teste termina automaticamente (timeout)
+Tempo 660s: 4 pods → Scale down gradual inicia
+Tempo 720s: 2 pods → Voltou ao mínimo
+```
+
+**Limpeza:**
+```powershell
+kubectl delete -f manifests/04-stress-test-fortio.yaml
 ```
 
 ---
 
 ## 💡 Dicas de Uso
 
-### Para Demonstrações (10-15 min)
+### Para Demonstrações Rápidas (10-15 min)
 
 ```powershell
-# Setup rápido
-.\setup-cluster.ps1
-.\deploy-app.ps1
+# 1. Setup
+kind create cluster --name k8s-demo
 
-# Abrir no navegador e jogar
-Start-Process "http://localhost:30080"
+# 2. Metrics Server
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
 
-# Demonstrar auto-healing
-kubectl delete pod -n games $(kubectl get pods -n games -o name | Select-Object -First 1)
+# 3. Deploy
+kubectl create namespace games
+kubectl apply -f manifests/
+
+# 4. Port-forward em uma janela separada
+kubectl port-forward -n games service/super-mario-service 8080:8080
+
+# 5. Abrir navegador
+Start-Process "http://localhost:8080"
+
+# 6. Demonstrar auto-healing
+kubectl delete pod -n games (kubectl get pods -n games -o name | Select-Object -First 1)
 kubectl get pods -n games --watch
 ```
 
-### Para Workshops/Treinamento (1 hora)
+### Para Workshops/Treinamento (1h15min)
 
 Siga o laboratório completo em:
-[laboratorios/lab-completo-resiliencia.md](laboratorios/lab-completo-resiliencia.md)
+📖 [laboratorios/lab-completo-resiliencia.md](laboratorios/lab-completo-resiliencia.md)
 
 ### Para Experimentação
 
 ```powershell
-# Modificar manifestos
-code manifests\03-hpa.yaml
-# Alterar minReplicas, maxReplicas, averageUtilization
+# Modificar configurações do HPA
+code manifests/03-hpa.yaml
+# Alterar: minReplicas, maxReplicas, averageUtilization
 
-# Redeploy
-kubectl apply -f manifests\03-hpa.yaml
+# Reaplicar
+kubectl apply -f manifests/03-hpa.yaml
 
 # Testar mudanças
-.\load-test.ps1 -LoadGenerators 10
+kubectl apply -f manifests/04-stress-test-fortio.yaml
+kubectl get hpa -n games --watch
 ```
 
 ---
@@ -262,7 +298,7 @@ kubectl delete namespace games
 ### Remover cluster completo
 
 ```powershell
-kind delete cluster --name lab-resiliencia
+kind delete cluster --name k8s-essentials
 ```
 
 ---
@@ -271,20 +307,10 @@ kind delete cluster --name lab-resiliencia
 
 Após completar este módulo:
 
-1. **Revisar conceitos**: Reconciliation loop, HPA algorithm
+1. **Revisar conceitos**: Reconciliation loop, HPA algorithm, ClusterIP vs NodePort
 2. **Experimentar**: Modificar configurações e observar resultados
-3. **Avançar**: Módulos futuros sobre persistência, networking, observabilidade
-
----
-
-## 🤝 Contribuindo
-
-Encontrou algo para melhorar?
-- 📝 Correções de documentação
-- 🐛 Bugs em scripts
-- 💡 Sugestões de novos labs
-
-Abra uma issue ou PR!
+3. **Praticar**: Tentar com suas próprias aplicações
+4. **Avançar**: Módulos futuros sobre persistência, networking, observabilidade
 
 ---
 
@@ -296,6 +322,7 @@ Abra uma issue ou PR!
 - [Kubernetes Services](https://kubernetes.io/docs/concepts/services-networking/service/)
 - [Horizontal Pod Autoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
 - [Metrics Server](https://github.com/kubernetes-sigs/metrics-server)
+- [Port Forwarding](https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/)
 
 ### Tutoriais Relacionados
 
@@ -310,6 +337,15 @@ Abra uma issue ou PR!
 Você completou o módulo quando:
 
 - [ ] Criou cluster Kind com Metrics Server
+- [ ] Fez deploy do Super Mario
+- [ ] Acessou via port-forward (método profissional)
+- [ ] Testou auto-healing deletando pods
+- [ ] Configurou HPA
+- [ ] Gerou carga e observou auto-scaling
+- [ ] Observou scale down após remover carga
+- [ ] Entendeu conceitos de resiliência e elasticidade
+
+**🎉 Parabéns! Você dominou auto-healing e auto-scaling no Kubernetes!**
 - [ ] Fez deploy da aplicação 2048
 - [ ] Acessou e jogou o 2048 no navegador
 - [ ] Testou auto-healing deletando pods

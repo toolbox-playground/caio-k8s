@@ -117,46 +117,32 @@ Vá além da criação de clusters! Faça deploy de aplicações reais (**jogos 
 - 🚀 [Lab Completo: Deploy, Auto-Healing e Auto-Scaling](./curso-k8s/modulo-02-deploy-app/laboratorios/lab-completo-resiliencia.md)
 
 **Destaques do módulo:**
-- 🎮 **Aplicação real**: Escolha entre Super Mario ou jogo 2048!
+- 🎮 **Aplicação real**: Super Mario rodando em Kubernetes!
 - 🔧 **Auto-healing**: Delete pods e veja a recuperação automática
 - 📈 **Auto-scaling**: Gere carga e observe o scaling em tempo real
 - 📊 **Metrics Server**: Configuração e uso de métricas
-- 🤖 **Scripts de automação**: PowerShell para setup e testes
+- 🔥 **Testes de stress**: Use Polinux para gerar carga
 
 **Início rápido com Super Mario:**
 ```powershell
-cd curso-k8s\modulo-02-deploy-app\scripts
+# 1. Criar cluster local com Kind
+kind create cluster --name k8s-essentials
 
-# 1. Criar cluster
-.\setup-cluster.ps1
+# 2. Instalar Metrics Server
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
 
-# 2. Deploy do Super Mario
+# 3. Deploy do Super Mario
 kubectl create namespace games
-kubectl apply -f ..\manifests\01-deployment-mario.yaml
-kubectl apply -f ..\manifests\02-service-mario.yaml
+kubectl apply -f curso-k8s/modulo-02-deploy-app/manifests/01-deployment-mario.yaml
+kubectl apply -f curso-k8s/modulo-02-deploy-app/manifests/02-service-mario.yaml
+kubectl apply -f curso-k8s/modulo-02-deploy-app/manifests/03-hpa.yaml
 
-# 3. Jogar!
-Start-Process "http://localhost:30090"
+# 4. Acessar via port-forward
+kubectl port-forward -n games service/super-mario-service 8080:8080
 
-# 4. Testar resiliência
-.\test-autoheal.ps1
-```
-
-**Ou use o jogo 2048:**
-```powershell
-cd curso-k8s\modulo-02-deploy-app\scripts
-
-# 1. Criar cluster
-.\setup-cluster.ps1
-
-# 2. Deploy da aplicação
-.\deploy-app.ps1
-
-# 3. Testar auto-healing
-.\test-autoheal.ps1
-
-# 4. Testar auto-scaling
-.\load-test.ps1
+# 5. Abrir no navegador
+Start-Process "http://localhost:8080"
 ```
 
 ---

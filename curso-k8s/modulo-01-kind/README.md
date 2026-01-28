@@ -384,7 +384,7 @@ ports:
 **Cenário B: Teste Rápido**
 ```bash
 # ✅ MELHOR: Port Forward (sem configuração!)
-kubectl port-forward pod/nginx 8080:80
+kubectl port-forward pod/nginx 8080:8080
 # Acessa via localhost:8080
 ```
 
@@ -417,7 +417,7 @@ kubectl get svc nginx-test
 # ⚠️ NodePort NÃO usa as portas extraPortMappings!
 # Acesse via porta do node interno (não funciona diretamente no localhost)
 # Para testar, use port-forward:
-kubectl port-forward svc/nginx-test 8080:80
+kubectl port-forward svc/nginx-test 8080:8080
 
 # Em outro terminal, teste:
 # Linux/macOS
@@ -694,7 +694,7 @@ rm nginx_image.tar
 docker exec -it k8s-essentials-worker bash
 
 # Baixe a imagem diretamente (requer acesso à internet)
-ctr -n k8s.io images pull docker.io/library/nginx:1.27
+ctr -n k8s.io images pull docker.io/library/nginx:latest
 
 # Saia do container
 exit
