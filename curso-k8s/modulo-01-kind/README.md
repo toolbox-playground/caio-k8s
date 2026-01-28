@@ -670,7 +670,6 @@ docker pull nginx:1.27
 kind load docker-image nginx:1.27 --name k8s-essentials
 ```
 **🔧 Solução Alternativa 2 - Use o image-archive**:
-
 ```bash
 # Salva a imagem em um arquivo temporário
 docker save nginx:1.27 -o nginx_image.tar
@@ -680,6 +679,19 @@ kind load image-archive nginx_image.tar --name k8s-essentials
 
 # Limpeza
 rm nginx_image.tar
+```
+
+**🔧 Solução Alternativa 3 - Baixar direto no Cluster**:
+```bash
+# Entre em um dos nodes
+docker exec -it k8s-essentials-worker bash
+
+# Baixe a imagem diretamente (requer acesso à internet)
+ctr -n k8s.io images pull docker.io/library/nginx:1.27
+
+# Saia do container
+exit
+```
 
 **💡 Dicas de Prevenção**:
 - ✅ Use sempre **versões específicas** (ex: `nginx:1.27`) ao invés de `latest`
