@@ -1,3 +1,10 @@
+## 0.4.2 (2026-01-28)
+
+### Refactor
+
+- atualizar configurações de cluster e documentação nos manifests do Kubernetes
+- remover seções de networking do arquivo de configuração do cluster
+
 ## 0.4.1 (2026-01-28)
 
 ### Fix
