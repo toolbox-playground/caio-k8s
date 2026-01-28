@@ -297,7 +297,7 @@ kubectl create namespace games
 kubectl apply -f manifests/01-deployment-mario.yaml
 kubectl apply -f manifests/02-service-mario.yaml
 # Acesse via port-forward (método profissional)
-kubectl port-forward -n games service/super-mario-service 8080:80
+kubectl port-forward -n games service/super-mario-service 8080:8080
 # Abra no navegador: http://localhost:8080
 ```
 

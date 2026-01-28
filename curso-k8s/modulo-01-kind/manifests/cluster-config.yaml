@@ -31,15 +31,15 @@ nodes:
     # Mapeamento de portas extras: Expõe portas do container Docker para o host
     extraPortMappings:
     # Porta 80 → 30080: Para tráfego HTTP (Ingress Controller)
-    - containerPort: 80
+    - containerPort: 8080
       hostPort: 30080
 
-    - containerPort: 8080
-      hostPort: 30081
+    # - containerPort: 8080
+    #   hostPort: 30081
     
-    # Porta 443 → 30443: Para tráfego HTTPS seguro
-    - containerPort: 443
-      hostPort: 30443
+    # # Porta 443 → 30443: Para tráfego HTTPS seguro
+    # - containerPort: 443
+    #   hostPort: 30443
 
   # Node 2 - Worker: Executa cargas de trabalho (pods de aplicações)
   - role: worker

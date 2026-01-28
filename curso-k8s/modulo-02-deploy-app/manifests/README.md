@@ -70,18 +70,25 @@ kubectl top pods -n kube-system
 # 1. Criar namespace
 kubectl create namespace games
 
-# 2. Aplicar manifestos
+# 2. Carregar imagem Docker no Kind
+kind load docker-image pengbai/docker-supermario:latest --name k8s-essentials
+
+# Alternativa: Acessar worker node e puxar imagem manualmente
+docker exec -it k8s-essentials-worker bash
+ctr -n k8s.io images pull docker.io/pengbai/docker-supermario:latest
+
+# 3. Aplicar manifestos
 kubectl apply -f 01-deployment-mario.yaml
 kubectl apply -f 02-service-mario.yaml
 kubectl apply -f 03-hpa.yaml
 
-# 3. Verificar
+# 4. Verificar
 kubectl get all -n games
 
-# 4. Acessar via port-forward (método profissional)
+# 5. Acessar via port-forward (método profissional)
 kubectl port-forward -n games service/super-mario-service 8080:8080
 
-# 5. Abrir no navegador
+# 6. Abrir no navegador
 Start-Process "http://localhost:8080"
 ```
 
