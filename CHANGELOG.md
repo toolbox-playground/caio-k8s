@@ -1,3 +1,9 @@
+## 0.4.0 (2026-01-28)
+
+### Feat
+
+- atualizar configuração do cluster e manifestos para o Super Mario, ajustando portas e recursos
+
 ## 0.3.0 (2026-01-28)
 
 ### Feat
