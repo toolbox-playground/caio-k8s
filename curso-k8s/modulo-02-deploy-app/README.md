@@ -521,6 +521,7 @@ kind load docker-image pengbai/docker-supermario:latest --name k8s-essentials
 # Alternativa: Acessar worker node e puxar imagem manualmente
 docker exec -it k8s-essentials-worker bash
 ctr -n k8s.io images pull docker.io/pengbai/docker-supermario:latest
+exit 
 
 # 3. Aplicar manifestos
 kubectl apply -f manifests/01-deployment-mario.yaml
