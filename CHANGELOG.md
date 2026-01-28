@@ -1,3 +1,9 @@
+## 0.3.0 (2026-01-28)
+
+### Feat
+
+- Refactor deployment to use Super Mario game with port-forwarding
+
 ## 0.2.1 (2026-01-27)
 
 ### Fix
