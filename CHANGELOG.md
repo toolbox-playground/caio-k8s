@@ -1,3 +1,9 @@
+## 0.4.1 (2026-01-28)
+
+### Fix
+
+- adicionar comando de saída após puxar imagem do Super Mario
+
 ## 0.4.0 (2026-01-28)
 
 ### Feat
