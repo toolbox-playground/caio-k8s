@@ -18,6 +18,7 @@ Este curso foi desenvolvido para ensinar **Kubernetes de forma prática**, atrav
 - 🔧 **Local development**: Tudo roda no seu laptop (Kind + Docker)
 - 📊 **Casos reais**: Aplicações e cenários do mundo real
 - 🚀 **Progressivo**: Do básico ao avançado, passo a passo
+- ✋ **100% Manual**: Todos os comandos kubectl executados manualmente para melhor aprendizado
 
 ---
 
@@ -121,7 +122,7 @@ Vá além da criação de clusters! Faça deploy de aplicações reais (**jogos 
 - 🔧 **Auto-healing**: Delete pods e veja a recuperação automática
 - 📈 **Auto-scaling**: Gere carga e observe o scaling em tempo real
 - 📊 **Metrics Server**: Configuração e uso de métricas
-- 🔥 **Testes de stress**: Use Polinux para gerar carga
+- 🔥 **Testes de stress**: Use Fortio para gerar carga profissional
 
 **Início rápido com Super Mario:**
 ```powershell
@@ -190,6 +191,14 @@ Start-Process "http://localhost:8080"
 - **Disco**: 20GB espaço livre
 - **SO**: Windows 10/11, macOS, ou Linux
 
+### 📝 Diferenciais do Curso
+
+- ✅ **YAMLs 100% Comentados**: Todos os manifestos Kubernetes possuem comentários linha por linha explicando cada campo
+- ✅ **Abordagem Manual**: Sem scripts de automação - você executa cada comando kubectl para internalizar
+- ✅ **Ferramentas Profissionais**: Fortio (usado pelo Istio), Metrics Server, Kind
+- ✅ **Documentação Completa**: README.md detalhado + RESUMO.md para consulta rápida
+- ✅ **Casos Reais**: Aplicações web interativas (Super Mario) em vez de exemplos artificiais
+
 ### Verificação Rápida
 
 ```powershell
@@ -247,10 +256,8 @@ cat README.md
 cd laboratorios
 cat lab-completo-resiliencia.md
 
-# Ou use os scripts de automação
-cd ..\scripts
-.\setup-cluster.ps1
-.\deploy-app.ps1
+# Siga os comandos kubectl passo a passo
+# Todos os comandos estão documentados e prontos para uso
 ```
 
 ---
@@ -262,17 +269,16 @@ cd ..\scripts
 ```
 modulo-XX-nome/
 ├── README.md              # Visão geral e conceitos
+├── QUICK-START.md         # Guia de início rápido
 ├── laboratorios/          # Labs hands-on
 │   ├── lab-01-*.md
 │   ├── lab-02-*.md
 │   └── ...
-├── manifests/             # Arquivos YAML Kubernetes
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   └── ...
-└── scripts/               # Scripts de automação
-    ├── setup.ps1
-    └── ...
+└── manifests/             # Arquivos YAML Kubernetes
+    ├── deployment.yaml    # Com comentários explicativos
+    ├── service.yaml       # Linha por linha
+    ├── hpa.yaml           # Totalmente documentado
+    └── README.md          # Guia dos manifestos
 ```
 
 ### Fluxo de Aprendizado Recomendado
@@ -297,9 +303,10 @@ modulo-XX-nome/
 
 - ✅ **Não pule os labs**: A prática é essencial
 - ✅ **Experimente variações**: Modifique configurações e observe resultados
-- ✅ **Use os scripts**: Mas entenda o que eles fazem
+- ✅ **Execute manualmente**: Digite cada comando kubectl para internalizar
+- ✅ **Leia os YAMLs comentados**: Entenda cada linha dos manifestos
 - ✅ **Consulte a documentação oficial**: Links fornecidos em cada módulo
-- ✅ **Anote comandos úteis**: Crie seu próprio cheatsheet
+- ✅ **Anote comandos úteis**: Use o RESUMO.md como referência rápida
 
 ---
 
@@ -343,9 +350,10 @@ Contribuições são bem-vindas! Se você encontrou um erro, tem uma sugestão o
 
 - 📝 Correções de typos e melhorias de documentação
 - 🧪 Novos laboratórios e exercícios
-- 🔧 Scripts de automação
+- � Mais comentários e explicações nos YAMLs
 - 🌐 Traduções para outros idiomas
 - 📊 Diagramas e visualizações
+- 🎮 Mais aplicações de exemplo
 
 ---
 
@@ -412,8 +420,9 @@ Este curso foi inspirado por:
 ```
 Módulos Completos:    ████████░░░░░░  40% (2/5 planejados)
 Labs Disponíveis:     █████░░░░░░░░░  33% (5 labs)
-Scripts de Automação: ████████░░░░░░  50% (4 scripts)
-Jogos Deployáveis:    ██████████████  100% (Super Mario + 2048)
+YAMLs Comentados:     ██████████████  100% (Todos os manifestos)
+Ferramentas:          ██████████████  100% (Fortio, Metrics Server)
+Jogos Deployáveis:    ██████████████  100% (Super Mario)
 ```
 
 ---

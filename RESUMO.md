@@ -399,11 +399,17 @@ kubectl top pods -n games
 
 ### Testar Auto-Scaling
 ```powershell
-# Gerar carga (criar pod que faz requests)
-kubectl run load-gen --image=busybox -n games --restart=Never -- /bin/sh -c "while true; do wget -q -O- http://minha-app-svc; done"
+# Método 1: Fortio (recomendado - ferramenta profissional)
+kubectl apply -f manifests/04-stress-test-fortio.yaml
 
 # Observar scaling
 kubectl get hpa -n games --watch
+
+# Parar teste
+kubectl delete pod fortio-stress-test -n games
+
+# Método 2: Busybox (teste simples)
+kubectl run load-gen --image=busybox -n games --restart=Never -- /bin/sh -c "while true; do wget -q -O- http://minha-app-svc; done"
 
 # Parar carga
 kubectl delete pod load-gen -n games
@@ -422,7 +428,78 @@ Exemplo:
 
 ---
 
-## 🚨 Troubleshooting
+## � Teste de Stress com Fortio
+
+### O Que é Fortio?
+Fortio é uma **ferramenta profissional de teste de carga HTTP** desenvolvida pelo projeto Istio.
+- 📊 Métricas detalhadas (latência, throughput, percentis)
+- 🎯 Controle preciso (QPS, conexões, duração)
+- 🚀 Usado em produção por empresas reais
+
+### Deploy do Fortio
+```powershell
+# Aplicar pods de teste (automático + interativo)
+kubectl apply -f manifests/04-stress-test-fortio.yaml
+
+# Verificar pods
+kubectl get pods -n games -l tool=fortio
+```
+
+### Teste Automático (10 minutos)
+```powershell
+# Pod fortio-stress-test executa automaticamente:
+# - 50 conexões concorrentes
+# - QPS ilimitado (máxima carga)
+# - Duração: 10 minutos
+
+# Ver logs do teste
+kubectl logs -f fortio-stress-test -n games
+
+# Observar HPA escalando
+kubectl get hpa -n games --watch
+```
+
+### Teste Interativo (Manual)
+```powershell
+# Entrar no pod interativo
+kubectl exec -it fortio-interactive -n games -- /bin/sh
+
+# Dentro do pod, executar testes:
+
+# Teste rápido: 10 conexões, 100 requests
+fortio load -c 10 -n 100 http://super-mario-service:8080/
+
+# Teste de carga: 50 conexões, 30 segundos
+fortio load -c 50 -qps 0 -t 30s http://super-mario-service:8080/
+
+# Teste simples (curl)
+fortio curl http://super-mario-service:8080/
+
+# Sair do pod
+exit
+```
+
+### Métricas do Fortio
+```
+📊 Saída típica:
+- Requests/sec: 1234.56
+- Latência p50: 12ms
+- Latência p99: 45ms
+- Erros: 0%
+```
+
+### Limpar Pods de Teste
+```powershell
+# Deletar pods Fortio
+kubectl delete -f manifests/04-stress-test-fortio.yaml
+
+# Ou deletar individualmente
+kubectl delete pod fortio-stress-test fortio-interactive -n games
+```
+
+---
+
+## �🚨 Troubleshooting
 
 ### Pod Não Inicia
 
@@ -844,7 +921,14 @@ docker system prune -a -f
 
 ---
 
+**🎯 Novidades:**
+- ✅ Fortio substituiu ferramentas antigas de stress test
+- ✅ Todos os YAMLs possuem comentários explicativos linha por linha
+- ✅ Curso 100% manual (sem scripts PowerShell)
+- ✅ Auto-healing documentado com exemplos práticos
+
 **Última atualização:** Janeiro 2026  
-**Curso completo:** [README.md](../README.md)
+**Curso completo:** [README.md](../README.md)  
+**YAMLs comentados:** [manifests/](curso-k8s/modulo-02-deploy-app/manifests/)
 
 </div>
