@@ -260,9 +260,25 @@ modulo-02-deploy-app/
 
 ---
 
-## 🚀 Início Rápido
+## ⚡ Início Rápido (15 minutos)
 
-### Deploy Passo a Passo
+**Prefere ir direto ao ponto?** Use nosso guia de início rápido:
+
+📖 **[QUICK-START.md](./QUICK-START.md)** - Deploy completo do Super Mario em 15 minutos
+
+**O que está incluído:**
+- ✅ Comandos prontos para copiar e colar
+- ✅ Setup completo do cluster com Metrics Server
+- ✅ Deploy do Super Mario com HPA
+- ✅ Configuração de port-forward
+- ✅ Teste de stress com Fortio
+- ✅ Verificações de validação
+
+**Ideal para:** Quem já conhece Kubernetes e quer apenas ver funcionando rapidamente.
+
+---
+
+## 🚀 Deploy Passo a Passo
 
 ```powershell
 # 1. Criar namespace
@@ -311,15 +327,52 @@ Para a experiência completa de aprendizado, siga o laboratório detalhado:
 
 📖 **[Lab Completo - Deploy e Resiliência](./laboratorios/lab-completo-resiliencia.md)**
 
-**O que você vai fazer no lab:**
-- ✅ Criar cluster Kubernetes local
-- ✅ Instalar Metrics Server
-- ✅ Fazer deploy do Super Mario
-- ✅ Testar auto-healing (deletar pods)
-- ✅ Testar auto-scaling (gerar carga)
-- ✅ Monitorar métricas em tempo real
+### Estrutura do Laboratório (5 Partes)
 
-**Tempo estimado:** 60-90 minutos
+O laboratório está dividido em 5 partes com timing preciso:
+
+**Parte 1: Setup do Cluster** (15 min)
+- Criar cluster multi-node (1 control-plane + 2 workers)
+- Instalar e configurar Metrics Server
+- Verificar pré-requisitos e recursos
+- Validar instalação com `kubectl top nodes`
+
+**Parte 2: Deploy da Aplicação** (15 min)
+- Criar namespace `games`
+- Aplicar Deployment do Super Mario
+- Configurar Service NodePort
+- Testar acesso via port-forward
+- Validar health probes
+
+**Parte 3: Testar Auto-Healing** (15 min)
+- Deletar pods individualmente
+- Deletar todos os pods simultaneamente
+- Simular falha de container (`kill 1`)
+- Observar recuperação automática
+- Entender ReplicaSet controller
+
+**Parte 4: Configurar Auto-Scaling** (15 min)
+- Aplicar HPA (Horizontal Pod Autoscaler)
+- Aguardar coleta de métricas (1-2 min)
+- Verificar `kubectl get hpa`
+- Entender cálculo de réplicas desejadas
+- Compreender behavior (scale up/down)
+
+**Parte 5: Testar Auto-Scaling** (15 min)
+- Aplicar pods de stress test (Fortio)
+- Monitorar HPA em tempo real (3 terminais)
+- Observar criação de novos pods
+- Aguardar término do stress test
+- Observar scale down automático
+
+**Tempo total:** 1 hora e 15 minutos
+
+**Pré-requisitos verificados:**
+- ✅ Docker rodando
+- ✅ Kind v0.20.0+
+- ✅ kubectl v1.28.0+
+- ✅ 4GB RAM disponível
+- ✅ 10GB espaço em disco
 
 ---
 
@@ -465,8 +518,9 @@ Esta pasta contém os manifestos YAML para deploy do **Super Mario 🍄** no Kub
 | Arquivo | Descrição | Recurso |
 |---------|-----------|---------|
 | `01-deployment-mario.yaml` | Deployment do Super Mario | Deployment |
-| `02-service-mario.yaml` | Service ClusterIP | Service |
+| `02-service-mario.yaml` | Service NodePort | Service |
 | `03-hpa.yaml` | Horizontal Pod Autoscaler | HPA |
+| `04-stress-test-fortio.yaml` | 2 Pods de stress test (Fortio) | Pod |
 
 **Por que Super Mario?**
 - 🌟 Visual impressionante para apresentações
@@ -609,11 +663,50 @@ kubectl get events -n games | Select-String "super-mario"
 
 **Características principais:**
 
-- **Tipo:** ClusterIP (acesso interno - melhor prática)
-- **Porta do Service:** 8080
+- **Tipo:** NodePort (expõe externamente)
+- **Porta do Service:** 8080 (interna ao cluster)
 - **Target Port:** 8080 (porta do container)
+- **Node Port:** 30000 (porta externa nos nodes)
 - **Selector:** `app: super-mario`
-- **Acesso:** Via kubectl port-forward
+- **Session Affinity:** None (load balancing round-robin)
+- **DNS Interno:** `super-mario-service.games.svc.cluster.local`
+
+**DNS Interno do Kubernetes:**
+
+Cada Service recebe um nome DNS automático no formato:
+```
+<service-name>.<namespace>.svc.cluster.local
+```
+
+**Para o Super Mario:**
+- **Nome completo:** `super-mario-service.games.svc.cluster.local`
+- **Abreviado (mesmo namespace):** `super-mario-service`
+- **Porta:** `:8080`
+
+**Exemplos de uso:**
+```bash
+# De dentro de um pod no namespace 'games'
+curl http://super-mario-service:8080/
+
+# De dentro de um pod em OUTRO namespace
+curl http://super-mario-service.games.svc.cluster.local:8080/
+
+# Fortio usa DNS completo para garantir funcionamento
+fortio load -c 50 -t 5m http://super-mario-service.games.svc.cluster.local:8080/
+```
+
+**Session Affinity:**
+
+| Configuração | Comportamento | Uso |
+|--------------|---------------|-----|
+| `sessionAffinity: None` | Requests distribuídos aleatoriamente | Apps stateless (padrão) |
+| `sessionAffinity: ClientIP` | Mesmo cliente → mesmo pod | Apps com sessão/cache local |
+
+**Super Mario usa `None` porque:**
+- ✅ Aplicação é completamente stateless
+- ✅ Distribui carga uniformemente
+- ✅ Facilita testes de load balancing
+- ✅ Pods podem ser adicionados/removidos livremente
 
 **Por que ClusterIP ao invés de NodePort?**
 
@@ -734,6 +827,101 @@ spec:
         type: Utilization
         averageUtilization: 70
   # HPA escalará quando QUALQUER métrica exceder o limite
+```
+
+### 04-stress-test-fortio.yaml
+
+**Características principais:**
+
+Este manifesto cria **2 pods distintos** com finalidades diferentes:
+
+#### Pod 1: fortio-stress-test (Automático)
+
+- **Função:** Gera carga automática ao ser criado
+- **Conexões:** 50 conexões concorrentes simultâneas
+- **QPS:** 0 (ilimitado - máxima carga possível)
+- **Duração:** 10 minutos de teste contínuo
+- **Restart Policy:** `Never` (executa uma vez e termina)
+- **Active Deadline:** 900 segundos (15 min - timeout de segurança)
+- **Uso:** Teste automatizado de stress
+
+**Por que activeDeadlineSeconds?**
+
+| Campo | Valor | Motivo |
+|-------|-------|--------|
+| `activeDeadlineSeconds: 900` | 15 minutos | Garante que pod será terminado mesmo se travar |
+| Teste duration: `10m` | 10 minutos | Tempo real de execução |
+| Margem de segurança | 5 minutos | Tempo extra para inicialização e finalização |
+
+**Comportamento:**
+```
+0:00 - Pod criado (status: Pending)
+0:05 - Container iniciado (status: Running)
+0:10 - Stress test começa
+10:10 - Teste termina (pod continua Running)
+10:15 - Pod finaliza gracefully (status: Completed)
+15:00 - Se ainda Running, Kubernetes força término
+```
+
+#### Pod 2: fortio-interactive (Manual)
+
+- **Função:** Pod persistente para testes manuais
+- **Comando:** Shell interativo (`sleep infinity`)
+- **Restart Policy:** `Always` (reinicia se falhar)
+- **Uso:** Debugging e testes customizados
+
+**Como usar o pod interativo:**
+
+```bash
+# 1. Acessar shell do pod
+kubectl exec -it fortio-interactive -n games -- /bin/sh
+
+# 2. Dentro do pod, executar testes customizados:
+
+# Teste leve (100 requisições, 10 concorrentes)
+fortio load -c 10 -n 100 http://super-mario-service:8080/
+
+# Teste moderado (30 segundos, 50 conexões)
+fortio load -c 50 -qps 0 -t 30s http://super-mario-service:8080/
+
+# Teste com QPS específico (200 req/s)
+fortio load -c 20 -qps 200 -t 1m http://super-mario-service:8080/
+
+# Teste de conectividade simples
+fortio curl http://super-mario-service:8080/
+
+# Sair do pod
+exit
+```
+
+**Comparação dos 2 pods:**
+
+| Aspecto | fortio-stress-test | fortio-interactive |
+|---------|-------------------|--------------------|
+| **Propósito** | Teste automático | Teste manual |
+| **Execução** | Imediata ao criar | Aguarda comandos |
+| **Duração** | 10 minutos fixos | Infinita (até deletar) |
+| **RestartPolicy** | Never | Always |
+| **Deadline** | 900s (auto-termina) | Nenhum |
+| **Uso** | CI/CD, testes programados | Debugging, experimentos |
+
+**Comandos úteis:**
+
+```powershell
+# Ver status dos pods Fortio
+kubectl get pods -n games -l tool=fortio
+
+# Ver logs do stress test automático
+kubectl logs -n games fortio-stress-test -f
+
+# Deletar apenas o stress test
+kubectl delete pod fortio-stress-test -n games
+
+# Deletar apenas o interativo
+kubectl delete pod fortio-interactive -n games
+
+# Deletar ambos
+kubectl delete -f manifests/04-stress-test-fortio.yaml
 ```
 
 ## 🔧 Customizações Comuns
