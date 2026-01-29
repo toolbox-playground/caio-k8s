@@ -18,7 +18,7 @@ curso-k8s/
 
 Se você nunca trabalhou com Docker, comece aqui.
 
-📖 [Acessar módulo](./modulo-00-docker/)
+📖 [Acessar módulo](./modulo-00-docker.md)
 
 ---
 
@@ -83,7 +83,7 @@ Faça deploy do Super Mario e teste:
 ### Caminho Completo (Recomendado)
 ```powershell
 # 1. Docker basics (se necessário)
-cd modulo-00-docker
+modulo-00-docker.md
 
 # 2. Kubernetes fundamentals
 cd ..\modulo-01-kind
@@ -162,7 +162,7 @@ Quer melhorar o curso?
 
 **Escolha seu módulo:**
 
-[📖 Módulo 00](./modulo-00-docker/) | [🐳 Módulo 01](./modulo-01-kind/) | [🎮 Módulo 02](./modulo-02-deploy-app/)
+[📖 Módulo 00](./modulo-00-docker.md) | [🐳 Módulo 01](./modulo-01-kind/) | [🎮 Módulo 02](./modulo-02-deploy-app/)
 
 ---
 

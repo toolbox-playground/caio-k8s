@@ -71,7 +71,7 @@ Este não é mais um curso teórico. Você vai:
 
 Conceitos fundamentais de containers e Docker necessários para entender Kubernetes.
 
-📖 [Ver conteúdo →](./curso-k8s/modulo-00-docker/)
+📖 [Ver conteúdo →](./curso-k8s/modulo-00-docker.md)
 
 **O que você vai aprender:**
 - O que são containers e por que usá-los
@@ -371,7 +371,7 @@ Este curso foi inspirado por:
 
 **Escolha seu caminho:**
 
-[🎓 Iniciante: Módulo 01](./curso-k8s/modulo-01-kind/) | [🎮 Intermediário: Módulo 02](./curso-k8s/modulo-02-deploy-app/) | [📖 Fundamentos Docker](./curso-k8s/modulo-00-docker/)
+[🎓 Iniciante: Módulo 01](./curso-k8s/modulo-01-kind/) | [🎮 Intermediário: Módulo 02](./curso-k8s/modulo-02-deploy-app/) | [📖 Fundamentos Docker](./curso-k8s/modulo-00-docker.md)
 
 ---
 
