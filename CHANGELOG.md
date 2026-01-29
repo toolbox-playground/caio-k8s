@@ -1,3 +1,9 @@
+## 0.13.8 (2026-01-29)
+
+### Refactor
+
+- renomear arquivos de configuração para 'kind-nginx.yaml' e ajustar mapeamento de portas
+
 ## 0.13.7 (2026-01-29)
 
 ### Fix
