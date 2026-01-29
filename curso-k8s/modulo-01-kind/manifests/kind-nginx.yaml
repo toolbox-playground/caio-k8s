@@ -27,12 +27,12 @@ nodes:
     # Mapeamento de portas: Expõe portas do container para o host
     extraPortMappings:
     # Porta HTTP (80): Tráfego web não-criptografado
-    - containerPort: 80   # Porta dentro do container Docker
+    - containerPort: 30080   # Porta dentro do container Docker
       hostPort: 80        # Porta no host (localhost:80)
       protocol: TCP
     
     # Porta HTTPS (443): Tráfego web criptografado (TLS/SSL)
-    - containerPort: 443  # Porta dentro do container
+    - containerPort: 30443  # Porta dentro do container
       hostPort: 443       # Porta no host (localhost:443)
       protocol: TCP
   

@@ -67,10 +67,10 @@ nodes:
     protocol: TCP
 - role: worker
 - role: worker
-"@ | Out-File -FilePath ".\temp-configs\kind-ingress-ready.yaml" -Encoding UTF8
+"@ | Out-File -FilePath ".\temp-configs\kind-nginx.yaml" -Encoding UTF8
 
 # Visualizar
-Get-Content ".\temp-configs\kind-ingress-ready.yaml"
+Get-Content ".\temp-configs\kind-nginx.yaml"
 ```
 
 **Linux/macOS:**
@@ -82,7 +82,7 @@ cd ~/Documents/k8s/curso/modulo-01-kind
 mkdir -p ./temp-configs
 
 # Criar configuração
-cat <<'EOF' > ./temp-configs/kind-ingress-ready.yaml
+cat <<'EOF' > ./temp-configs/kind-nginx.yaml
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: ingress-ready
@@ -106,7 +106,7 @@ nodes:
 EOF
 
 # Visualizar
-cat ./temp-configs/kind-ingress-ready.yaml
+cat ./temp-configs/kind-nginx.yaml
 ```
 
 **💡 Explicação:**
@@ -131,7 +131,7 @@ cat ./temp-configs/kind-ingress-ready.yaml
 kind delete cluster --name ingress-ready
 
 # Criar cluster
-kind create cluster --config .\temp-configs\kind-ingress-ready.yaml
+kind create cluster --config .\temp-configs\kind-nginx.yaml
 
 # Aguarde 2-3 minutos
 ```
@@ -168,16 +168,16 @@ nodes:
   image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
 - role: worker
   image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
-"@ | Out-File -FilePath ".\temp-configs\kind-ingress-ready.yaml" -Encoding UTF8
+"@ | Out-File -FilePath ".\temp-configs\kind-nginx.yaml" -Encoding UTF8
 
 # Criar cluster
-kind create cluster --config .\temp-configs\kind-ingress-ready.yaml
+kind create cluster --config .\temp-configs\kind-nginx.yaml
 ```
 
 **Linux/macOS:**
 ```bash
 # Criar configuração com versão específica
-cat <<'EOF' > ./temp-configs/kind-ingress-ready.yaml
+cat <<'EOF' > ./temp-configs/kind-nginx.yaml
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: ingress-ready
@@ -204,7 +204,7 @@ nodes:
 EOF
 
 # Criar cluster
-kind create cluster --config ./temp-configs/kind-ingress-ready.yaml
+kind create cluster --config ./temp-configs/kind-nginx.yaml
 ```
 
 **📚 Explicação do Problema:**
@@ -381,6 +381,75 @@ kubectl delete pod busybox
 ---
 
 ## 🔧 Parte 5: Preparar para Nginx Ingress
+
+```powershell
+# Limpar clusters anteriores
+kind delete cluster --name ingress-ready
+
+```powershell
+# Criar configuração com versão específica
+@"
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ingress-ready
+nodes:
+- role: control-plane
+  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: \"ingress-ready=true\"
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: 80
+    protocol: TCP
+  - containerPort: 443
+    hostPort: 443
+    protocol: TCP
+- role: worker
+  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+- role: worker
+  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+"@ | Out-File -FilePath ".\temp-configs\kind-ingress-ready.yaml" -Encoding UTF8
+
+# Criar cluster
+kind create cluster --config ./temp-configs/kind-ingress-ready.yaml
+```
+
+**Linux/macOS:**
+```bash
+# Criar configuração com versão específica
+cat <<'EOF' > ./temp-configs/kind-ingress-ready.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ingress-ready
+nodes:
+- role: control-plane
+  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: 80
+    protocol: TCP
+  - containerPort: 443
+    hostPort: 443
+    protocol: TCP
+- role: worker
+  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+- role: worker
+  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+EOF
+
+# Criar cluster
+kind create cluster --config ./temp-configs/kind-ingress-ready.yaml
+```
 
 ### Passo 8: Instalar Nginx Ingress Controller
 
