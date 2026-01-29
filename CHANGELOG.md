@@ -1,3 +1,9 @@
+## 0.6.0 (2026-01-29)
+
+### Feat
+
+- atualizar instruções de acesso e configuração do serviço no README.md
+
 ## 0.5.0 (2026-01-29)
 
 ### Feat
