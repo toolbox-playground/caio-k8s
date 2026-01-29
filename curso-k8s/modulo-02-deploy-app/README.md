@@ -208,8 +208,8 @@ CPU alvo: 50%
 │                      Cluster Kubernetes                      │
 │                                                               │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │            Service (ClusterIP + Port-Forward)           │ │
-│  │              Porta 8080 → 8080                          │ │
+│  │                Service (NodePort)                       │ │
+│  │           Porta 8080 (NodePort) → 30000                 │ │
 │  └─────────────┬──────────────────────────────────────────┘ │
 │                │ Load Balancing                              │
 │                ▼                                              │
@@ -232,7 +232,7 @@ CPU alvo: 50%
 │                                                               │
 └───────────────────────────────────────────────────────────────┘
          ▲
-         │ kubectl port-forward (túnel seguro)
+         │ Acesso direto via NodePort
          │ http://localhost:8080
    ┌─────┴─────┐
    │  Browser  │
@@ -268,18 +268,29 @@ modulo-02-deploy-app/
 # 1. Criar namespace
 kubectl create namespace games
 
-# 2. Aplicar manifestos
+# 2. Carregar imagem Docker no Kind
+kind load docker-image pengbai/docker-supermario:latest --name k8s-essentials
+
+# Alternativa: Acessar worker node e puxar imagem manualmente
+docker exec -it k8s-essentials-worker bash
+ctr -n k8s.io images pull docker.io/pengbai/docker-supermario:latest
+exit
+
+# 3. Aplicar manifestos
 kubectl apply -f manifests/01-deployment-mario.yaml
 kubectl apply -f manifests/02-service-mario.yaml
 kubectl apply -f manifests/03-hpa.yaml
 
-# 3. Verificar status
+# 4. Verificar status
 kubectl get all -n games
 
-# 4. Aguardar pods ficarem prontos
+# 5. Aguardar pods ficarem prontos
 kubectl wait --for=condition=ready pod -l app=super-mario -n games --timeout=120s
 
-# 5. Acessar aplicação
+# 6. Acessar aplicação
+Start-Process "http://localhost:8080"
+
+# 7. Caso o NodePort não funcione, use port-forward (método profissional)
 kubectl port-forward -n games service/super-mario-service 8080:8080
 ```
 
