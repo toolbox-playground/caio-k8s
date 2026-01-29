@@ -340,25 +340,24 @@ kubectl get service web-nodeport
 
 ```powershell
 # Teste HTTP
-curl.exe http://localhost:30080
+curl.exe http://localhost
 
 # Ou no navegador
-Start-Process "http://localhost:30080"
+Start-Process "http://localhost"
 
 # Teste com PowerShell
-Invoke-WebRequest -Uri "http://localhost:30080" -UseBasicParsing
+Invoke-WebRequest -Uri "http://localhost" -UseBasicParsing
 ```
 
 **Linux/macOS:**
 ```bash
 # Teste HTTP
-curl http://localhost:30080
+curl http://localhost
 
 # Ou no navegador (macOS)
-open http://localhost:30080
-
+open http://localhost
 # Ou no navegador (Linux com xdg-open)
-xdg-open http://localhost:30080 2>/dev/null || echo "Abra http://localhost:30080 no navegador"
+xdg-open http://localhost 2>/dev/null || echo "Abra http://localhost no navegador"
 ```
 
 **Saída esperada:** Página padrão do Nginx
