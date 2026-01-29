@@ -1,3 +1,9 @@
+## 0.13.3 (2026-01-29)
+
+### Fix
+
+- adicionar instruções e configuração para resolver problemas de compatibilidade com Kubernetes v1.35.0
+
 ## 0.13.2 (2026-01-29)
 
 ### Fix
