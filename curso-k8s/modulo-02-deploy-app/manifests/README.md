@@ -79,9 +79,9 @@ ctr -n k8s.io images pull docker.io/pengbai/docker-supermario:latest
 exit 
 
 # 3. Aplicar manifestos
-kubectl apply -f 01-deployment-mario.yaml
-kubectl apply -f 02-service-mario.yaml
-kubectl apply -f 03-hpa.yaml
+kubectl apply -f manifests/01-deployment-mario.yaml
+kubectl apply -f manifests/02-service-mario.yaml
+kubectl apply -f manifests/03-hpa.yaml
 
 # 4. Verificar
 kubectl get all -n games
@@ -329,17 +329,17 @@ spec:
 
 ```powershell
 # Validar sem aplicar
-kubectl apply -f 01-deployment-mario.yaml --dry-run=client -o yaml
+kubectl apply -f manifests/01-deployment-mario.yaml --dry-run=client -o yaml
 
 # Validar com server-side
-kubectl apply -f 01-deployment-mario.yaml --dry-run=server
+kubectl apply -f manifests/01-deployment-mario.yaml --dry-run=server
 ```
 
 ### Testar deployment isoladamente
 
 ```powershell
 # Aplicar apenas deployment
-kubectl apply -f 01-deployment-mario.yaml
+kubectl apply -f manifests/01-deployment-mario.yaml
 
 # Aguardar rollout completar
 kubectl rollout status deployment/super-mario -n games
@@ -352,7 +352,7 @@ kubectl get pods -n games
 
 ```powershell
 # Aplicar service
-kubectl apply -f 02-service-mario.yaml
+kubectl apply -f manifests/02-service-mario.yaml
 
 # Port-forward para teste local (método recomendado)
 kubectl port-forward -n games service/super-mario-service 8080:8080
@@ -365,7 +365,7 @@ Start-Process "http://localhost:8080"
 
 ```powershell
 # Aplicar HPA
-kubectl apply -f 03-hpa.yaml
+kubectl apply -f manifests/03-hpa.yaml
 
 # Aguardar métricas (1-2 minutos)
 Start-Sleep -Seconds 120
@@ -417,15 +417,15 @@ kubectl describe node <node-name>
 ### Remover recursos individualmente
 
 ```powershell
-kubectl delete -f 03-hpa.yaml
-kubectl delete -f 02-service-mario.yaml
-kubectl delete -f 01-deployment-mario.yaml
+kubectl delete -f manifests/03-hpa.yaml
+kubectl delete -f manifests/02-service-mario.yaml
+kubectl delete -f manifests/01-deployment-mario.yaml
 ```
 
 ### Remover tudo de uma vez
 
 ```powershell
-kubectl delete -f .
+kubectl delete -f ./manifests/
 
 # OU deletar o namespace inteiro
 kubectl delete namespace games
@@ -440,6 +440,4 @@ kubectl delete namespace games
 
 ---
 
-**Dica:** Use `kubectl port-forward` para acesso seguro aos serviços durante desenvolvimento!
-
-**Próximo passo:** Volte ao [Laboratório](../laboratorios/lab-completo-resiliencia.md) para usar esses manifestos!
+**Dica:** Use `kubectl port-forward` para acesso seguro aos serviços durante desenvolvimento! 🚀

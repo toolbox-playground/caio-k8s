@@ -112,14 +112,14 @@ Vá além da criação de clusters! Faça deploy de aplicações reais (**jogos 
 
 **O que você vai aprender:**
 - ✅ Fazer deploy de aplicações containerizadas
-- ✅ Expor serviços para acesso externo
+- ✅ Expor serviços para acesso externo (ClusterIP + port-forward)
 - ✅ Compreender auto-healing na prática
 - ✅ Configurar Horizontal Pod Autoscaler (HPA)
 - ✅ Executar testes de carga e resiliência
 - ✅ Monitorar métricas em tempo real
 
-**Laboratório prático:**
-- 🚀 [Lab Completo: Deploy, Auto-Healing e Auto-Scaling](./curso-k8s/modulo-02-deploy-app/laboratorios/lab-completo-resiliencia.md)
+**Guia prático:**
+- 📚 [Manifests README: Guia Completo](./curso-k8s/modulo-02-deploy-app/manifests/README.md)
 
 **Destaques do módulo:**
 - 🎮 **Aplicação real**: Super Mario rodando em Kubernetes!
