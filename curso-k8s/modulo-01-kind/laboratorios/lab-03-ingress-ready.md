@@ -128,7 +128,7 @@ cat ./temp-configs/kind-ingress-ready.yaml
 
 ```powershell
 # Limpar clusters anteriores
-kind delete cluster --name ingress-ready 2>$null
+kind delete cluster --name ingress-ready
 
 # Criar cluster
 kind create cluster --config .\temp-configs\kind-ingress-ready.yaml
