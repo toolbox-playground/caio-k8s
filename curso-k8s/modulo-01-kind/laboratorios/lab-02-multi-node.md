@@ -572,7 +572,7 @@ kubectl exec -it deployment/nginx -- ping -c 3 multi-node-worker2
 
 ```powershell
 # Criar DaemonSet
-@"
+@'
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -589,8 +589,8 @@ spec:
       containers:
       - name: busybox
         image: busybox:latest
-        command: ["sh", "-c", "while true; do echo 'Monitoring node:' \$(hostname); sleep 60; done"]
-"@ | kubectl apply -f -
+        command: ["sh", "-c", "while true; do echo Monitoring node: $(hostname); sleep 60; done"]
+'@ | kubectl apply -f -
 
 # Verificar que há 1 pod por worker node
 kubectl get pods -l app=node-monitor -o wide
@@ -602,7 +602,7 @@ kubectl logs -l app=node-monitor --all-containers=true --tail=5
 **Linux/macOS:**
 ```bash
 # Criar DaemonSet
-cat <<EOF | kubectl apply -f -
+cat <<'EOF' | kubectl apply -f -
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -619,7 +619,7 @@ spec:
       containers:
       - name: busybox
         image: busybox:latest
-        command: ["sh", "-c", "while true; do echo 'Monitoring node:' \$(hostname); sleep 60; done"]
+        command: ["sh", "-c", "while true; do echo 'Monitoring node:' $(hostname); sleep 60; done"]
 EOF
 
 # Verificar que há 1 pod por worker node
