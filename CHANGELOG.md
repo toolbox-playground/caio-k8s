@@ -1,3 +1,9 @@
+## 0.16.0 (2026-01-29)
+
+### Feat
+
+- adicionar configuração do cluster Kind e atualizar instruções de uso
+
 ## 0.15.0 (2026-01-29)
 
 ### Feat
