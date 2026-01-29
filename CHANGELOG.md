@@ -1,3 +1,9 @@
+## 0.13.2 (2026-01-29)
+
+### Fix
+
+- remover redirecionamento de erro ao deletar cluster no lab de Ingress
+
 ## 0.13.1 (2026-01-29)
 
 ### Fix
