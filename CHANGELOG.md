@@ -1,3 +1,9 @@
+## 0.13.7 (2026-01-29)
+
+### Fix
+
+- atualizar instruções de teste para acessar o Nginx via localhost
+
 ## 0.13.6 (2026-01-29)
 
 ### Fix
