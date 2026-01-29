@@ -136,6 +136,87 @@ kind create cluster --config .\temp-configs\kind-ingress-ready.yaml
 # Aguarde 2-3 minutos
 ```
 
+**⚠️ IMPORTANTE - Problema com Kubernetes v1.35.0:**
+
+Se você encontrar o erro `failed to init node with kubeadm: command "docker exec --privileged ingress-ready-control-plane kubeadm init"` ou avisos sobre API deprecated `kubeadm.k8s.io/v1beta3`, isso indica incompatibilidade com a versão mais recente do Kubernetes.
+
+**Solução:** Use a versão estável v1.31.0 especificando a imagem do node na configuração:
+
+```powershell
+# Criar configuração com versão específica
+@"
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ingress-ready
+nodes:
+- role: control-plane
+  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: \"ingress-ready=true\"
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: 80
+    protocol: TCP
+  - containerPort: 443
+    hostPort: 443
+    protocol: TCP
+- role: worker
+  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+- role: worker
+  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+"@ | Out-File -FilePath ".\temp-configs\kind-ingress-ready.yaml" -Encoding UTF8
+
+# Criar cluster
+kind create cluster --config .\temp-configs\kind-ingress-ready.yaml
+```
+
+**Linux/macOS:**
+```bash
+# Criar configuração com versão específica
+cat <<'EOF' > ./temp-configs/kind-ingress-ready.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ingress-ready
+nodes:
+- role: control-plane
+  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: 80
+    protocol: TCP
+  - containerPort: 443
+    hostPort: 443
+    protocol: TCP
+- role: worker
+  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+- role: worker
+  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+EOF
+
+# Criar cluster
+kind create cluster --config ./temp-configs/kind-ingress-ready.yaml
+```
+
+**📚 Explicação do Problema:**
+
+- **Causa**: Kubernetes v1.35.0 introduziu mudanças que quebram compatibilidade com kubeadm
+- **Sintoma**: Kubelet não inicia após 4 minutos, erro "connection refused" em `http://127.0.0.1:10248/healthz`
+- **API Deprecated**: `kubeadm.k8s.io/v1beta3` foi marcada como deprecated, causando instabilidade
+- **Solução**: Fixar versão em v1.31.0 (última versão estável testada com Kind)
+- **SHA256**: O hash garante integridade da imagem baixada (segurança)
+
+**💡 Dica:** Sempre especifique a versão da imagem em ambientes de produção para evitar surpresas!
+
 ### Passo 3: Verificar Port Mapping
 
 ```powershell
