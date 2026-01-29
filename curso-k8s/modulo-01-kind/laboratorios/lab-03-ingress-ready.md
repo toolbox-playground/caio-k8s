@@ -497,7 +497,9 @@ kind load docker-image httpd:alpine --name ingress-ready
 docker exec -it ingress-ready-control-plane bash
 ctr -n k8s.io images pull docker.io/library/nginx:alpine
 ctr -n k8s.io images pull docker.io/library/httpd:alpine
+exit 
 
+# Criar deployments e services
 kubectl create deployment web --image=nginx:alpine
 kubectl expose deployment web --port=80
 kubectl create deployment app2 --image=httpd:alpine
@@ -603,24 +605,23 @@ kubectl describe ingress example-ingress
 
 ```powershell
 # Teste com Header Host
-curl.exe -H "Host: web.local" http://localhost:30080
+curl.exe -H "Host: web.local" http://localhost
 
-curl.exe -H "Host: app2.local" http://localhost:30080
+curl.exe -H "Host: app2.local" http://localhost
 
 # Ou com Invoke-WebRequest
 $headers = @{Host = "web.local"}
-Invoke-WebRequest -Uri "http://localhost:30080" -Headers $headers -UseBasicParsing
-
+Invoke-WebRequest -Uri "http://localhost" -Headers $headers -UseBasicParsing
 $headers = @{Host = "app2.local"}
-Invoke-WebRequest -Uri "http://localhost:30080" -Headers $headers -UseBasicParsing
+Invoke-WebRequest -Uri "http://localhost" -Headers $headers -UseBasicParsing
 ```
 
 **Linux/macOS:**
 ```bash
 # Teste com Header Host
-curl -H "Host: web.local" http://localhost:30080
+curl -H "Host: web.local" http://localhost
 
-curl -H "Host: app2.local" http://localhost:30080
+curl -H "Host: app2.local" http://localhost
 ```
 
 **Resultado esperado:** 
@@ -722,8 +723,8 @@ spec:
 "@ | kubectl apply -f -
 
 # Testar
-curl.exe -H "Host: myapp.local" http://localhost:30080/web
-curl.exe -H "Host: myapp.local" http://localhost:30080/api
+curl.exe -H "Host: myapp.local" http://localhost/web
+curl.exe -H "Host: myapp.local" http://localhost/api
 ```
 
 **Linux/macOS:**
@@ -763,8 +764,8 @@ spec:
 EOF
 
 # Testar
-curl -H "Host: myapp.local" http://localhost:30080/web
-curl -H "Host: myapp.local" http://localhost:30080/api
+curl -H "Host: myapp.local" http://localhost/web
+curl -H "Host: myapp.local" http://localhost/api
 ```
 
 ### Passo 18: HTTPS/TLS (Preparação)
