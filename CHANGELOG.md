@@ -1,3 +1,10 @@
+## 0.16.3 (2026-01-29)
+
+### Fix
+
+- corrigir links para o módulo de fundamentos de Docker no README.md
+- atualizar seções do README.md para melhor clareza e recursos disponíveis
+
 ## 0.16.2 (2026-01-29)
 
 ### Fix
