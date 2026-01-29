@@ -1,3 +1,9 @@
+## 0.13.6 (2026-01-29)
+
+### Fix
+
+- corrigir comando para acessar o container do Kind e adicionar instruções para carregar imagem nginx:alpine
+
 ## 0.13.5 (2026-01-29)
 
 ### Fix
