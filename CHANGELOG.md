@@ -1,3 +1,9 @@
+## 0.9.0 (2026-01-29)
+
+### Feat
+
+- adicionar imagem do logo Toolbox ao README.md
+
 ## 0.8.0 (2026-01-29)
 
 ### Feat
