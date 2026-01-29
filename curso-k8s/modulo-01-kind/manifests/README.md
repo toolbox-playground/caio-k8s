@@ -14,14 +14,9 @@ Configurações YAML prontas para uso com Kind.
 | [kind-multi-node.yaml](./kind-multi-node.yaml) | Cluster distribuído | 1 CP + 2 Workers | Testes de scheduling |
 | [kind-ha-cluster.yaml](./kind-ha-cluster.yaml) | Alta disponibilidade | 3 CP + 3 Workers | Simular produção |
 | [kind-ingress-ready.yaml](./kind-ingress-ready.yaml) | Pronto para Ingress | 1 CP + 2 Workers | Networking avançado |
+| [kind-nginx.yaml](./kind-nginx.yaml) | NGINX Ingress otimizado | 1 CP + 2 Workers | Deploy NGINX Controller |
 | [cluster-config.yaml](./cluster-config.yaml) | Configuração completa | 1 CP + 2 Workers | Exemplo documentado |
 
-### Deployments de Aplicações
-
-| Arquivo | Descrição | Tipo | Uso |
-|---------|-----------|------|-----|
-| [nginx.yaml](./nginx.yaml) | Nginx web server | Deployment + Services | Exemplo completo ⭐ |
-| [nginx-usage.md](./nginx-usage.md) | Guia de uso do nginx | Documentação | Tutorial passo a passo |
 
 ---
 
@@ -149,6 +144,40 @@ kind delete cluster --name <nome>
 
 **🔔 Nota sobre Gateway API:**  
 Considere usar [Gateway API](https://gateway-api.sigs.k8s.io/) para novos projetos - é a evolução do Ingress tradicional.
+
+---
+
+### 5️⃣ kind-nginx.yaml
+
+**Características:**
+- Port mapping 30080:80 (HTTP)
+- Port mapping 30443:443 (HTTPS)
+- Label `ingress-ready=true` no control-plane
+- 2 workers com labels de zona (zone-a, zone-b)
+- Otimizado para NGINX Ingress Controller
+- Versão mais recente do Kubernetes (v1.31.0)
+
+**Quando usar:**
+- Instalação específica do NGINX Ingress
+- Projetos que requerem NGINX como proxy reverso
+- Testes de balanceamento de carga HTTP/HTTPS
+- Ambientes que precisam de portas NodePort customizadas
+
+**Diferença do kind-ingress-ready.yaml:**
+- Usa portas NodePort (30080/30443) em vez de portas diretas (80/443)
+- Configurado especificamente para NGINX Controller
+- Labels de zona nos workers para melhor distribuição
+
+**Acesso:**
+- HTTP: `http://localhost:80`
+- HTTPS: `https://localhost:443`
+- NodePort HTTP: porta 30080 no node
+- NodePort HTTPS: porta 30443 no node
+
+**Recursos necessários:**
+- CPU: 4 cores
+- RAM: 4GB
+- Disco: 10GB
 
 ---
 
@@ -289,14 +318,14 @@ kubectl config use-context kind-prod
 
 ## 📊 Comparação Rápida
 
-| Característica | Single | Multi | HA | Ingress |
-|----------------|--------|-------|-----|---------|
-| Control-Planes | 1 | 1 | 3 | 1 |
-| Workers | 0 | 2 | 3 | 2 |
-| Port Mapping | ❌ | ❌ | ❌ | ✅ |
-| Recursos | Baixo | Médio | Alto | Médio |
-| Tempo de criação | 1 min | 2 min | 4 min | 2 min |
-| Uso | Dev | Testing | Pre-Prod | Networking |
+| Característica | Single | Multi | HA | Ingress | NGINX |
+|----------------|--------|-------|-----|---------|-------|
+| Control-Planes | 1 | 1 | 3 | 1 | 1 |
+| Workers | 0 | 2 | 3 | 2 | 2 |
+| Port Mapping | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Recursos | Baixo | Médio | Alto | Médio | Médio |
+| Tempo de criação | 1 min | 2 min | 4 min | 2 min | 2 min |
+| Uso | Dev | Testing | Pre-Prod | Networking | NGINX Ingress |
 
 ---
 
