@@ -31,7 +31,7 @@ spec:
   ports:
   - port: 8080         # Porta do Service (usada internamente no cluster)
     targetPort: 8080   # Porta do container (onde a app escuta)
-    nodePort: 30090    # Porta no node (30000-32767) - acesso externo
+    nodePort: 30000    # Porta no node (30000-32767) - acesso externo
     protocol: TCP      # Protocolo de rede
     name: http         # Nome descritivo da porta
   

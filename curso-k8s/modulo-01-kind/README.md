@@ -145,82 +145,34 @@ kubectl get pods -n kube-system
 Crie o arquivo `cluster-config.yaml`:
 
 ```yaml
+# Tipo de recurso: Define que este YAML é uma configuração de Cluster do Kind
 kind: Cluster
+
+# Versão da API: Especifica a versão v1alpha4 da API do Kind (única versão suportada)
 apiVersion: kind.x-k8s.io/v1alpha4
+
+# Nome do cluster: Identificador usado em comandos kubectl e docker
 name: k8s-essentials
 
-networking:
-  podSubnet: "10.244.0.0/16"
-  serviceSubnet: "10.96.0.0/12"
-  kubeProxyMode: "ipvs"
-
+# ========== SEÇÃO DE NODES ==========
 nodes:
+  # Node 1 - Control Plane (Master)
+  # Executa componentes críticos: API Server, Scheduler, Controller Manager, etcd
   - role: control-plane
+    
+    # Mapeamento de portas extras: Expõe portas do container Docker para o host
     extraPortMappings:
-    - containerPort: 80
-      hostPort: 30080
-      protocol: TCP
-    - containerPort: 443
-      hostPort: 30443
+    # Porta 30000 → 80: Para tráfego HTTP (Ingress Controller)
+    - containerPort: 30000
+      hostPort: 8080
       protocol: TCP
 
+  # Node 2 - Worker: Executa cargas de trabalho (pods de aplicações)
   - role: worker
-  - role: worker
-```
-
-#### 📋 Explicação Detalhada da Configuração
-
-**Linha 1-2: Tipo e Versão da API**
-```yaml
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-```
-- `kind: Cluster` - Define que este YAML é uma configuração de **Cluster** do Kind
-- `apiVersion` - Especifica a versão v1alpha4 da API (única versão suportada atualmente)
-
-**Linha 3: Nome do Cluster**
-```yaml
-name: k8s-essentials
-```
-- Identificador usado em comandos: `kubectl config use-context kind-k8s-essentials`
-- Prefixo dos containers Docker: `k8s-essentials-control-plane`, `k8s-essentials-worker`
-
-**Linha 5-8: Configuração de Networking**
-```yaml
-networking:
-  podSubnet: "10.244.0.0/16"
-  serviceSubnet: "10.96.0.0/12"
-  kubeProxyMode: "ipvs"
-```
-
-| Parâmetro | Descrição | Impacto |
-|-----------|-----------|--------|
-| `podSubnet` | Range CIDR para IPs dos pods (65.536 endereços) | Cada node recebe uma fatia dessa rede |
-| `serviceSubnet` | Range CIDR para ClusterIPs (1.048.576 endereços) | Permite muito mais serviços que o padrão /16 |
-| `kubeProxyMode` | Modo IPVS para proxy de rede | ✅ Melhor performance<br>⚠️ Requer módulos kernel IPVS |
-
-**Linha 10-20: Control Plane com Port Mappings**
-```yaml
-nodes:
-  - role: control-plane
-    extraPortMappings:
-    - containerPort: 80
-      hostPort: 30080
-    - containerPort: 443
-      hostPort: 30443
-```
-
-- **Control Plane**: Executa API Server, Scheduler, Controller Manager e etcd
-- **Port Mapping 80→30080**: Acessa serviços HTTP via `localhost:30080`
-- **Port Mapping 443→30443**: Acessa serviços HTTPS via `localhost:30443`
-
-**Linha 22-23: Workers**
-```yaml
-  - role: worker
+  
+  # Node 3 - Worker: Node adicional para distribuição de carga
   - role: worker
 ```
-- Dois nodes adicionais para executar cargas de trabalho (pods)
-- Permitem testar distribuição de carga e rolling updates
 
 #### ⏱️ Características de Performance
 
@@ -288,10 +240,10 @@ Antes de testar aplicações, é fundamental entender **como o Kind expõe servi
 - **Exemplo**: 
   ```yaml
   extraPortMappings:
-  - containerPort: 80    # Porta dentro do container Docker
-    hostPort: 30080      # Porta no seu computador
+  - containerPort: 30000    # Porta dentro do container Docker
+    hostPort: 8080      # Porta no seu computador
   ```
-- **Como funciona**: Docker mapeia `localhost:30080` → `container:80`
+- **Como funciona**: Docker mapeia `localhost:8080` → `container:30000`
 - **Limitação**: Só funciona no node onde foi configurado (normalmente control-plane)
 
 **2️⃣ HostPort (Kubernetes)**
@@ -300,8 +252,8 @@ Antes de testar aplicações, é fundamental entender **como o Kind expõe servi
 - **Exemplo**:
   ```yaml
   ports:
-  - containerPort: 80
-    hostPort: 80        # Pod usa a porta 80 do node
+  - containerPort: 30000
+    hostPort: 30000        # Pod usa a porta 30000 do node
   ```
 - **Como funciona**: Pod ocupa a porta 80 do node (que pode estar mapeada via extraPortMappings)
 - **Limitação**: Só pode ter 1 pod usando aquela porta por node
@@ -314,7 +266,7 @@ Antes de testar aplicações, é fundamental entender **como o Kind expõe servi
   type: NodePort
   ports:
   - port: 80
-    nodePort: 31234    # Porta aleatória ou específica
+    nodePort: 30000    # Porta aleatória ou específica
   ```
 - **Como funciona**: Kubernetes roteia tráfego da porta do node para os pods
 - **Limitação**: No Kind, essa porta **NÃO** está mapeada para o host automaticamente
@@ -326,23 +278,23 @@ Antes de testar aplicações, é fundamental entender **como o Kind expõe servi
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  Seu Navegador (Windows)                                        │
-│  http://localhost:30080                                         │
+│  http://localhost:30000                                         │
 └────────────────────┬────────────────────────────────────────────┘
                      │
                      │ ① extraPortMappings (Kind)
-                     │    hostPort: 30080 → containerPort: 80
+                     │    hostPort: 8080 → containerPort: 30000
                      ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  Container Docker: k8s-essentials-control-plane                 │
-│  Porta 80 do container                                          │
+│  Porta 30000 do container                                          │
 └────────────────────┬────────────────────────────────────────────┘
                      │
                      │ ② HostPort (Kubernetes)
-                     │    containerPort: 80 → hostPort: 80
+                     │    containerPort: 30000 → hostPort: 30000
                      ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  Pod: nginx-hostport                                            │
-│  Porta 80 do nginx                                              │
+│  Porta 30000 do nginx                                              │
 │  🌐 Welcome to nginx!                                           │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -370,10 +322,10 @@ Antes de testar aplicações, é fundamental entender **como o Kind expõe servi
 **Cenário A: Desenvolvimento Local (1 pod)**
 ```yaml
 # ✅ MELHOR: extraPortMappings + HostPort
-# Acessa via localhost:30080
+# Acessa via localhost:8080
 extraPortMappings:
-- containerPort: 80
-  hostPort: 30080
+- containerPort: 30000
+  hostPort: 8080
 
 # No pod:
 ports:
@@ -694,7 +646,7 @@ rm nginx_image.tar
 docker exec -it k8s-essentials-worker bash
 
 # Baixe a imagem diretamente (requer acesso à internet)
-ctr -n k8s.io images pull docker.io/library/nginx:latest
+ctr -n k8s.io images pull docker.io/library/nginx:1.27
 
 # Saia do container
 exit

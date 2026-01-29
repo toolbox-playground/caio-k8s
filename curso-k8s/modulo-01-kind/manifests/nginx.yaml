@@ -52,7 +52,7 @@ spec:
           httpGet:
             path: /
             port: 80
-          initialDelaySeconds: 10
+          initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
@@ -61,7 +61,7 @@ spec:
           httpGet:
             path: /
             port: 80
-          initialDelaySeconds: 5
+          initialDelaySeconds: 30
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 3
@@ -74,30 +74,6 @@ spec:
           limits:
             cpu: 200m      # 0.2 CPU
             memory: 256Mi
-
----
-# ========================================
-# Service: nginx (ClusterIP)
-# ========================================
-# Expõe o deployment internamente no cluster
-apiVersion: v1
-kind: Service
-metadata:
-  name: nginx
-  namespace: default
-  labels:
-    app: nginx
-    tier: frontend
-spec:
-  type: ClusterIP  # Padrão - acesso interno
-  selector:
-    app: nginx  # Seleciona pods com este label
-  ports:
-  - name: http
-    protocol: TCP
-    port: 80         # Porta do service
-    targetPort: 80   # Porta do container
-  sessionAffinity: None
 
 ---
 # ========================================
@@ -122,38 +98,4 @@ spec:
     protocol: TCP
     port: 80
     targetPort: 80
-    # nodePort: 30080  # Porta acessível externamente (30000-32767)
-
----
-# ========================================
-# Service: nginx-hostport (OPCIONAL)
-# ========================================
-# Para usar com extraPortMappings do Kind
-# Permite acesso via localhost:80
-#
-# IMPORTANTE: Descomente apenas se o cluster tiver
-# extraPortMappings configurado (cluster-config.yaml)
-#
-# apiVersion: v1
-# kind: Pod
-# metadata:
-#   name: nginx-hostport
-#   namespace: default
-#   labels:
-#     app: nginx-hostport
-#     tier: frontend
-# spec:
-#   nodeSelector:
-#     node-role.kubernetes.io/control-plane: ""
-#   tolerations:
-#   - key: node-role.kubernetes.io/control-plane
-#     effect: NoSchedule
-#   containers:
-#   - name: nginx
-#     image: nginx:1.27
-#     imagePullPolicy: IfNotPresent
-#     ports:
-#     - name: http
-#       containerPort: 80
-#       hostPort: 80  # Mapeia para porta 80 do node
-#       protocol: TCP
+    nodePort: 30000  # Porta acessível externamente (30000-32767)

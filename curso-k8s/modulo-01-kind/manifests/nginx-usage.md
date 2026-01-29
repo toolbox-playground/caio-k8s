@@ -62,7 +62,7 @@ Expõe na porta 30088 de todos os nodes.
 kubectl get svc nginx-nodeport
 
 # Acessar via port-forward (NodePort não funciona diretamente no Kind)
-kubectl port-forward svc/nginx-nodeport 8088:80
+kubectl port-forward svc/nginx-nodeport 8088:8080
 
 # Testar
 curl http://localhost:8088
@@ -79,7 +79,7 @@ curl http://localhost:8088
 
 ### **Opção 3: HostPort (Localhost)** 🏠
 
-Usa as portas mapeadas do cluster (80/443). Requer `extraPortMappings` configurado.
+Usa a porta mapeada do cluster (8080). Requer `extraPortMappings` configurado.
 
 ```powershell
 # Descomente a seção OPCIONAL no nginx.yaml
@@ -87,8 +87,8 @@ Usa as portas mapeadas do cluster (80/443). Requer `extraPortMappings` configura
 kubectl apply -f nginx.yaml
 
 # Acessar diretamente
-curl http://localhost
-# Ou navegador: http://localhost
+curl http://localhost:8080
+# Ou navegador: http://localhost:8080
 ```
 
 **Quando usar:**
