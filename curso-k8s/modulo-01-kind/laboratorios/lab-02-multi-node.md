@@ -294,6 +294,35 @@ spec:
 kubectl get pods -l app=app-zone-a -o wide
 ```
 
+**Linux/macOS:**
+```bash
+# Criar deployment que roda apenas em zone-a
+cat <<EOF | kubectl apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-zone-a
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: app-zone-a
+  template:
+    metadata:
+      labels:
+        app: app-zone-a
+    spec:
+      nodeSelector:
+        zone: zone-a
+      containers:
+      - name: nginx
+        image: nginx:alpine
+EOF
+
+# Verificar onde os pods foram agendados
+kubectl get pods -l app=app-zone-a -o wide
+```
+
 **Resultado esperado:** Todos os pods em `multi-node-worker` (zone-a)
 
 ### Passo 8: Deploy com Node Affinity
@@ -329,6 +358,43 @@ spec:
       - name: nginx
         image: nginx:alpine
 "@ | kubectl apply -f -
+
+# Verificar distribuição
+kubectl get pods -l app=app-zone-b -o wide
+```
+
+**Linux/macOS:**
+```bash
+# Deployment com preferência por zone-b
+cat <<EOF | kubectl apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-zone-b
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: app-zone-b
+  template:
+    metadata:
+      labels:
+        app: app-zone-b
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: zone
+                operator: In
+                values:
+                - zone-b
+      containers:
+      - name: nginx
+        image: nginx:alpine
+EOF
 
 # Verificar distribuição
 kubectl get pods -l app=app-zone-b -o wide
@@ -533,6 +599,36 @@ kubectl get pods -l app=node-monitor -o wide
 kubectl logs -l app=node-monitor --all-containers=true --tail=5
 ```
 
+**Linux/macOS:**
+```bash
+# Criar DaemonSet
+cat <<EOF | kubectl apply -f -
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-monitor
+spec:
+  selector:
+    matchLabels:
+      app: node-monitor
+  template:
+    metadata:
+      labels:
+        app: node-monitor
+    spec:
+      containers:
+      - name: busybox
+        image: busybox:latest
+        command: ["sh", "-c", "while true; do echo 'Monitoring node:' \$(hostname); sleep 60; done"]
+EOF
+
+# Verificar que há 1 pod por worker node
+kubectl get pods -l app=node-monitor -o wide
+
+# Ver logs de cada pod
+kubectl logs -l app=node-monitor --all-containers=true --tail=5
+```
+
 ### Passo 16: Testar Pod Anti-Affinity
 
 ```powershell
@@ -566,6 +662,43 @@ spec:
       - name: redis
         image: redis:alpine
 "@ | kubectl apply -f -
+
+# Verificar que pods estão em nodes diferentes
+kubectl get pods -l app=redis -o wide
+```
+
+**Linux/macOS:**
+```bash
+# Deployment que evita co-localização
+cat <<EOF | kubectl apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-cluster
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - redis
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: redis
+        image: redis:alpine
+EOF
 
 # Verificar que pods estão em nodes diferentes
 kubectl get pods -l app=redis -o wide

@@ -357,6 +357,52 @@ kubectl expose deployment myapp -n myapp --port=80 --type=ClusterIP
 kubectl get all -n myapp
 ```
 
+**Linux/macOS:**
+```bash
+# Mudar para DEV
+kubectl config use-context kind-dev
+
+# Criar namespace app
+kubectl create namespace myapp
+
+# Deploy versão 1.0
+cat <<EOF | kubectl apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  namespace: myapp
+  labels:
+    version: v1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+        version: v1.0
+    spec:
+      containers:
+      - name: app
+        image: nginx:1.25-alpine
+        env:
+        - name: ENVIRONMENT
+          value: "DEV"
+        - name: VERSION
+          value: "1.0"
+        ports:
+        - containerPort: 80
+EOF
+
+# Expor
+kubectl expose deployment myapp -n myapp --port=80 --type=ClusterIP
+
+# Verificar
+kubectl get all -n myapp
+
 ### Passo 7: Promover para STAGING
 
 ```powershell
@@ -403,6 +449,51 @@ kubectl expose deployment myapp -n myapp --port=80
 # Verificar distribuição em múltiplos workers
 kubectl get pods -n myapp -o wide
 ```
+
+**Linux/macOS:**
+```bash
+# Mudar para STAGING
+kubectl config use-context kind-staging
+
+# Criar namespace
+kubectl create namespace myapp
+
+# Deploy versão 1.0 (mesma versão de DEV)
+cat <<EOF | kubectl apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  namespace: myapp
+  labels:
+    version: v1.0
+spec:
+  replicas: 2  # Mais réplicas em staging
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+        version: v1.0
+    spec:
+      containers:
+      - name: app
+        image: nginx:1.25-alpine
+        env:
+        - name: ENVIRONMENT
+          value: "STAGING"
+        - name: VERSION
+          value: "1.0"
+        ports:
+        - containerPort: 80
+EOF
+
+kubectl expose deployment myapp -n myapp --port=80
+
+# Verificar distribuição em múltiplos workers
+kubectl get pods -n myapp -o wide
 
 ### Passo 8: Promover para PROD
 
@@ -597,6 +688,53 @@ kubectl delete deployment myapp -n myapp
 # Renomear green para padrão
 kubectl patch deployment myapp-green -n myapp --type='json' -p='[{"op": "remove", "path": "/spec/selector/matchLabels/slot"}]'
 ```
+
+**Linux/macOS:**
+```bash
+# Mudar para PROD
+kubectl config use-context kind-prod
+
+# Criar deployment v1.1 (green)
+cat <<EOF | kubectl apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-green
+  namespace: myapp
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: myapp
+      slot: green
+  template:
+    metadata:
+      labels:
+        app: myapp
+        slot: green
+        version: v1.1
+    spec:
+      containers:
+      - name: app
+        image: nginx:1.26-alpine
+        env:
+        - name: ENVIRONMENT
+          value: "PRODUCTION"
+        - name: VERSION
+          value: "1.1"
+EOF
+
+# Aguardar pods prontos
+kubectl wait --for=condition=ready pod -l slot=green -n myapp --timeout=120s
+
+# Switch service para green
+kubectl patch service myapp -n myapp -p '{"spec":{"selector":{"slot":"green"}}}'
+
+# Deletar deployment old (blue)
+kubectl delete deployment myapp -n myapp
+
+# Renomear green para padrão
+kubectl patch deployment myapp-green -n myapp --type='json' -p='[{"op": "remove", "path": "/spec/selector/matchLabels/slot"}]'
 
 ---
 

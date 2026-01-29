@@ -211,6 +211,28 @@ spec:
 kubectl get service web-nodeport
 ```
 
+**Linux/macOS:**
+```bash
+# Criar NodePort manualmente
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-nodeport
+spec:
+  type: NodePort
+  selector:
+    app: web
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 30080
+EOF
+
+# Ver service
+kubectl get service web-nodeport
+```
+
 **💡 Nota:** Normalmente NodePort aloca porta aleatória 30000-32767, mas fixamos em 30080.
 
 ---
@@ -342,6 +364,44 @@ spec:
             port:
               number: 80
 "@ | kubectl apply -f -
+
+# Ver Ingress criado
+kubectl get ingress
+kubectl describe ingress example-ingress
+```
+
+**Linux/macOS:**
+```bash
+# Criar Ingress
+cat <<EOF | kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: example-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: web.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web
+            port:
+              number: 80
+  - host: app2.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: app2
+            port:
+              number: 80
+EOF
 
 # Ver Ingress criado
 kubectl get ingress
@@ -488,6 +548,47 @@ spec:
 # Testar
 curl.exe -H "Host: myapp.local" http://localhost:30080/web
 curl.exe -H "Host: myapp.local" http://localhost:30080/api
+```
+
+**Linux/macOS:**
+```bash
+# Criar nova app
+kubectl create deployment api --image=nginx:alpine
+kubectl expose deployment api --port=80
+
+# Ingress com paths
+cat <<EOF | kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: path-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: myapp.local
+    http:
+      paths:
+      - path: /web
+        pathType: Prefix
+        backend:
+          service:
+            name: web
+            port:
+              number: 80
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: api
+            port:
+              number: 80
+EOF
+
+# Testar
+curl -H "Host: myapp.local" http://localhost:30080/web
+curl -H "Host: myapp.local" http://localhost:30080/api
 ```
 
 ### Passo 18: HTTPS/TLS (Preparação)
