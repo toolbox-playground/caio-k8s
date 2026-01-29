@@ -1,3 +1,9 @@
+## 0.8.0 (2026-01-29)
+
+### Feat
+
+- adicionar comentários explicativos sobre mapeamento de portas no cluster-config.yaml
+
 ## 0.7.0 (2026-01-29)
 
 ### Feat
