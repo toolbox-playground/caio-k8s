@@ -51,26 +51,22 @@ Ao final deste lab, você será capaz de:
 # Método 1: Usando Chocolatey (recomendado)
 choco install kind
 
-# Método 2: Download manual
-$kindVersion = "v0.20.0"
-$downloadUrl = "https://kind.sigs.k8s.io/dl/${kindVersion}/kind-windows-amd64.exe"
-curl.exe -Lo kind.exe $downloadUrl
-Move-Item .\kind.exe C:\Windows\System32\kind.exe
+# Método 2: Download manual (PowerShell)
+curl.exe -Lo kind-windows-amd64.exe https://kind.sigs.k8s.io/dl/v0.31.0/kind-windows-amd64
+Move-Item .\kind-windows-amd64.exe c:\some-dir-in-your-PATH\kind.exe
 
 # Verificar instalação
 kind version
-```
-
-**Saída esperada:**
-```
-kind v0.31.0 go1.25.5 windows/amd64
 ```
 
 ### Linux/WSL
 
 ```bash
 # Download e instalação
-curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+# For AMD64 / x86_64
+[ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.31.0/kind-linux-amd64
+# For ARM64
+[ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.31.0/kind-linux-arm64
 chmod +x ./kind
 sudo mv ./kind /usr/local/bin/kind
 
@@ -83,6 +79,14 @@ kind version
 ```bash
 # Usando Homebrew
 brew install kind
+
+# Ou download manual
+# For Intel Macs
+[ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.31.0/kind-darwin-amd64
+# For M1 / ARM Macs
+[ $(uname -m) = arm64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.31.0/kind-darwin-arm64
+chmod +x ./kind
+mv ./kind /some-dir-in-your-PATH/kind
 
 # Verificar
 kind version
