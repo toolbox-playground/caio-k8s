@@ -1,3 +1,9 @@
+## 0.16.2 (2026-01-29)
+
+### Fix
+
+- atualizar configuração do cluster Kind e melhorar instruções de acesso
+
 ## 0.16.1 (2026-01-29)
 
 ### Fix
