@@ -108,7 +108,7 @@ kind create cluster
 **Saída esperada:**
 ```
 Creating cluster "kind" ...
- ✓ Ensuring node image (kindest/node:v1.27.3) 🖼
+ ✓ Ensuring node image (kindest/node:v1.35.0) 🖼
  ✓ Preparing nodes 📦
  ✓ Writing configuration 📜
  ✓ Starting control-plane 🕹️
@@ -131,14 +131,14 @@ kind get clusters
 # Verificar nodes Kubernetes
 kubectl get nodes
 
-# Ver containers Docker (o "node" é um container)
+# Ver containers Docker (o "kindest/node:v1.35.0" é um container)
 docker ps
 ```
 
 **Saída esperada de `kubectl get nodes`:**
 ```
 NAME                 STATUS   ROLES           AGE   VERSION
-kind-control-plane   Ready    control-plane   1m    v1.27.3
+kind-control-plane   Ready    control-plane   1m    v1.35.0
 ```
 
 ---
@@ -191,8 +191,22 @@ kubectl describe node kind-control-plane
 # Ver labels do node
 kubectl get node kind-control-plane --show-labels
 
-# Ver recursos alocáveis
+# Ver recursos alocáveis (PowerShell)
 kubectl get node kind-control-plane -o json | ConvertFrom-Json | Select-Object -ExpandProperty status | Select-Object -ExpandProperty allocatable
+```
+
+**Linux/macOS:**
+```bash
+# Informações detalhadas do node
+kubectl describe node kind-control-plane
+
+# Ver labels do node
+kubectl get node kind-control-plane --show-labels
+
+# Ver recursos alocáveis
+kubectl get node kind-control-plane -o jsonpath='{.status.allocatable}' | jq
+# Ou sem jq:
+kubectl get node kind-control-plane -o jsonpath='{.status.allocatable}' && echo
 ```
 
 ---
@@ -202,6 +216,18 @@ kubectl get node kind-control-plane -o json | ConvertFrom-Json | Select-Object -
 ### Passo 6: Criar Deployment Nginx
 
 ```powershell
+# Carregar imagem nginx:alpine (opcional, Kind puxa automaticamente)
+docker pull nginx:alpine
+kind load docker-image nginx:alpine
+
+# Caso ocorra o seguinte erro:
+# ERROR: failed to load image: command "docker exec --privileged -i kind-control-plane ctr --namespace=k8s.io images import --all-platforms --digests --snapshotter=overlayfs -" failed with error: exit status 1
+# Command Output: ctr: content digest sha256:c8e83139ec2e197e88756ea0648745b9783ac2524fe3e861e50b0ada8c28d8f2: not found
+
+docker exec -it kind-control-plane 
+ctr -n k8s.io images pull docker.io/library/nginx:alpine
+exit
+
 # Criar deployment do nginx
 kubectl create deployment nginx --image=nginx:alpine
 
@@ -213,12 +239,6 @@ kubectl get pods
 
 # Aguardar pod ficar Ready
 kubectl wait --for=condition=ready pod -l app=nginx --timeout=120s
-```
-
-**Saída esperada:**
-```
-NAME    READY   UP-TO-DATE   AVAILABLE   AGE
-nginx   1/1     1            1           30s
 ```
 
 ### Passo 7: Inspecionar o Pod
@@ -244,8 +264,11 @@ kubectl get events --sort-by='.lastTimestamp' | Select-Object -Last 10
 ### Passo 8: Criar Service
 
 ```powershell
-# Expor deployment como NodePort
-kubectl expose deployment nginx --port=80 --type=NodePort
+# Expor deployment como NodePort com porta 
+kubectl expose deployment nginx --type=NodePort --port=80 --target-port=80
+# O kubectl expose não possui uma flag --node-port. Se você rodar o comando acima, o Kubernetes vai escolher uma porta aleatória entre 30000 e 32767 para você. 
+# Como estamos usando o Kind, devemos criar um arquivo de configuração YAML para definir a porta NodePort desejada para o Nginx e para definir o roteamento do Kind.
+# No módulo 2 falaresmos mais sobre isso.
 
 # Ver service criado
 kubectl get service nginx
@@ -274,6 +297,8 @@ kubectl proxy
 
 # Acessar via:
 # http://localhost:8001/api/v1/namespaces/default/services/nginx:80/proxy/
+
+# Para parar o proxy, pressione `Ctrl+C`
 ```
 
 ---
