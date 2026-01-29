@@ -1,3 +1,9 @@
+## 0.13.9 (2026-01-29)
+
+### Fix
+
+- atualizar instruções para deploy de aplicações e incluir comandos para carregar imagens
+
 ## 0.13.8 (2026-01-29)
 
 ### Refactor
