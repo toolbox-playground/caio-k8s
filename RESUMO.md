@@ -82,7 +82,8 @@ nodes:
   - role: control-plane
     extraPortMappings:
     - containerPort: 30080
-      hostPort: 30080
+      hostPort: 8080
+      protocol: TCP
   - role: worker
   - role: worker
 "@ | Out-File cluster-config.yaml -Encoding UTF8
@@ -127,17 +128,26 @@ kind delete clusters --all
 # Criar namespace
 kubectl create namespace games
 
+# Carregar imagem no Kind (importante!)
+kind load docker-image pengbai/docker-supermario:latest --name k8s-essentials
+
+# ⚠️ ALTERNATIVA (se kind load falhar):
+# Acessar worker node e puxar imagem manualmente
+docker exec -it k8s-essentials-worker bash
+ctr -n k8s.io images pull docker.io/pengbai/docker-supermario:latest
+exit
+
 # Deployment
 kubectl create deployment super-mario --image=pengbai/docker-supermario -n games
 
 # Expor serviço (ClusterIP)
 kubectl expose deployment super-mario --port=8080 --target-port=8080 --name=super-mario-service -n games
 
-# Acessar via port-forward (método profissional)
-kubectl port-forward -n games service/super-mario-service 8080:8080
-
 # Acessar no navegador
 Start-Process "http://localhost:8080"
+
+# Caso não aceite, usar port-forward (método profissional)
+kubectl port-forward -n games service/super-mario-service 8080:8080
 ```
 
 ### Por que Port-Forward?
@@ -399,14 +409,14 @@ kubectl top pods -n games
 
 ### Testar Auto-Scaling
 ```powershell
-# Método 1: Fortio (recomendado - ferramenta profissional)
-kubectl apply -f manifests/04-stress-test-fortio.yaml
+# Método 1: Polinux (recomendado - ferramenta profissional)
+kubectl apply -f curso-k8s/modulo-02-deploy-app/manifests/04-stress-test-fortio.yaml
 
 # Observar scaling
 kubectl get hpa -n games --watch
 
 # Parar teste
-kubectl delete pod fortio-stress-test -n games
+kubectl delete pod polinux-stress-test -n games
 
 # Método 2: Busybox (teste simples)
 kubectl run load-gen --image=busybox -n games --restart=Never -- /bin/sh -c "while true; do wget -q -O- http://minha-app-svc; done"
@@ -922,13 +932,15 @@ docker system prune -a -f
 ---
 
 **🎯 Novidades:**
-- ✅ Fortio substituiu ferramentas antigas de stress test
+- ✅ Polinux para testes de carga (leve e eficiente)
+- ✅ Port-forward como método de acesso (boas práticas)
 - ✅ Todos os YAMLs possuem comentários explicativos linha por linha
 - ✅ Curso 100% manual (sem scripts PowerShell)
-- ✅ Auto-healing documentado com exemplos práticos
+- ✅ Auto-healing e auto-scaling documentados com exemplos práticos
 
 **Última atualização:** Janeiro 2026  
-**Curso completo:** [README.md](../README.md)  
-**YAMLs comentados:** [manifests/](curso-k8s/modulo-02-deploy-app/manifests/)
+**Curso completo:** [README.md](README.md)  
+**Manifestos e guias:** [manifests/](curso-k8s/modulo-02-deploy-app/manifests/)  
+**Manifestos e guias:** [manifests/](curso-k8s/modulo-02-deploy-app/manifests/)
 
 </div>
