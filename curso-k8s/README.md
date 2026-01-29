@@ -51,15 +51,11 @@ Faça deploy do Super Mario e teste:
 
 📖 [Acessar módulo](./modulo-02-deploy-app/)
 
-**Início rápido:**
-```powershell
-cd modulo-02-deploy-app/scripts
-.\setup-cluster.ps1
-.\deploy-app.ps1
-# Acesse via port-forward
-kubectl port-forward -n games service/super-mario-service 8080:8080
-# Abra: http://localhost:8080
-```
+**Recursos disponíveis:**
+- 📚 [README completo](./modulo-02-deploy-app/README.md) - Guia detalhado do módulo
+- 🚀 [Quick Start](./modulo-02-deploy-app/QUICK-START.md) - Início rápido
+- 📦 [Manifestos comentados](./modulo-02-deploy-app/manifests/) - YAMLs prontos para uso
+- 📖 [Guia de Stress Test](./modulo-02-deploy-app/manifests/STRESS-TEST-GUIDE.md) - Testes de carga
 
 ---
 
@@ -98,9 +94,9 @@ cd ..\modulo-02-deploy-app
 
 ### Caminho Rápido (Se já conhece K8s)
 ```powershell
-# Vá direto para o melhor!
+# Vá direto para deploy e resiliência!
 cd modulo-02-deploy-app
-cat QUICK-START.md
+cat README.md
 ```
 
 ---
@@ -109,7 +105,7 @@ cat QUICK-START.md
 
 - ✅ Módulo 00: Docker Fundamentals
 - ✅ Módulo 01: Kind (4 labs)
-- ✅ Módulo 02: Deploy + Resiliência (2 jogos!)
+- ✅ Módulo 02: Deploy + Resiliência (Super Mario!)
 - 🔄 Módulo 03: Persistência (em breve)
 - 🔄 Módulo 04: Networking (em breve)
 
