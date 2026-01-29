@@ -25,7 +25,7 @@ Um curso completo sobre **Deploy de Aplicações e Resiliência no Kubernetes** 
 
 ```powershell
 # 1. Criar cluster (3-5 min)
-kind create cluster --name k8s-essentials
+kind create cluster --config manifests/cluster-config.yaml
 
 # 2. Instalar Metrics Server
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
@@ -35,6 +35,14 @@ kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op":
 
 # Aguardar estar pronto
 kubectl wait --for=condition=available --timeout=120s deployment/metrics-server -n kube-system
+
+# Upload da imagem Docker do Super Mario para o Kind
+kind load docker-image pengbai/docker-supermario:latest --name k8s-essentials
+
+# Alternativa: Acessar worker node e puxar imagem manualmente
+docker exec -it k8s-essentials-worker bash
+ctr -n k8s.io images pull docker.io/pengbai/docker-supermario:latest
+exit
 
 # 3. Deploy do Super Mario
 kubectl create namespace games
@@ -115,6 +123,7 @@ curso-k8s/modulo-02-deploy-app/
     ├── 02-service-mario.yaml          # Service ClusterIP
     ├── 03-hpa.yaml                    # Horizontal Pod Autoscaler
     ├── 04-stress-test-fortio.yaml     # Pods de stress test (Fortio)
+    ├── cluster-config.yaml            # Configuração do cluster para stress test
     ├── README.md                      # Documentação dos manifestos
     └── STRESS-TEST-GUIDE.md          # Guia de testes de stress
 ```
@@ -249,6 +258,14 @@ kind create cluster --name k8s-demo
 # 2. Metrics Server
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+
+# Upload da imagem Docker do Super Mario para o Kind
+kind load docker-image pengbai/docker-supermario:latest --name k8s-demo
+
+# Alternativa: Acessar worker node e puxar imagem manualmente
+docker exec -it k8s-demo-worker bash
+ctr -n k8s.io images pull docker.io/pengbai/docker-supermario:latest
+exit
 
 # 3. Deploy
 kubectl create namespace games

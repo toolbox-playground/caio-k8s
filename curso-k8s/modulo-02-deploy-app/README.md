@@ -254,6 +254,7 @@ modulo-02-deploy-app/
     ├── 02-service-mario.yaml          # 🌐 Service ClusterIP
     ├── 03-hpa.yaml                    # 📈 Horizontal Pod Autoscaler
     ├── 04-stress-test-fortio.yaml     # 🔥 Pods de stress test (Fortio)
+    ├── cluster-config.yaml            # 🔥 Configuração do cluster para stress test
     ├── README.md                      # 📋 Documentação dos manifestos
     └── STRESS-TEST-GUIDE.md          # 🎯 Guia de testes de stress
 ```
@@ -281,10 +282,13 @@ modulo-02-deploy-app/
 ## 🚀 Deploy Passo a Passo
 
 ```powershell
-# 1. Criar namespace
+# 1. Criar o cluster Kubernetes com 1 control-plane e 2 workers
+kind create cluster --config manifests/cluster-config.yaml
+
+# 2. Criar namespace
 kubectl create namespace games
 
-# 2. Carregar imagem Docker no Kind
+# 3. Carregar imagem Docker no Kind
 kind load docker-image pengbai/docker-supermario:latest --name k8s-essentials
 
 # Alternativa: Acessar worker node e puxar imagem manualmente
@@ -292,21 +296,21 @@ docker exec -it k8s-essentials-worker bash
 ctr -n k8s.io images pull docker.io/pengbai/docker-supermario:latest
 exit
 
-# 3. Aplicar manifestos
+# 4. Aplicar manifestos
 kubectl apply -f manifests/01-deployment-mario.yaml
 kubectl apply -f manifests/02-service-mario.yaml
 kubectl apply -f manifests/03-hpa.yaml
 
-# 4. Verificar status
+# 5. Verificar status
 kubectl get all -n games
 
-# 5. Aguardar pods ficarem prontos
+# 6. Aguardar pods ficarem prontos
 kubectl wait --for=condition=ready pod -l app=super-mario -n games --timeout=120s
 
-# 6. Acessar aplicação
+# 7. Acessar aplicação
 Start-Process "http://localhost:8080"
 
-# 7. Caso o NodePort não funcione, use port-forward (método profissional)
+# 8. Caso o NodePort não funcione, use port-forward (método profissional)
 kubectl port-forward -n games service/super-mario-service 8080:8080
 ```
 

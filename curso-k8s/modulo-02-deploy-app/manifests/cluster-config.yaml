@@ -1,0 +1,53 @@
+# Tipo de recurso: Define que este YAML é uma configuração de Cluster do Kind
+kind: Cluster
+
+# Versão da API: Especifica a versão v1alpha4 da API do Kind (única versão suportada)
+apiVersion: kind.x-k8s.io/v1alpha4
+
+# Nome do cluster: Identificador usado em comandos kubectl e docker
+name: k8s-essentials
+
+# ========== SEÇÃO DE NODES ==========
+nodes:
+  # Node 1 - Control Plane (Master)
+  # Executa componentes críticos: API Server, Scheduler, Controller Manager, etcd
+  - role: control-plane
+    
+    # Mapeamento de portas extras: Expõe portas do container Docker para o host
+    extraPortMappings:
+    - containerPort: 30000
+      hostPort: 8080
+      protocol: TCP
+    # Permite acesso ao cluster via localhost:8080 no host
+    # Mapeia a porta 30000 do node para a porta 8080 do host
+    # Útil para acessar serviços NodePort diretamente do host
+    # Exemplo: Acessar nginx via localhost:8080
+    # # ========================================
+    # Service: nginx-nodeport (NodePort)
+    # ========================================
+    # Expõe o nginx em uma porta específica do node
+    # Útil para acesso externo em desenvolvimento
+    # apiVersion: v1
+    # kind: Service
+    # metadata:
+    #   name: nginx-nodeport
+    #   namespace: default
+    #   labels:
+    #     app: nginx
+    #     tier: frontend
+    # spec:
+    #   type: NodePort
+    #   selector:
+    #     app: nginx
+    #   ports:
+    #   - name: http
+    #     protocol: TCP
+    #     port: 80
+    #     targetPort: 80
+    #     nodePort: 30000  # Porta acessível externamente (30000-32767)
+
+  # Node 2 - Worker: Executa cargas de trabalho (pods de aplicações)
+  - role: worker
+  
+  # Node 3 - Worker: Node adicional para distribuição de carga
+  - role: worker
