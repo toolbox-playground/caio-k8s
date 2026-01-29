@@ -1,3 +1,9 @@
+## 0.7.0 (2026-01-29)
+
+### Feat
+
+- adicionar guia de início rápido e estrutura detalhada do laboratório no README.md
+
 ## 0.6.0 (2026-01-29)
 
 ### Feat
