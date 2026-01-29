@@ -1,3 +1,9 @@
+## 0.14.0 (2026-01-29)
+
+### Feat
+
+- adicionar configuração do NGINX Ingress otimizado e remover arquivos obsoletos
+
 ## 0.13.10 (2026-01-29)
 
 ### Fix
