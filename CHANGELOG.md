@@ -1,3 +1,9 @@
+## 0.5.0 (2026-01-29)
+
+### Feat
+
+- adicionar .gitignore e atualizar configurações de cluster e serviços no Kubernetes
+
 ## 0.4.2 (2026-01-28)
 
 ### Refactor
