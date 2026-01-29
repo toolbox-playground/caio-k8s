@@ -27,6 +27,19 @@ $PSVersionTable.PSVersion
 docker info | Select-String "CPUs", "Total Memory"
 ```
 
+**Linux/macOS:**
+```bash
+# Docker rodando
+docker version
+docker ps
+
+# Bash version
+bash --version
+
+# Recursos
+docker info | grep -E "CPUs|Total Memory"
+```
+
 ---
 
 ## 🎯 Objetivos de Aprendizado
@@ -257,6 +270,21 @@ kubectl logs -l app=nginx
 kubectl get events --sort-by='.lastTimestamp' | Select-Object -Last 10
 ```
 
+**Linux/macOS:**
+```bash
+# Detalhes do pod
+kubectl get pods -l app=nginx -o wide
+
+# Descrever pod
+kubectl describe pod -l app=nginx
+
+# Ver logs do nginx
+kubectl logs -l app=nginx
+
+# Ver eventos (últimos 10)
+kubectl get events --sort-by='.lastTimestamp' | tail -n 10
+```
+
 ---
 
 ## 🌐 Parte 5: Expor e Acessar Aplicação
@@ -320,11 +348,23 @@ kubectl get pods -l app=nginx -o wide
 
 **💡 Observação:** Em um cluster single-node, todos os pods rodam no mesmo node.
 
+**✍️ Nota:** O comando `-w` (watch) funciona da mesma forma em PowerShell, Linux e macOS.
+
 ### Passo 11: Testar Alta Disponibilidade
 
 ```powershell
 # Deletar um pod
 $podName = kubectl get pods -l app=nginx -o jsonpath='{.items[0].metadata.name}'
+kubectl delete pod $podName
+
+# Ver novo pod sendo criado automaticamente
+kubectl get pods -l app=nginx -w
+```
+
+**Linux/macOS:**
+```bash
+# Deletar um pod
+podName=$(kubectl get pods -l app=nginx -o jsonpath='{.items[0].metadata.name}')
 kubectl delete pod $podName
 
 # Ver novo pod sendo criado automaticamente
@@ -351,11 +391,39 @@ kubectl get events --sort-by='.lastTimestamp'
 kubectl describe pod -l app=nginx | Select-String "Events:" -Context 0,10
 ```
 
+**Linux/macOS:**
+```bash
+# Logs de todos os pods nginx
+kubectl logs -l app=nginx --all-containers=true
+
+# Logs em tempo real (follow)
+kubectl logs -l app=nginx -f
+
+# Ver eventos do namespace
+kubectl get events --sort-by='.lastTimestamp'
+
+# Eventos de um pod específico (10 linhas após "Events:")
+kubectl describe pod -l app=nginx | grep -A 10 "Events:"
+```
+
 ### Passo 13: Executar Comandos no Container
 
 ```powershell
 # Exec no pod
 $podName = kubectl get pods -l app=nginx -o jsonpath='{.items[0].metadata.name}'
+kubectl exec -it $podName -- /bin/sh
+
+# Dentro do container:
+# hostname
+# nginx -v
+# ps aux
+# exit
+```
+
+**Linux/macOS:**
+```bash
+# Exec no pod
+podName=$(kubectl get pods -l app=nginx -o jsonpath='{.items[0].metadata.name}')
 kubectl exec -it $podName -- /bin/sh
 
 # Dentro do container:
@@ -389,6 +457,28 @@ kubectl get service nginx -o jsonpath='{.spec.clusterIP}'
 
 # Testar via ClusterIP
 $serviceIP = kubectl get service nginx -o jsonpath='{.spec.clusterIP}'
+kubectl exec busybox -- wget -O- http://${serviceIP}
+```
+
+**Linux/macOS:**
+```bash
+# Criar pod de teste (busybox)
+kubectl run busybox --image=busybox:latest --restart=Never -- sleep 3600
+
+# Aguardar pod ficar pronto
+kubectl wait --for=condition=ready pod/busybox --timeout=60s
+
+# Testar DNS do service
+kubectl exec busybox -- nslookup nginx
+
+# Testar conectividade HTTP
+kubectl exec busybox -- wget -O- http://nginx
+
+# Ver IP do service
+kubectl get service nginx -o jsonpath='{.spec.clusterIP}'
+
+# Testar via ClusterIP
+serviceIP=$(kubectl get service nginx -o jsonpath='{.spec.clusterIP}')
 kubectl exec busybox -- wget -O- http://${serviceIP}
 ```
 

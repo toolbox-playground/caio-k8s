@@ -73,6 +73,42 @@ nodes:
 Get-Content ".\temp-configs\kind-ingress-ready.yaml"
 ```
 
+**Linux/macOS:**
+```bash
+# Navegar para pasta (ajuste o caminho)
+cd ~/Documents/k8s/curso/modulo-01-kind
+
+# Criar diretório
+mkdir -p ./temp-configs
+
+# Criar configuração
+cat <<'EOF' > ./temp-configs/kind-ingress-ready.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ingress-ready
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: 80
+    protocol: TCP
+  - containerPort: 443
+    hostPort: 443
+    protocol: TCP
+- role: worker
+- role: worker
+EOF
+
+# Visualizar
+cat ./temp-configs/kind-ingress-ready.yaml
+```
+
 **💡 Explicação:**
 - `extraPortMappings`: Mapeia portas do container para o host
 - `containerPort: 80` → `hostPort: 80`: HTTP acessível em `localhost:80`
@@ -111,6 +147,18 @@ docker port ingress-ready-control-plane
 
 # Verificar labels do control-plane
 kubectl get node ingress-ready-control-plane --show-labels | Select-String "ingress-ready"
+```
+
+**Linux/macOS:**
+```bash
+# Ver nodes
+kubectl get nodes
+
+# Ver portas mapeadas no Docker
+docker port ingress-ready-control-plane
+
+# Verificar labels do control-plane
+kubectl get node ingress-ready-control-plane --show-labels | grep "ingress-ready"
 ```
 
 **Saída esperada de `docker port`:**
@@ -180,6 +228,18 @@ Start-Process "http://localhost:30080"
 
 # Teste com PowerShell
 Invoke-WebRequest -Uri "http://localhost:30080" -UseBasicParsing
+```
+
+**Linux/macOS:**
+```bash
+# Teste HTTP
+curl http://localhost:30080
+
+# Ou no navegador (macOS)
+open http://localhost:30080
+
+# Ou no navegador (Linux com xdg-open)
+xdg-open http://localhost:30080 2>/dev/null || echo "Abra http://localhost:30080 no navegador"
 ```
 
 **Saída esperada:** Página padrão do Nginx
@@ -317,6 +377,14 @@ Invoke-WebRequest -Uri "http://localhost:30080" -Headers $headers -UseBasicParsi
 
 $headers = @{Host = "app2.local"}
 Invoke-WebRequest -Uri "http://localhost:30080" -Headers $headers -UseBasicParsing
+```
+
+**Linux/macOS:**
+```bash
+# Teste com Header Host
+curl -H "Host: web.local" http://localhost:30080
+
+curl -H "Host: app2.local" http://localhost:30080
 ```
 
 **Resultado esperado:** 

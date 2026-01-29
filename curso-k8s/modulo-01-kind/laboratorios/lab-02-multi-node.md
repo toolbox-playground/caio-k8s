@@ -25,6 +25,18 @@ docker info | Select-String "CPUs", "Total Memory"
 kind delete cluster
 ```
 
+**Linux/macOS:**
+```bash
+# Verificar Kind
+kind version
+
+# Verificar recursos Docker
+docker info | grep -E "CPUs|Total Memory"
+
+# Limpar clusters anteriores
+kind delete cluster
+```
+
 ---
 
 ## 🎯 Objetivos de Aprendizado
@@ -73,6 +85,37 @@ nodes:
 
 # Visualizar o arquivo
 Get-Content ".\temp-configs\kind-multi-node.yaml"
+```
+
+**Linux/macOS:**
+```bash
+# Navegar para pasta do módulo (ajuste o caminho)
+cd ~/Documents/k8s/curso/modulo-01-kind
+
+# Criar diretório para configs
+mkdir -p ./temp-configs
+
+# Criar arquivo de config
+cat <<EOF > ./temp-configs/kind-multi-node.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: multi-node
+nodes:
+- role: control-plane
+  labels:
+    tier: control
+- role: worker
+  labels:
+    tier: compute
+    zone: zone-a
+- role: worker
+  labels:
+    tier: compute
+    zone: zone-b
+EOF
+
+# Visualizar o arquivo
+cat ./temp-configs/kind-multi-node.yaml
 ```
 
 **💡 Explicação da Config:**
@@ -124,9 +167,9 @@ kubectl get nodes --show-labels
 **Saída esperada:**
 ```
 NAME                       STATUS   ROLES           AGE   VERSION
-multi-node-control-plane   Ready    control-plane   2m    v1.27.3
-multi-node-worker          Ready    <none>          2m    v1.27.3
-multi-node-worker2         Ready    <none>          2m    v1.27.3
+multi-node-control-plane   Ready    control-plane   2m    v1.35.0
+multi-node-worker          Ready    <none>          2m    v1.35.0
+multi-node-worker2         Ready    <none>          2m    v1.35.0
 ```
 
 ### Passo 4: Inspecionar Nodes Individualmente
@@ -145,6 +188,21 @@ kubectl describe node multi-node-worker2 | Select-String "Labels"
 docker ps
 ```
 
+**Linux/macOS:**
+```bash
+# Control-plane
+kubectl describe node multi-node-control-plane | grep -E "Roles|Labels|Taints"
+
+# Worker 1
+kubectl describe node multi-node-worker | grep "Labels"
+
+# Worker 2
+kubectl describe node multi-node-worker2 | grep "Labels"
+
+# Ver containers Docker (3 containers = 3 nodes)
+docker ps
+```
+
 ---
 
 ## 🎨 Parte 3: Deploy e Distribuição de Pods
@@ -152,6 +210,18 @@ docker ps
 ### Passo 5: Deploy Aplicação com Múltiplas Réplicas
 
 ```powershell
+# Carregar imagem nginx:alpine (opcional, Kind puxa automaticamente)
+docker pull nginx:alpine
+kind load docker-image nginx:alpine
+
+# Caso ocorra o seguinte erro:
+# ERROR: failed to load image: command "docker exec --privileged -i kind-control-plane ctr --namespace=k8s.io images import --all-platforms --digests --snapshotter=overlayfs -" failed with error: exit status 1
+# Command Output: ctr: content digest sha256:c8e83139ec2e197e88756ea0648745b9783ac2524fe3e861e50b0ada8c28d8f2: not found
+
+docker exec -it kind-control-plane 
+ctr -n k8s.io images pull docker.io/library/nginx:alpine
+exit
+
 # Criar deployment com 6 réplicas
 kubectl create deployment nginx --image=nginx:alpine
 kubectl scale deployment nginx --replicas=6
@@ -176,6 +246,18 @@ kubectl get pods -l app=nginx -o jsonpath='{range .items[*]}{.metadata.name}{"\t
 
 # Verificar recursos dos nodes
 kubectl describe nodes | Select-String "Non-terminated Pods"
+```
+
+**Linux/macOS:**
+```bash
+# Contar pods por node
+kubectl get pods -l app=nginx -o wide | grep "worker"
+
+# Ver métricas de distribuição
+kubectl get pods -l app=nginx -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.nodeName}{"\n"}{end}'
+
+# Verificar recursos dos nodes
+kubectl describe nodes | grep "Non-terminated Pods"
 ```
 
 ---
@@ -294,6 +376,18 @@ kubectl get events --sort-by='.lastTimestamp' | Select-Object -Last 20
 kubectl get pods -A -o wide | Select-String "Evicted"
 ```
 
+**Linux/macOS:**
+```bash
+# Ver pods sendo rescheduled
+kubectl get pods -o wide -w  # Ctrl+C para parar
+
+# Ver eventos de rescheduling (últimos 20)
+kubectl get events --sort-by='.lastTimestamp' | tail -n 20
+
+# Ver pods em estado de eviction
+kubectl get pods -A -o wide | grep "Evicted"
+```
+
 ### Passo 11: Recuperar Node
 
 ```powershell
@@ -355,6 +449,18 @@ kubectl get nodes -o json | ConvertFrom-Json | ForEach-Object {
 kubectl describe nodes | Select-String "Allocatable:" -Context 0,5
 ```
 
+**Linux/macOS:**
+```bash
+# Ver capacidade total (com jq)
+kubectl get nodes -o json | jq -r '.items[] | "\(.metadata.name)\t\(.status.capacity.cpu)\t\(.status.capacity.memory)"'
+
+# Ou usando jsonpath
+kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.capacity.cpu}{"\t"}{.status.capacity.memory}{"\n"}{end}'
+
+# Ver recursos alocáveis (5 linhas após "Allocatable:")
+kubectl describe nodes | grep -A 5 "Allocatable:"
+```
+
 ---
 
 ## 🔧 Parte 7: Troubleshooting Multi-Node
@@ -372,6 +478,21 @@ kubectl get nodes -o json | ConvertFrom-Json | ForEach-Object {
 
 # Logs do kubelet de um worker
 docker exec multi-node-worker journalctl -u kubelet --no-pager | Select-Object -Last 50
+
+# Ver comunicação entre nodes
+kubectl exec -it deployment/nginx -- ping -c 3 multi-node-worker2
+```
+
+**Linux/macOS:**
+```bash
+# Ver pods que não estão rodando
+kubectl get pods -A --field-selector=status.phase!=Running
+
+# Ver nodes com problemas (com jq)
+kubectl get nodes -o json | jq '.items[] | select(.status.conditions[] | select(.type=="Ready" and .status!="True"))'
+
+# Logs do kubelet de um worker (últimas 50 linhas)
+docker exec multi-node-worker journalctl -u kubelet --no-pager | tail -n 50
 
 # Ver comunicação entre nodes
 kubectl exec -it deployment/nginx -- ping -c 3 multi-node-worker2

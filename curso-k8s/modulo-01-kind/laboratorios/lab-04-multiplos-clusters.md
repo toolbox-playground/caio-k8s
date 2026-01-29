@@ -22,6 +22,15 @@ docker info | Select-String "Total Memory"
 kind get clusters | ForEach-Object { kind delete cluster --name $_ }
 ```
 
+**Linux/macOS:**
+```bash
+kind version
+docker info | grep "Total Memory"
+
+# Limpar clusters anteriores
+kind get clusters | xargs -I {} kind delete cluster --name {}
+```
+
 ---
 
 ## 🎯 Objetivos de Aprendizado
@@ -97,6 +106,63 @@ nodes:
 "@ | Out-File -FilePath ".\temp-configs\kind-prod.yaml" -Encoding UTF8
 ```
 
+**Linux/macOS:**
+```bash
+# Navegar para pasta (ajuste o caminho)
+cd ~/Documents/k8s/curso/modulo-01-kind
+
+# Criar diretório
+mkdir -p ./temp-configs
+
+# Config DEV (single-node, leve)
+cat <<EOF > ./temp-configs/kind-dev.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: dev
+nodes:
+- role: control-plane
+  labels:
+    environment: dev
+EOF
+
+# Config STAGING (multi-node)
+cat <<EOF > ./temp-configs/kind-staging.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: staging
+nodes:
+- role: control-plane
+  labels:
+    environment: staging
+- role: worker
+  labels:
+    environment: staging
+EOF
+
+# Config PROD (HA)
+cat <<EOF > ./temp-configs/kind-prod.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: prod
+nodes:
+- role: control-plane
+  labels:
+    environment: prod
+- role: control-plane
+  labels:
+    environment: prod
+- role: control-plane
+  labels:
+    environment: prod
+- role: worker
+  labels:
+    environment: prod
+- role: worker
+  labels:
+    environment: prod
+EOF
+```
+
 **💡 Estratégia:**
 - **DEV**: Leve, rápido para testes
 - **STAGING**: Simula produção
@@ -124,6 +190,23 @@ kind create cluster --config .\temp-configs\kind-prod.yaml
 # Aguarde 5-7 minutos para todos os clusters
 ```
 
+**Linux/macOS:**
+```bash
+# Criar cluster DEV
+echo "🔨 Creating DEV cluster..."
+kind create cluster --config ./temp-configs/kind-dev.yaml
+
+# Criar cluster STAGING
+echo "🔨 Creating STAGING cluster..."
+kind create cluster --config ./temp-configs/kind-staging.yaml
+
+# Criar cluster PROD
+echo "🔨 Creating PROD cluster..."
+kind create cluster --config ./temp-configs/kind-prod.yaml
+
+# Aguarde 5-7 minutos para todos os clusters
+```
+
 ### Passo 3: Verificar Todos os Clusters
 
 ```powershell
@@ -137,6 +220,21 @@ docker ps --format "table {{.Names}}\t{{.Status}}"
 
 # Ver contextos kubectl
 Write-Host "`n⚙️  Kubectl Contexts:" -ForegroundColor Cyan
+kubectl config get-contexts
+```
+
+**Linux/macOS:**
+```bash
+# Listar clusters Kind
+echo "📋 Kind Clusters:"
+kind get clusters
+
+# Ver containers Docker
+echo "🐳 Docker Containers:"
+docker ps --format "table {{.Names}}\t{{.Status}}"
+
+# Ver contextos kubectl
+echo "⚙️  Kubectl Contexts:"
 kubectl config get-contexts
 ```
 
@@ -186,6 +284,24 @@ Write-Host "`nSTAGING Pods:" -ForegroundColor Yellow
 kubectl get pods -A --context kind-staging
 
 Write-Host "`nPROD Pods:" -ForegroundColor Red
+kubectl get pods -A --context kind-prod
+```
+
+**Linux/macOS:**
+```bash
+# Executar comando em contexto específico (sem mudar contexto atual)
+kubectl get nodes --context kind-dev
+kubectl get nodes --context kind-staging
+kubectl get nodes --context kind-prod
+
+# Ver todos os pods de todos os clusters
+echo -e "\n\033[0;32mDEV Pods:\033[0m"
+kubectl get pods -A --context kind-dev
+
+echo -e "\n\033[0;33mSTAGING Pods:\033[0m"
+kubectl get pods -A --context kind-staging
+
+echo -e "\n\033[0;31mPROD Pods:\033[0m"
 kubectl get pods -A --context kind-prod
 ```
 
