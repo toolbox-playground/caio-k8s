@@ -307,6 +307,122 @@ kubectl get pods -A --context kind-prod
 
 ---
 
+## 📦 Parte 3.5: Preparar Imagens nos Clusters
+
+> **⚠️ IMPORTANTE**: Antes de fazer deploy de aplicações, é necessário carregar as imagens Docker nos clusters Kind, pois eles não têm acesso direto ao Docker Hub por padrão.
+
+### Método 1: Pull + Load (Recomendado)
+
+```powershell
+# Baixar imagens Docker localmente
+docker pull nginx:1.25-alpine
+docker pull nginx:1.26-alpine
+docker pull busybox:latest
+
+# Carregar em todos os clusters
+kind load docker-image nginx:1.25-alpine --name dev
+kind load docker-image nginx:1.25-alpine --name staging
+kind load docker-image nginx:1.25-alpine --name prod
+
+kind load docker-image nginx:1.26-alpine --name dev
+kind load docker-image nginx:1.26-alpine --name staging
+kind load docker-image nginx:1.26-alpine --name prod
+
+kind load docker-image busybox:latest --name dev
+kind load docker-image busybox:latest --name staging
+kind load docker-image busybox:latest --name prod
+```
+
+**Linux/macOS:**
+```bash
+# Baixar imagens Docker localmente
+docker pull nginx:1.25-alpine
+docker pull nginx:1.26-alpine
+docker pull busybox:latest
+
+# Carregar em todos os clusters
+for cluster in dev staging prod; do
+  kind load docker-image nginx:1.25-alpine --name $cluster
+  kind load docker-image nginx:1.26-alpine --name $cluster
+  kind load docker-image busybox:latest --name $cluster
+done
+```
+
+### Método 2: Pull Direto no Node (Alternativo)
+
+```powershell
+# DEV cluster
+docker exec -it dev-control-plane bash
+ctr -n k8s.io images pull docker.io/library/nginx:1.25-alpine
+ctr -n k8s.io images pull docker.io/library/nginx:1.26-alpine
+ctr -n k8s.io images pull docker.io/library/busybox:latest
+exit
+
+# STAGING cluster
+docker exec -it staging-control-plane bash
+ctr -n k8s.io images pull docker.io/library/nginx:1.25-alpine
+ctr -n k8s.io images pull docker.io/library/nginx:1.26-alpine
+ctr -n k8s.io images pull docker.io/library/busybox:latest
+exit
+
+# STAGING workers
+docker exec -it staging-worker bash
+ctr -n k8s.io images pull docker.io/library/nginx:1.25-alpine
+ctr -n k8s.io images pull docker.io/library/nginx:1.26-alpine
+ctr -n k8s.io images pull docker.io/library/busybox:latest
+exit
+
+# PROD - fazer para todos os nodes (3 control-planes + 3 workers)
+# Exemplo para um node:
+docker exec -it prod-control-plane bash
+ctr -n k8s.io images pull docker.io/library/nginx:1.25-alpine
+ctr -n k8s.io images pull docker.io/library/nginx:1.26-alpine
+ctr -n k8s.io images pull docker.io/library/busybox:latest
+exit
+```
+
+**Linux/macOS:**
+```bash
+# Automatizar para todos os nodes
+for node in dev-control-plane staging-control-plane staging-worker \
+            prod-control-plane prod-control-plane2 prod-control-plane3 \
+            prod-worker prod-worker2 prod-worker3; do
+  echo "Loading images in $node..."
+  docker exec -it $node ctr -n k8s.io images pull docker.io/library/nginx:1.25-alpine
+  docker exec -it $node ctr -n k8s.io images pull docker.io/library/nginx:1.26-alpine
+  docker exec -it $node ctr -n k8s.io images pull docker.io/library/busybox:latest
+done
+```
+
+### Verificar Imagens Carregadas
+
+```powershell
+# Verificar em cada cluster
+kubectl config use-context kind-dev
+kubectl run test-image --image=nginx:1.25-alpine --dry-run=client -o yaml | kubectl apply -f -
+kubectl get pods test-image
+kubectl delete pod test-image
+
+# Repetir para staging e prod
+kubectl config use-context kind-staging
+kubectl run test-image --image=nginx:1.25-alpine --dry-run=client -o yaml | kubectl apply -f -
+kubectl get pods test-image
+kubectl delete pod test-image
+
+kubectl config use-context kind-prod
+kubectl run test-image --image=nginx:1.25-alpine --dry-run=client -o yaml | kubectl apply -f -
+kubectl get pods test-image
+kubectl delete pod test-image
+```
+
+**💡 Dicas:**
+- O Método 1 (`kind load`) é mais rápido e eficiente
+- O Método 2 é útil quando `kind load` falhar ou para imagens específicas
+- Sempre verifique se a imagem foi carregada antes de fazer o deploy
+- Em clusters multi-node, `kind load` distribui automaticamente para todos os nodes
+
+---
+
 ## 🌐 Parte 4: Deploy em Múltiplos Ambientes
 
 ### Passo 6: Deploy Versão 1.0 em DEV
