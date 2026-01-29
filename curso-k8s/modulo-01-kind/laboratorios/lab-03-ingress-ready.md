@@ -158,10 +158,10 @@ nodes:
       kubeletExtraArgs:
         node-labels: \"ingress-ready=true\"
   extraPortMappings:
-  - containerPort: 80
+  - containerPort: 30080
     hostPort: 80
     protocol: TCP
-  - containerPort: 443
+  - containerPort: 30443
     hostPort: 443
     protocol: TCP
 - role: worker
@@ -191,10 +191,10 @@ nodes:
       kubeletExtraArgs:
         node-labels: "ingress-ready=true"
   extraPortMappings:
-  - containerPort: 80
+  - containerPort: 30080
     hostPort: 80
     protocol: TCP
-  - containerPort: 443
+  - containerPort: 30443
     hostPort: 443
     protocol: TCP
 - role: worker
@@ -283,9 +283,11 @@ spec:
   selector:
     app: web
   ports:
-  - port: 80
+  - name: http
+    port: 80
     targetPort: 80
     nodePort: 30080
+    protocol: TCP
 "@ | kubectl apply -f -
 
 # Ver service
@@ -305,9 +307,11 @@ spec:
   selector:
     app: web
   ports:
-  - port: 80
+  - name: http
+    port: 80
     targetPort: 80
     nodePort: 30080
+    protocol: TCP
 EOF
 
 # Ver service
