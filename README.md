@@ -1,3 +1,7 @@
+<p align="center"> 
+  <img src="img/tbx.png" alt="Logo Toolbox" width="400"/>
+</p>
+
 # 🚀 Kubernetes na Prática - Curso Hands-On
 
 > Aprenda Kubernetes através de laboratórios práticos, do básico ao avançado
@@ -127,11 +131,12 @@ Vá além da criação de clusters! Faça deploy de aplicações reais (**jogos 
 **Início rápido com Super Mario:**
 ```powershell
 # 1. Criar cluster local com Kind
-kind create cluster --name k8s-essentials
+kind create cluster --config curso-k8s/modulo-01-kind/manifests/cluster-config.yaml
 
 # 2. Instalar Metrics Server
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+kubectl wait --for=condition=available --timeout=120s deployment/metrics-server -n kube-system
 
 # 3. Deploy do Super Mario
 kubectl create namespace games
@@ -139,37 +144,15 @@ kubectl apply -f curso-k8s/modulo-02-deploy-app/manifests/01-deployment-mario.ya
 kubectl apply -f curso-k8s/modulo-02-deploy-app/manifests/02-service-mario.yaml
 kubectl apply -f curso-k8s/modulo-02-deploy-app/manifests/03-hpa.yaml
 
-# 4. Acessar via port-forward
+# 4. Acessar o Super Mario
+Start-Process "http://localhost:8080"   
+
+# 5. Alternativa: Port-Forward se não abrir automaticamente
 kubectl port-forward -n games service/super-mario-service 8080:8080
 
-# 5. Abrir no navegador
+# 6. Abrir no navegador
 Start-Process "http://localhost:8080"
 ```
-
----
-
-### 🔜 Módulos Futuros
-
-#### Módulo 03: Persistência e StatefulSets
-**Em desenvolvimento**
-- Volumes e Persistent Volumes
-- StatefulSets para aplicações stateful
-- Storage Classes
-- Backup e restore de dados
-
-#### Módulo 04: Networking Avançado
-**Em desenvolvimento**
-- Ingress Controllers
-- Network Policies
-- Service Mesh (Istio)
-- DNS e Service Discovery
-
-#### Módulo 05: Monitoramento e Observabilidade
-**Em desenvolvimento**
-- Prometheus e Grafana
-- Logs agregados com ELK/Loki
-- Distributed Tracing
-- Alertas e SLOs
 
 ---
 
@@ -320,19 +303,12 @@ Ao completar este curso, você será capaz de:
 - ✅ Trabalhar com recursos básicos (Pods, Deployments, Services)
 - ✅ Fazer troubleshooting básico
 
-### Nível Intermediário (Módulo 02+)
+### Nível Intermediário (Módulo 02)
 - ✅ Deployar aplicações completas em Kubernetes
 - ✅ Configurar auto-scaling e auto-healing
 - ✅ Entender e usar métricas
 - ✅ Implementar serviços resilientes
 - ✅ Executar testes de carga e validação
-
-### Nível Avançado (Módulos Futuros)
-- ✅ Gerenciar dados persistentes
-- ✅ Configurar networking avançado
-- ✅ Implementar observabilidade completa
-- ✅ Aplicar security best practices
-- ✅ Preparar aplicações para produção
 
 ---
 
@@ -386,44 +362,6 @@ Este curso foi inspirado por:
 - Comunidade Kubernetes
 - Projetos de exemplo do Google Cloud Skills
 - Feedback de alunos e praticantes de K8s
-
----
-
-## 🗺️ Roadmap
-
-### Versão Atual: 1.0
-
-- ✅ Módulo 00: Fundamentos Docker
-- ✅ Módulo 01: Cluster Local com Kind
-- ✅ Módulo 02: Deploy e Resiliência
-
-### Próximas Versões
-
-**v1.1** (Próximo)
-- 🔄 Módulo 03: Persistência e StatefulSets
-- 🔄 Módulo 04: Networking Avançado
-
-**v2.0** (Futuro)
-- 📅 Módulo 05: Monitoramento e Observabilidade
-- 📅 Módulo 06: Security e RBAC
-- 📅 Módulo 07: GitOps com ArgoCD/Flux
-
-**v3.0** (Visão de Longo Prazo)
-- 📅 Módulo 08: CI/CD Pipelines
-- 📅 Módulo 09: Service Mesh (Istio)
-- 📅 Módulo 10: Multi-cluster Management
-
----
-
-## 📊 Progresso do Curso
-
-```
-Módulos Completos:    ████████░░░░░░  40% (2/5 planejados)
-Labs Disponíveis:     █████░░░░░░░░░  33% (5 labs)
-YAMLs Comentados:     ██████████████  100% (Todos os manifestos)
-Ferramentas:          ██████████████  100% (Fortio, Metrics Server)
-Jogos Deployáveis:    ██████████████  100% (Super Mario)
-```
 
 ---
 
