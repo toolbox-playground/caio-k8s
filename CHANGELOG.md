@@ -1,3 +1,9 @@
+## 0.15.0 (2026-01-29)
+
+### Feat
+
+- adicionar seção sobre preparação de imagens nos clusters Kind
+
 ## 0.14.0 (2026-01-29)
 
 ### Feat
