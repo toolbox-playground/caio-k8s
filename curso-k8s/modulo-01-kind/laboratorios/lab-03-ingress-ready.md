@@ -256,6 +256,18 @@ kubectl get node ingress-ready-control-plane --show-labels | grep "ingress-ready
 ### Passo 4: Criar Deployment e Service
 
 ```powershell
+# Carregar imagem nginx:alpine (opcional, Kind puxa automaticamente)
+docker pull nginx:alpine
+kind load docker-image nginx:alpine --name ingress-ready
+
+# Caso ocorra o seguinte erro:
+# ERROR: failed to load image: command "docker exec --privileged -i kind-control-plane ctr --namespace=k8s.io images import --all-platforms --digests --snapshotter=overlayfs -" failed with error: exit status 1
+# Command Output: ctr: content digest sha256:c8e83139ec2e197e88756ea0648745b9783ac2524fe3e861e50b0ada8c28d8f2: not found
+
+docker exec -it ingress-ready-control-plane bash
+ctr -n k8s.io images pull docker.io/library/nginx:alpine
+exit
+
 # Deployment
 kubectl create deployment web --image=nginx:alpine
 
