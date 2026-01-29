@@ -531,10 +531,13 @@ kubectl apply -f manifests/03-hpa.yaml
 # 4. Verificar
 kubectl get all -n games
 
-# 5. Acessar via port-forward (método profissional)
+# 5. Acesse 
+http://localhost:8080
+
+# 6. Caso a NodePort não funcione, use port-forward (método profissional)
 kubectl port-forward -n games service/super-mario-service 8080:8080
 
-# 6. Abrir no navegador
+# 7. Abrir no navegador
 Start-Process "http://localhost:8080"
 ```
 
