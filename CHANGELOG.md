@@ -1,3 +1,9 @@
+## 0.13.1 (2026-01-29)
+
+### Fix
+
+- corrigir sintaxe de comandos no DaemonSet para evitar problemas de execução
+
 ## 0.13.0 (2026-01-29)
 
 ### Feat
