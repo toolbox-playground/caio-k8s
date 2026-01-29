@@ -1,3 +1,9 @@
+## 0.10.0 (2026-01-29)
+
+### Feat
+
+- atualizar instruções de instalação do Kind para versão 0.31.0
+
 ## 0.9.0 (2026-01-29)
 
 ### Feat
