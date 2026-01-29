@@ -1,3 +1,9 @@
+## 0.13.5 (2026-01-29)
+
+### Fix
+
+- atualizar mapeamento de portas para Ingress Controller de 80/443 para 30080/30443
+
 ## 0.13.4 (2026-01-29)
 
 ### Fix
