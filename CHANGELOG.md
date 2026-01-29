@@ -1,3 +1,9 @@
+## 0.11.0 (2026-01-29)
+
+### Feat
+
+- atualizar instruções e comandos para a versão 1.35.0 do Kind
+
 ## 0.10.0 (2026-01-29)
 
 ### Feat
