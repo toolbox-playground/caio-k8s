@@ -1,3 +1,9 @@
+## 0.13.10 (2026-01-29)
+
+### Fix
+
+- corrigir comandos de teste para uso de localhost sem porta
+
 ## 0.13.9 (2026-01-29)
 
 ### Fix
