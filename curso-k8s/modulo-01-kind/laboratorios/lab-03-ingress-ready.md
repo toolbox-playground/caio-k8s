@@ -484,11 +484,22 @@ kubectl get pods -n ingress-nginx -o wide
 
 ## 🎨 Parte 6: Criar Ingress Resource
 
-### Passo 10: Deploy de Segunda Aplicação
+### Passo 10: Deploy das Aplicações
 
 ```powershell
-# App 1: web (já existe)
-# App 2: app2
+# Upload das imagens (opcional)
+docker pull nginx:alpine
+docker pull httpd:alpine
+kind load docker-image nginx:alpine --name ingress-ready
+kind load docker-image httpd:alpine --name ingress-ready
+
+# Alternativamente
+docker exec -it ingress-ready-control-plane bash
+ctr -n k8s.io images pull docker.io/library/nginx:alpine
+ctr -n k8s.io images pull docker.io/library/httpd:alpine
+
+kubectl create deployment web --image=nginx:alpine
+kubectl expose deployment web --port=80
 kubectl create deployment app2 --image=httpd:alpine
 kubectl expose deployment app2 --port=80
 
