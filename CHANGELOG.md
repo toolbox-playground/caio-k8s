@@ -1,3 +1,9 @@
+## 0.16.1 (2026-01-29)
+
+### Fix
+
+- corrigir caminhos dos manifestos no README.md
+
 ## 0.16.0 (2026-01-29)
 
 ### Feat
