@@ -1,3 +1,9 @@
+## 0.12.0 (2026-01-29)
+
+### Feat
+
+- adicionar instruções para Linux/macOS em laboratórios de Kubernetes
+
 ## 0.11.0 (2026-01-29)
 
 ### Feat
