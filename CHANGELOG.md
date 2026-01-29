@@ -1,3 +1,9 @@
+## 0.13.4 (2026-01-29)
+
+### Fix
+
+- atualizar mapeamento de portas para Ingress Controller no Kind
+
 ## 0.13.3 (2026-01-29)
 
 ### Fix
