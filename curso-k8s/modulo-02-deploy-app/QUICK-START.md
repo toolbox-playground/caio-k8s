@@ -23,6 +23,14 @@ Um curso completo sobre **Deploy de Aplicações e Resiliência no Kubernetes** 
 
 ### Deploy Passo a Passo do Super Mario (15 minutos) 🍄
 
+Certifique-se de ter o [Kind](https://kind.sigs.k8s.io/) e o [kubectl](https://kubernetes.io/docs/tasks/tools/) instalados.
+
+Entre na pasta do módulo:
+```powershell
+cd curso-k8s/modulo-02-deploy-app
+```
+
+
 ```powershell
 # 1. Criar cluster (3-5 min)
 kind create cluster --config manifests/cluster-config.yaml
