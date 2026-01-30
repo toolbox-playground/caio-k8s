@@ -280,7 +280,7 @@ modulo-02-deploy-app/
 ## 🚀 Deploy Passo a Passo
 
 Verifique se você está na pasta do módulo:
-````powershell
+```powershell
 cd curso-k8s/modulo-02-deploy-app
 ```
 
@@ -326,10 +326,9 @@ kubectl port-forward -n games service/super-mario-service 8081:8080
 
 Após o deploy inicial:
 
-1. 📖 **Laboratório Completo**: Siga o [Lab de Resiliência](./laboratorios/lab-completo-resiliencia.md)
+1. 🔧 **Auto-Healing**: Teste deletando pods manualmente
 2. 🔥 **Teste de Stress**: Use o [Guia de Stress Test](#-teste-de-stress-com-polinux)
-3. 🔧 **Auto-Healing**: Teste deletando pods manualmente
-4. 📊 **Monitoramento**: Configure [dashboards em tempo real](#monitoramento-em-tempo-real)
+3. 📊 **Monitoramento**: Configure [dashboards em tempo real](#monitoramento-em-tempo-real)
 
 ---
 
