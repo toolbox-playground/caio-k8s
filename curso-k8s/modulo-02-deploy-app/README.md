@@ -77,8 +77,14 @@ Você está preocupado com esses problemas? **Este lab resolve na prática:**
 
 **Solução no lab:**
 ```powershell
+# HPA configurado para escalar entre 2 e 10 pods
+kubectl apply -f manifests/03-hpa.yaml
+
 # Gere carga no serviço
 kubectl apply -f manifests/04-stress-test-fortio.yaml
+
+# Monitorar pods
+kubectl get pods -n games --watch
 ```
 
 **Aplicação real:** Seu e-commerce na Black Friday, sua API num evento viral, seu sistema em horário de pico.
@@ -89,6 +95,9 @@ kubectl apply -f manifests/04-stress-test-fortio.yaml
 ```powershell
 # Delete um pod (simula servidor caindo)
 kubectl delete pod <pod-name> -n games
+
+# Monitorar pods
+kubectl get pods -n games --watch
 
 # Observe:
 # - Kubernetes detecta em ~1 segundo
@@ -196,35 +205,35 @@ CPU alvo: 50%
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Cluster Kubernetes                      │
-│                                                               │
+│                      Cluster Kubernetes                     │
+│                                                             │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │                Service (NodePort)                       │ │
-│  │           Porta 8080 (NodePort) → 30000                 │ │
+│  │                Service (NodePort)                      │ │
+│  │           Porta 8081 (NodePort) → 30000                │ │
 │  └─────────────┬──────────────────────────────────────────┘ │
-│                │ Load Balancing                              │
-│                ▼                                              │
+│                │ Load Balancing                             │
+│                ▼                                            │
 │  ┌─────────────────────────────────────────────────────────┐│
-│  │              Deployment (super-mario)                    ││
-│  │                                                          ││
-│  │  ┌──────┐  ┌──────┐  ┌──────┐  ┌──────┐               ││
-│  │  │ Pod1 │  │ Pod2 │  │ Pod3 │  │ ...  │               ││
-│  │  │ 🍄   │  │ 🍄   │  │ 🍄   │  │ 🍄   │               ││
-│  │  └──────┘  └──────┘  └──────┘  └──────┘               ││
-│  │                                                          ││
+│  │              Deployment (super-mario)                   ││
+│  │                                                         ││
+│  │  ┌──────┐  ┌──────┐  ┌──────┐  ┌──────┐                 ││
+│  │  │ Pod1 │  │ Pod2 │  │ Pod3 │  │ ...  │                 ││
+│  │  │ 🍄   │  │ 🍄  │  │ 🍄   │  │  🍄  │                 ││
+│  │  └──────┘  └──────┘  └──────┘  └──────┘                 ││
+│  │                                                         ││
 │  │  ▲ Auto-healing: Recria pods deletados                  ││
-│  │  ▲ Auto-scaling: Ajusta réplicas por carga             ││
+│  │  ▲ Auto-scaling: Ajusta réplicas por carga              ││
 │  └─────────────────────────────────────────────────────────┘│
-│                                                               │
+│                                                             │
 │  ┌─────────────────────────────────────────────────────────┐│
-│  │     Horizontal Pod Autoscaler (HPA)                      ││
+│  │     Horizontal Pod Autoscaler (HPA)                     ││
 │  │     Min: 2 | Max: 10 | Target CPU: 50%                  ││
 │  └─────────────────────────────────────────────────────────┘│
-│                                                               │
-└───────────────────────────────────────────────────────────────┘
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
          ▲
          │ Acesso direto via NodePort
-         │ http://localhost:8080
+         │ http://localhost:8081
    ┌─────┴─────┐
    │  Browser  │
    └───────────┘
@@ -270,6 +279,16 @@ modulo-02-deploy-app/
 
 ## 🚀 Deploy Passo a Passo
 
+Verifique se você está na pasta do módulo:
+````powershell
+cd curso-k8s/modulo-02-deploy-app
+```
+
+Verifique se existe algum clustes com o nome `k8s-essentials` e delete se necessário:
+```powershell
+kind delete cluster --name k8s-essentials
+```
+
 ```powershell
 # 1. Criar o cluster Kubernetes com 1 control-plane e 2 workers
 kind create cluster --config manifests/cluster-config.yaml
@@ -297,10 +316,10 @@ kubectl get all -n games
 kubectl wait --for=condition=ready pod -l app=super-mario -n games --timeout=120s
 
 # 7. Acessar aplicação
-Start-Process "http://localhost:8080"
+http://localhost:8081
 
 # 8. Caso o NodePort não funcione, use port-forward (método profissional)
-kubectl port-forward -n games service/super-mario-service 8080:8080
+kubectl port-forward -n games service/super-mario-service 8081:8080
 ```
 
 ### 🎯 Próximos Passos
