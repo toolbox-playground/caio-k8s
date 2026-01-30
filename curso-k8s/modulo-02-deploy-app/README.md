@@ -441,7 +441,9 @@ Esta pasta contém os manifestos YAML para deploy do **Super Mario 🍄** no Kub
 
 ---
 
-## 📖 [Detalhamento dos Manifestos](./manifests/README.md)
+## 📖 Detalhamento dos Manifestos
+
+Acesse o [README dos Manifestos](./manifests/README.md) para explicações detalhadas de cada YAML.
 
 ## 🔧 Customizações Comuns
 
