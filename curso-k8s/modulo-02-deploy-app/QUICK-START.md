@@ -115,8 +115,7 @@ curso-k8s/modulo-02-deploy-app/
     ├── 03-hpa.yaml                    # Horizontal Pod Autoscaler
     ├── 04-stress-test-fortio.yaml     # Pods de stress test (Fortio)
     ├── cluster-config.yaml            # Configuração do cluster para stress test
-    ├── README.md                      # Documentação dos manifestos
-    └── STRESS-TEST-GUIDE.md          # Guia de testes de stress
+    └── README.md                      # Documentação dos manifestos
 ```
 
 ---
@@ -174,7 +173,6 @@ curso-k8s/modulo-02-deploy-app/
 |---------|----------|
 | [README.md](README.md) | Conceitos, arquitetura, guia do módulo |
 | [manifests/README.md](manifests/README.md) | Explicação detalhada dos YAMLs |
-| [STRESS-TEST-GUIDE.md](manifests/STRESS-TEST-GUIDE.md) | Guia completo de testes de stress |
 
 ---
 
@@ -296,14 +294,6 @@ Você completou o módulo quando:
 - [ ] Entendeu conceitos de resiliência e elasticidade
 
 **🎉 Parabéns! Você dominou auto-healing e auto-scaling no Kubernetes!**
-- [ ] Fez deploy da aplicação 2048
-- [ ] Acessou e jogou o 2048 no navegador
-- [ ] Testou auto-healing deletando pods
-- [ ] Configurou HPA
-- [ ] Gerou carga e observou scale up
-- [ ] Removeu carga e observou scale down
-- [ ] Entendeu os conceitos de reconciliation e HPA
-- [ ] Consegue explicar como funcionam os manifestos
 
 ---
 
