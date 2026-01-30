@@ -253,8 +253,7 @@ modulo-02-deploy-app/
     ├── 03-hpa.yaml                    # 📈 Horizontal Pod Autoscaler
     ├── 04-stress-test-fortio.yaml     # 🔥 Pods de stress test (Fortio)
     ├── cluster-config.yaml            # 🔥 Configuração do cluster para stress test
-    ├── README.md                      # 📋 Documentação dos manifestos
-    └── STRESS-TEST-GUIDE.md          # 🎯 Guia de testes de stress
+    └── README.md                      # 📋 Documentação dos manifestos
 ```
 
 ---
@@ -327,7 +326,7 @@ kubectl port-forward -n games service/super-mario-service 8081:8080
 Após o deploy inicial:
 
 1. 🔧 **Auto-Healing**: Teste deletando pods manualmente
-2. 🔥 **Teste de Stress**: Use o [Guia de Stress Test](#-teste-de-stress-com-polinux)
+2. 🔥 **Teste de Stress**: Use o [Guia de Stress Test](#-teste-de-stress-com-fortio)
 3. 📊 **Monitoramento**: Configure [dashboards em tempo real](#monitoramento-em-tempo-real)
 
 ---
@@ -442,47 +441,6 @@ Esta pasta contém os manifestos YAML para deploy do **Super Mario 🍄** no Kub
 
 ---
 
-## ⚙️ Pré-requisito: Metrics Server
-
-O HPA (Horizontal Pod Autoscaler) **requer** o Metrics Server para funcionar. Instale antes de fazer o deploy:
-
-### Verificar se já está instalado
-
-```powershell
-# Verificar deployment do Metrics Server
-kubectl get deployment metrics-server -n kube-system
-
-# Testar se está funcionando
-kubectl top nodes
-```
-
-### Instalar Metrics Server (se necessário)
-
-```powershell
-# Instalar Metrics Server (versão oficial mais recente)
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-
-# ⚠️ APENAS para ambientes locais (Kind/Docker Desktop)
-# Adicionar flag --kubelet-insecure-tls (NÃO use em produção!)
-kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
-
-# Aguardar deployment estar pronto
-kubectl wait --for=condition=available --timeout=120s deployment/metrics-server -n kube-system
-
-# Verificar funcionamento
-kubectl top nodes
-kubectl top pods -n kube-system
-```
-
-**⚠️ Nota de Segurança:**
-- O flag `--kubelet-insecure-tls` desabilita verificação de certificados TLS
-- **Use APENAS em ambientes locais** (Kind, Minikube, Docker Desktop)
-- **NUNCA use em produção** - configure certificados adequados
-
-**✅ Metrics Server instalado quando:** `kubectl top nodes` mostra uso de CPU/memória.
-
----
-
 ## 📖 Detalhamento dos Manifestos
 
 ### 01-deployment-mario.yaml
@@ -585,7 +543,7 @@ fortio load -c 50 -t 5m http://super-mario-service.games.svc.cluster.local:8080/
 **Fluxo de tráfego com port-forward:**
 
 ```
-Browser (http://localhost:8080)
+Browser (http://localhost:8081)
     ↓
 kubectl port-forward (túnel seguro)
     ↓
@@ -1113,6 +1071,47 @@ Fortio é uma ferramenta de teste de carga HTTP desenvolvida pela comunidade Ist
 
 ### 🚀 Uso Rápido
 
+## ⚙️ Pré-requisito: Metrics Server
+
+O HPA (Horizontal Pod Autoscaler) **requer** o Metrics Server para funcionar. Instale antes de fazer o deploy:
+
+### Verificar se já está instalado
+
+```powershell
+# Verificar deployment do Metrics Server
+kubectl get deployment metrics-server -n kube-system
+
+# Testar se está funcionando
+kubectl top nodes
+```
+
+### Instalar Metrics Server (se necessário)
+
+```powershell
+# Instalar Metrics Server (versão oficial mais recente)
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+# ⚠️ APENAS para ambientes locais (Kind/Docker Desktop)
+# Adicionar flag --kubelet-insecure-tls (NÃO use em produção!)
+kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+
+# Aguardar deployment estar pronto
+kubectl wait --for=condition=available --timeout=120s deployment/metrics-server -n kube-system
+
+# Verificar funcionamento
+kubectl top nodes
+kubectl top pods -n kube-system
+```
+
+**⚠️ Nota de Segurança:**
+- O flag `--kubelet-insecure-tls` desabilita verificação de certificados TLS
+- **Use APENAS em ambientes locais** (Kind, Minikube, Docker Desktop)
+- **NUNCA use em produção** - configure certificados adequados
+
+**✅ Metrics Server instalado quando:** `kubectl top nodes` mostra uso de CPU/memória.
+
+---
+
 #### 1. Aplicar o manifesto de stress test
 
 ```bash
@@ -1348,9 +1347,6 @@ kubectl scale deployment super-mario -n games --replicas=2
 
 - 📖 [README.md](./README.md) - Este arquivo (guia completo)
 - ⚡ [QUICK-START.md](./QUICK-START.md) - Guia de início rápido
-- 🧪 [Lab Completo](./laboratorios/lab-completo-resiliencia.md) - Laboratório hands-on
-- 📋 [Manifestos](./manifests/README.md) - Documentação dos manifestos
-- 🔥 [Stress Test Guide](./manifests/STRESS-TEST-GUIDE.md) - Guia detalhado de testes
 
 ### 🤝 Suporte e Troubleshooting
 
@@ -1432,12 +1428,6 @@ Parabéns! Ao completar este módulo, você:
 - Troubleshooting de problemas em clusters Kubernetes
 - Demonstrar conhecimento prático em entrevistas
 - Contribuir em projetos DevOps reais
-
----
-
-**🎮 Continue Praticando:** Jogue um pouco de Super Mario enquanto observa o Kubernetes gerenciando os pods. É isso que fazemos na vida real - criamos sistemas que funcionam sozinhos! 🍄
-
-**📖 Próximo Módulo:** [Módulo 03 - Ingress Controllers](#) *(em breve)*
 
 ---
 
