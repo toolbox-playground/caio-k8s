@@ -381,68 +381,13 @@ O módulo está dividido em 5 partes com timing preciso:
 
 ___
 
-## 🎓 Roteiro de Aprendizado
-
-### Passo 1: Entenda os Conceitos (10 min)
-Leia esta seção de conceitos fundamentais para entender:
-- O que são Deployments e Services
-- Como funciona auto-healing
-- Como funciona auto-scaling (HPA)
-
-### Passo 2: Laboratório Hands-On (60 min)
-Siga o laboratório completo em:
-📖 [Lab: Deploy, Auto-Healing e Auto-Scaling](./laboratorios/lab-completo-resiliencia.md)
-
-### Passo 3: Explore os Manifestos (5 min)
-Estude os arquivos YAML em `manifests/` para entender:
-- Como definir um Deployment
-- Como criar um Service
-- Como configurar HPA
-
-## 📊 O que você vai construir
-
-### Super Mario 🍄
-O clássico jogo Super Mario rodando no Kubernetes!
-
-**Por que Super Mario?**
-- 🎮 **Nostalgia + Aprendizado**: Todo mundo conhece e ama Mario!
-- 🌟 **Visual impressionante**: Perfeito para demos e apresentações
-- 🚀 **Mesma complexidade**: Tudo que funciona para Mario funciona para apps reais
-- 💼 **WOW factor**: Imagine mostrar isso numa entrevista ou reunião!
-- 🔒 **Boas práticas**: Acesso via port-forward (método profissional)
-
-**Deploy rápido:**
-```powershell
-kubectl create namespace games
-kubectl apply -f manifests/01-deployment-mario.yaml
-kubectl apply -f manifests/02-service-mario.yaml
-# Acesse via port-forward (método profissional)
-kubectl port-forward -n games service/super-mario-service 8080:8080
-# Abra no navegador: http://localhost:8080
-```
-
-### 💡 Por que Port-Forward?
-
-| Benefício | Descrição |
-|-----------|-----------|
-| 🔒 Segurança | Não expõe portas publicamente |
-| 🏢 Profissional | Método usado em ambientes reais de produção |
-| 🎯 Aprendizado | Ensina boas práticas desde o início |
-| 🌐 Flexibilidade | Funciona em qualquer ambiente (local, cloud, etc) |
-| 🔧 Debugging | Facilita troubleshooting e desenvolvimento |
-
-**Importante:** Este é o método recomendado para acessar serviços Kubernetes durante desenvolvimento e troubleshooting!
-
----
-
 ## 🎯 Cenários de Teste
 
 **Você vai testar:**
 
 1. **Deploy inicial**: Super Mario rodando com 2 réplicas
-2. **Port-Forward**: Acesso seguro via kubectl port-forward
-3. **Auto-healing**: Deletar pods e observar recuperação automática
-4. **Auto-scaling**: Gerar carga alta e ver pods sendo criados automaticamente
+2. **Auto-healing**: Deletar pods e observar recuperação automática
+3. **Auto-scaling**: Gerar carga alta e ver pods sendo criados automaticamente
 4. **Scale down**: Remover carga e observar redução de pods
 
 ## 🎯 Resultados Esperados
@@ -470,12 +415,6 @@ Se encontrar algum problema:
 1. Verifique os logs: `kubectl logs <pod-name>`
 2. Descreva o recurso: `kubectl describe <resource> <name>`
 3. Verifique eventos: `kubectl get events --sort-by='.lastTimestamp'`
-
----
-
-**Vamos começar! 🚀**
-
-Vá para: [Lab Completo - Deploy e Resiliência](./laboratorios/lab-completo-resiliencia.md)
 
 ---
 
@@ -541,52 +480,6 @@ kubectl top pods -n kube-system
 - **NUNCA use em produção** - configure certificados adequados
 
 **✅ Metrics Server instalado quando:** `kubectl top nodes` mostra uso de CPU/memória.
-
----
-
-## 🚀 Uso Rápido
-
-### Deploy Super Mario 🍄
-
-```powershell
-# 1. Criar namespace
-kubectl create namespace games
-
-# 2. Carregar imagem Docker no Kind
-kind load docker-image pengbai/docker-supermario:latest --name k8s-essentials
-
-# Alternativa: Acessar worker node e puxar imagem manualmente
-docker exec -it k8s-essentials-worker bash
-ctr -n k8s.io images pull docker.io/pengbai/docker-supermario:latest
-exit 
-
-# 3. Aplicar manifestos
-kubectl apply -f manifests/01-deployment-mario.yaml
-kubectl apply -f manifests/02-service-mario.yaml
-kubectl apply -f manifests/03-hpa.yaml
-
-# 4. Verificar
-kubectl get all -n games
-
-# 5. Acesse 
-http://localhost:8080
-
-# 6. Caso a NodePort não funcione, use port-forward (método profissional)
-kubectl port-forward -n games service/super-mario-service 8080:8080
-
-# 7. Abrir no navegador
-Start-Process "http://localhost:8080"
-```
-
-### 💡 Por que Port-Forward?
-
-| Benefício | Descrição |
-|-----------|-----------|
-| 🔒 Segurança | Não expõe portas publicamente |
-| 🏢 Profissional | Método usado em produção |
-| 🎯 Aprendizado | Boas práticas desde o início |
-| 🌐 Flexibilidade | Funciona em qualquer ambiente |
-| 🔧 Debugging | Facilita troubleshooting |
 
 ---
 
