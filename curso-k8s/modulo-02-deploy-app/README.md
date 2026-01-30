@@ -324,7 +324,7 @@ kubectl port-forward -n games service/super-mario-service 8081:8080
 
 Após o deploy inicial:
 
-1. 🔧 **Auto-Healing**: Teste deletando pods manualmente
+1. 🔧 **Auto-Healing**: Use o [Guia](#-auto-healing---recuperação-automática)
 2. 🔥 **Teste de Stress**: Use o [Guia de Stress Test](#-teste-de-stress-com-fortio)
 3. 📊 **Monitoramento**: Configure [dashboards em tempo real](#monitoramento-em-tempo-real)
 
