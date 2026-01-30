@@ -8,11 +8,10 @@
 4. [Pré-requisitos](#-pré-requisitos)
 5. [Conceitos Fundamentais](#-conceitos-fundamentais)
 6. [Estrutura do Módulo](#-estrutura-do-módulo)
-7. [Início Rápido](#-início-rápido)
-8. [Laboratório Completo](#-laboratório-hands-on)
-9. [Manifestos Kubernetes](#-manifestos-kubernetes)
-10. [Teste de Stress e HPA](#-teste-de-stress-com-polinux)
-11. [Recursos Adicionais](#-recursos-adicionais)
+7. [Início Rápido](#-início-rápido-15-minutos)
+8. [Manifestos Kubernetes](#-manifestos-kubernetes)
+9. [Teste de Stress](#-teste-de-stress-com-fortio)
+10. [Recursos Adicionais](#-recursos-adicionais)
 
 ---
 
