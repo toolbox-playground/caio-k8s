@@ -66,11 +66,13 @@ kubectl top pods -n kube-system
 
 ### Deploy Super Mario 🍄
 
+Primeiramente, recorde-se que vamos utilizar o mesmo cluster `k8s-essentials` criado no passo [#3](https://github.com/toolbox-playground/caio-k8s/blob/main/curso-k8s/modulo-01-kind/README.md#passo-3-cluster-multi-node-avan%C3%A7ado) do `modulo-01-kind` anterior. Caso tenha pulado esse módulo, te entendemos, você deve ser viciado em Mario e já pulou diretamente para cá. Execute os passos do link para criar o cluster.
+
+Após ter o cluster `k8s-essentials` criado:
+
 ```powershell
 # 1. Criar namespace
 kubectl create namespace games
-
-Nota: Lembre-se de que vamos utilizar o mesmo cluster `k8s-essentials` criado no passo [#3](https://github.com/toolbox-playground/caio-k8s/blob/main/curso-k8s/modulo-01-kind/README.md#passo-3-cluster-multi-node-avan%C3%A7ado) anterior.
 
 # 2. Carregar imagem Docker no Kind
 kind load docker-image pengbai/docker-supermario:latest --name k8s-essentials
