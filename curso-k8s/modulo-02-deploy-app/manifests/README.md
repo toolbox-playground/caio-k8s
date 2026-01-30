@@ -95,10 +95,10 @@ kubectl apply -f manifests/03-hpa.yaml
 kubectl get all -n games
 
 # 5. Acessar via port-forward (método profissional)
-kubectl port-forward -n games service/super-mario-service 8080:8080
+kubectl port-forward -n games service/super-mario-service 8081:8080
 
 # 6. Abrir no navegador
-Start-Process "http://localhost:8080"
+Start-Process "http://localhost:8081"
 ```
 
 ### 💡 Por que Port-Forward?
@@ -363,10 +363,10 @@ kubectl get pods -n games
 kubectl apply -f manifests/02-service-mario.yaml
 
 # Port-forward para teste local (método recomendado)
-kubectl port-forward -n games service/super-mario-service 8080:8080
+kubectl port-forward -n games service/super-mario-service 8081:8080
 
 # Abrir no navegador
-Start-Process "http://localhost:8080"
+Start-Process "http://localhost:8081"
 ```
 
 ### Testar HPA
