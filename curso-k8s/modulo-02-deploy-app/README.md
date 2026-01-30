@@ -332,15 +332,9 @@ Após o deploy inicial:
 
 ---
 
-## 🧪 Laboratório Hands-On
-
-Para a experiência completa de aprendizado, siga o laboratório detalhado:
-
-📖 **[Lab Completo - Deploy e Resiliência](./laboratorios/lab-completo-resiliencia.md)**
-
 ### Estrutura do Laboratório (5 Partes)
 
-O laboratório está dividido em 5 partes com timing preciso:
+O módulo está dividido em 5 partes com timing preciso:
 
 **Parte 1: Setup do Cluster** (15 min)
 - Criar cluster multi-node (1 control-plane + 2 workers)
@@ -387,16 +381,18 @@ O laboratório está dividido em 5 partes com timing preciso:
 
 ---
 
-## 📦 Manifestos Kubernetes
-│   ├── 02-service.yaml                # Service NodePort
-│   ├── 03-hpa.yaml                    # Horizontal Pod Autoscaler
-│   └── README.md                      # Guia dos manifestos
-└── scripts/
-    ├── setup-cluster.ps1              # Cria cluster com métricas
-    ├── deploy-app.ps1                 # Faz deploy completo
-    ├── test-autoheal.ps1              # Testa auto-healing
-    ├── load-test.ps1                  # Gera carga para teste
-    └── README.md                      # Guia dos scripts
+## 📦 Arquivos do Módulo
+curso-k8s/modulo-02-deploy-app/
+├── README.md                          # Visão geral e conceitos
+├── QUICK-START.md                     # Este arquivo
+└── manifests/
+    ├── 01-deployment-mario.yaml       # Deployment do Super Mario
+    ├── 02-service-mario.yaml          # Service ClusterIP
+    ├── 03-hpa.yaml                    # Horizontal Pod Autoscaler
+    ├── 04-stress-test-fortio.yaml     # Pods de stress test (Fortio)
+    ├── cluster-config.yaml            # Configuração do cluster para stress test
+    ├── README.md                      # Documentação dos manifestos
+    └── STRESS-TEST-GUIDE.md          # Guia de testes de stress
 ```
 
 ## 🚀 Início Rápido
