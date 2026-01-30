@@ -177,7 +177,7 @@ kubectl get events -n games | Select-String "super-mario"
 **Fluxo de tráfego com port-forward:**
 
 ```
-Browser (http://localhost:8080)
+Browser (http://localhost:8081)
     ↓
 kubectl port-forward (túnel seguro)
     ↓
@@ -194,7 +194,7 @@ Container (porta 8080)
 
 ```powershell
 # Acessar via port-forward (recomendado)
-kubectl port-forward -n games service/super-mario-service 8080:8080
+kubectl port-forward -n games service/super-mario-service 8081:8080
 
 # Testar acesso interno
 kubectl run -n games test-pod --image=busybox --restart=Never --rm -it -- wget -O- http://super-mario-service
@@ -210,11 +210,11 @@ kubectl describe service super-mario-service -n games
 
 ```powershell
 # Executar port-forward em background
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "kubectl port-forward -n games service/super-mario-service 8080:8080"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "kubectl port-forward -n games service/super-mario-service 8081:8080"
 
 # Ou criar um alias
 function Start-MarioPortForward {
-    kubectl port-forward -n games service/super-mario-service 8080:8080
+    kubectl port-forward -n games service/super-mario-service 8081:8080
 }
 ```
 
