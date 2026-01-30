@@ -70,13 +70,19 @@ kubectl top pods -n kube-system
 # 1. Criar namespace
 kubectl create namespace games
 
+Nota: Lembre-se de que vamos utilizar o mesmo cluster `k8s-essentials` criado no passo [#3](https://github.com/toolbox-playground/caio-k8s/blob/main/curso-k8s/modulo-01-kind/README.md#passo-3-cluster-multi-node-avan%C3%A7ado) anterior.
+
 # 2. Carregar imagem Docker no Kind
 kind load docker-image pengbai/docker-supermario:latest --name k8s-essentials
 
-# Alternativa: Acessar worker node e puxar imagem manualmente
+## Alternativa 1: Acessar worker node e puxar imagem manualmente
 docker exec -it k8s-essentials-worker bash
 ctr -n k8s.io images pull docker.io/pengbai/docker-supermario:latest
-exit 
+exit
+
+## Alternativa 2: Baixar container localmente
+docker pull pengbai/docker-supermario:latest
+
 
 # 3. Aplicar manifestos
 kubectl apply -f manifests/01-deployment-mario.yaml
