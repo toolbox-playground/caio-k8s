@@ -53,11 +53,12 @@ kubectl apply -f manifests/03-hpa.yaml
 # 4. Aguardar pods ficarem prontos
 kubectl wait --for=condition=ready pod -l app=super-mario -n games --timeout=120s
 
-# 5. Acessar via port-forward (boas práticas!)
-kubectl port-forward -n games service/super-mario-service 8080:8080
+# 5. Abra o navegador
+http://localhost:8081
 
-# Em outro terminal, abra o navegador
-Start-Process "http://localhost:8080"
+# 6. Caso não aceite, acessar via port-forward (boas práticas!)
+kubectl port-forward -n games service/super-mario-service 8081:8080
+# Acesse o navegador em http://localhost:8081
 ```
 
 ### Testar Auto-Healing (5 minutos)
@@ -92,22 +93,6 @@ kubectl top pods -n games
 kubectl delete -f manifests/04-stress-test-fortio.yaml
 ```
 
-### Laboratório Completo (1h15min)
-
-Para experiência completa de aprendizado:
-
-```powershell
-# Abrir o laboratório hands-on
-code laboratorios/lab-completo-resiliencia.md
-
-# Siga passo a passo:
-# 1. Setup do Cluster (15 min)
-# 2. Deploy da Aplicação (15 min)
-# 3. Testar Auto-Healing (15 min)
-# 4. Configurar Auto-Scaling (15 min)
-# 5. Testar Auto-Scaling (15 min)
-```
-
 ---
 
 ## 📁 Estrutura de Arquivos
@@ -116,8 +101,6 @@ code laboratorios/lab-completo-resiliencia.md
 curso-k8s/modulo-02-deploy-app/
 ├── README.md                          # Visão geral e conceitos
 ├── QUICK-START.md                     # Este arquivo
-├── laboratorios/
-│   └── lab-completo-resiliencia.md   # Lab hands-on passo-a-passo
 └── manifests/
     ├── 01-deployment-mario.yaml       # Deployment do Super Mario
     ├── 02-service-mario.yaml          # Service ClusterIP
@@ -182,7 +165,6 @@ curso-k8s/modulo-02-deploy-app/
 | Arquivo | Conteúdo |
 |---------|----------|
 | [README.md](README.md) | Conceitos, arquitetura, guia do módulo |
-| [lab-completo-resiliencia.md](laboratorios/lab-completo-resiliencia.md) | Lab passo-a-passo de 1h15min |
 | [manifests/README.md](manifests/README.md) | Explicação detalhada dos YAMLs |
 | [STRESS-TEST-GUIDE.md](manifests/STRESS-TEST-GUIDE.md) | Guia completo de testes de stress |
 
@@ -243,63 +225,6 @@ Tempo 720s: 2 pods → Voltou ao mínimo
 **Limpeza:**
 ```powershell
 kubectl delete -f manifests/04-stress-test-fortio.yaml
-```
-
----
-
-## 💡 Dicas de Uso
-
-### Para Demonstrações Rápidas (10-15 min)
-
-```powershell
-# 1. Setup
-kind create cluster --name k8s-demo
-
-# 2. Metrics Server
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
-
-# Upload da imagem Docker do Super Mario para o Kind
-kind load docker-image pengbai/docker-supermario:latest --name k8s-demo
-
-# Alternativa: Acessar worker node e puxar imagem manualmente
-docker exec -it k8s-demo-worker bash
-ctr -n k8s.io images pull docker.io/pengbai/docker-supermario:latest
-exit
-
-# 3. Deploy
-kubectl create namespace games
-kubectl apply -f manifests/
-
-# 4. Port-forward em uma janela separada
-kubectl port-forward -n games service/super-mario-service 8080:8080
-
-# 5. Abrir navegador
-Start-Process "http://localhost:8080"
-
-# 6. Demonstrar auto-healing
-kubectl delete pod -n games (kubectl get pods -n games -o name | Select-Object -First 1)
-kubectl get pods -n games --watch
-```
-
-### Para Workshops/Treinamento (1h15min)
-
-Siga o laboratório completo em:
-📖 [laboratorios/lab-completo-resiliencia.md](laboratorios/lab-completo-resiliencia.md)
-
-### Para Experimentação
-
-```powershell
-# Modificar configurações do HPA
-code manifests/03-hpa.yaml
-# Alterar: minReplicas, maxReplicas, averageUtilization
-
-# Reaplicar
-kubectl apply -f manifests/03-hpa.yaml
-
-# Testar mudanças
-kubectl apply -f manifests/04-stress-test-fortio.yaml
-kubectl get hpa -n games --watch
 ```
 
 ---
@@ -380,16 +305,9 @@ Você completou o módulo quando:
 
 Você tem tudo pronto para começar a aprender sobre **deploy e resiliência no Kubernetes**!
 
-**Comece agora:**
-
-```powershell
-cd scripts
-.\setup-cluster.ps1
-```
-
 ---
 
-**Dúvidas?** Consulte a [documentação completa](README.md) ou abra uma issue.
+**Dúvidas?** Consulte a [documentação completa](../modulo-02-deploy-app/README.md) ou abra uma issue.
 
 **Boa prática! 🚀**
 

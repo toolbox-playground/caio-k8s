@@ -78,15 +78,7 @@ Você está preocupado com esses problemas? **Este lab resolve na prática:**
 **Solução no lab:**
 ```powershell
 # Gere carga no serviço
-.\load-test.ps1
-
-# Observe em tempo real:
-# - CPU sobe de 5% para 80%
-# - HPA detecta automaticamente
-# - Novos pods são criados (2 → 4 → 6 → 8)
-# - Carga é distribuída
-# - CPU volta para 50%
-# - Tudo em ~60 segundos
+kubectl apply -f manifests/04-stress-test-fortio.yaml
 ```
 
 **Aplicação real:** Seu e-commerce na Black Friday, sua API num evento viral, seu sistema em horário de pico.
@@ -169,7 +161,6 @@ Services fornecem uma abstração de rede estável para acessar pods dinâmicos.
 **Tipos que usaremos:**
 - **ClusterIP**: Acesso interno ao cluster (padrão)
 - **NodePort**: Expõe a aplicação em uma porta específica de cada nó
-- **LoadBalancer**: Provisiona um load balancer externo (em clouds)
 
 #### 3. **Auto-Healing (Recuperação Automática)**
 O Kubernetes monitora continuamente o estado dos seus pods. Se um pod falha ou é deletado, o controller automaticamente cria um novo para manter o estado desejado.
@@ -247,8 +238,6 @@ CPU alvo: 50%
 modulo-02-deploy-app/
 ├── README.md                          # 📖 Este arquivo - Guia completo do módulo
 ├── QUICK-START.md                     # ⚡ Guia de início rápido
-├── laboratorios/
-│   └── lab-completo-resiliencia.md   # 🧪 Lab hands-on completo
 └── manifests/
     ├── 01-deployment-mario.yaml       # 🚀 Deployment da aplicação
     ├── 02-service-mario.yaml          # 🌐 Service ClusterIP
