@@ -16,7 +16,7 @@ nodes:
     # Mapeamento de portas extras: Expõe portas do container Docker para o host
     extraPortMappings:
     - containerPort: 30000
-      hostPort: 8080
+      hostPort: 8081
       protocol: TCP
     # Permite acesso ao cluster via localhost:8080 no host
     # Mapeia a porta 30000 do node para a porta 8080 do host
