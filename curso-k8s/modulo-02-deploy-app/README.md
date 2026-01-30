@@ -379,42 +379,7 @@ O módulo está dividido em 5 partes com timing preciso:
 - ✅ 4GB RAM disponível
 - ✅ 10GB espaço em disco
 
----
-
-## 📦 Arquivos do Módulo
-curso-k8s/modulo-02-deploy-app/
-├── README.md                          # Visão geral e conceitos
-├── QUICK-START.md                     # Este arquivo
-└── manifests/
-    ├── 01-deployment-mario.yaml       # Deployment do Super Mario
-    ├── 02-service-mario.yaml          # Service ClusterIP
-    ├── 03-hpa.yaml                    # Horizontal Pod Autoscaler
-    ├── 04-stress-test-fortio.yaml     # Pods de stress test (Fortio)
-    ├── cluster-config.yaml            # Configuração do cluster para stress test
-    ├── README.md                      # Documentação dos manifestos
-    └── STRESS-TEST-GUIDE.md          # Guia de testes de stress
-```
-
-## 🚀 Início Rápido
-
-Se você quer ir direto ao laboratório:
-
-```powershell
-# 1. Crie o cluster
-.\scripts\setup-cluster.ps1
-
-# 2. Faça o deploy da aplicação
-.\scripts\deploy-app.ps1
-
-# 3. Acesse o jogo
-Start-Process "http://localhost:30080"
-
-# 4. Teste o auto-healing
-.\scripts\test-autoheal.ps1
-
-# 5. Teste o auto-scaling
-.\scripts\load-test.ps1
-```
+___
 
 ## 🎓 Roteiro de Aprendizado
 
