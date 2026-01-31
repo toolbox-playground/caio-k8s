@@ -74,26 +74,27 @@ kind create cluster --config manifests/cluster-config.yaml
 # 1. Criar namespace
 kubectl create namespace games
 
-# 2. Carregar imagem Docker no Kind
+# 2. Baixar container localmente
+docker pull pengbai/docker-supermario:latest
+
+# 3. Carregar imagem Docker no Kind
 kind load docker-image pengbai/docker-supermario:latest --name k8s-essentials
 
-# Alternativa 1: Acessar worker node e puxar imagem manualmente
+# Alternativa: Acessar worker node e puxar imagem manualmente
 docker exec -it k8s-essentials-worker bash
 ctr -n k8s.io images pull docker.io/pengbai/docker-supermario:latest
 exit
 
-# Alternativa 2: Baixar container localmente
-docker pull pengbai/docker-supermario:latest
 
-# 3. Aplicar manifestos
+# 4. Aplicar manifestos
 kubectl apply -f manifests/01-deployment-mario.yaml
 kubectl apply -f manifests/02-service-mario.yaml
 kubectl apply -f manifests/03-hpa.yaml
 
-# 4. Verificar status
+# 5. Verificar status
 kubectl get all -n games
 
-# 5. Acessar aplicação via navegador
+# 6. Acessar aplicação via navegador
 # O cluster-config.yaml mapeia NodePort 30000 → localhost:8081
 Start-Process "http://localhost:8081"
 ```
