@@ -1,5 +1,7 @@
 # 📦 Manifestos Kubernetes - Super Mario 🍄
 
+> **ℹ️ Nota:** Este README é simplificado. Para documentação completa, consulte o [README da raiz do módulo 2](../README.md).
+
 Esta pasta contém os manifestos YAML para deploy do **Super Mario** no Kubernetes, incluindo auto-healing, auto-scaling e testes de carga.
 
 ---
