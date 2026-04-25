@@ -1,0 +1,900 @@
+{
+  "nodes": [
+    {
+      "id": "worker-nodes-2",
+      "type": "architecture",
+      "position": {
+        "x": 179.74676732606986,
+        "y": 169.32152869591627
+      },
+      "data": {
+        "label": "Worker Nodes",
+        "componentId": "worker-nodes",
+        "properties": {
+          "nodeCount": 3,
+          "cpuPerNode": 4,
+          "memoryPerNode": 8,
+          "instanceType": "general",
+          "cpuSimulated": 3080,
+          "memorySimulated": 2048,
+          "conntrack": 0,
+          "nodeConditions": "[{\"type\":\"MemoryPressure\",\"status\":false,\"reason\":\"KubeletHasSufficientMemory\",\"message\":\"kubelet has sufficient memory available\",\"lastHeartbeatTime\":1769131505936,\"lastTransitionTime\":1769131505936},{\"type\":\"DiskPressure\",\"status\":false,\"reason\":\"KubeletHasNoDiskPressure\",\"message\":\"kubelet has no disk pressure\",\"lastHeartbeatTime\":1769131505936,\"lastTransitionTime\":1769131505936},{\"type\":\"PIDPressure\",\"status\":false,\"reason\":\"KubeletHasSufficientPIDs\",\"message\":\"kubelet has sufficient PIDs available\",\"lastHeartbeatTime\":1769131505936,\"lastTransitionTime\":1769131505936},{\"type\":\"Ready\",\"status\":true,\"reason\":\"KubeletReady\",\"message\":\"kubelet is posting ready status\",\"lastHeartbeatTime\":1769131505936,\"lastTransitionTime\":1769131505936}]",
+          "virtualNodes": {
+            "node-1": {
+              "id": "node-1",
+              "cpuTotal": 4000,
+              "memoryTotal": 8192,
+              "cpuUsed": 1500,
+              "memoryUsed": 1280,
+              "podIds": [
+                "managed_pod_deployment-4_3",
+                "managed_pod_deployment-4_0",
+                "managed_pod_deployment-4_2"
+              ]
+            },
+            "node-2": {
+              "id": "node-2",
+              "cpuTotal": 4000,
+              "memoryTotal": 8192,
+              "cpuUsed": 500,
+              "memoryUsed": 512,
+              "podIds": [
+                "managed_pod_deployment-4_1"
+              ]
+            },
+            "node-3": {
+              "id": "node-3",
+              "cpuTotal": 4000,
+              "memoryTotal": 8192,
+              "cpuUsed": 500,
+              "memoryUsed": 512,
+              "podIds": [
+                "managed_pod_deployment-4_3"
+              ]
+            }
+          },
+          "cpuUsed": 2500,
+          "memoryUsed": 2304,
+          "scheduledPods": 5,
+          "scheduledPodIds": "managed_pod_deployment-4_3,managed_pod_deployment-4_0,managed_pod_deployment-4_2,managed_pod_deployment-4_1,managed_pod_deployment-4_3"
+        },
+        "status": "healthy",
+        "labelStatus": "Ready"
+      },
+      "measured": {
+        "width": 231,
+        "height": 338
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "control-plane-3",
+      "type": "architecture",
+      "position": {
+        "x": 201.26295056693775,
+        "y": -50.83522831644223
+      },
+      "data": {
+        "label": "Control Plane",
+        "componentId": "control-plane",
+        "properties": {}
+      },
+      "measured": {
+        "width": 185,
+        "height": 88
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "deployment-4",
+      "type": "architecture",
+      "position": {
+        "x": 648.8743366216291,
+        "y": 87.6478329137568
+      },
+      "data": {
+        "label": "Deployment",
+        "componentId": "deployment",
+        "properties": {
+          "replicas": 4,
+          "strategy": "RollingUpdate",
+          "imagePullPolicy": "IfNotPresent",
+          "secretName": "",
+          "configMapName": "",
+          "name": "my-app",
+          "namespace": "default",
+          "image": "nginx:latest",
+          "cpuRequest": "500m",
+          "cpuLimit": "1000m",
+          "memoryRequest": "512Mi",
+          "memoryLimit": "1024Mi",
+          "envVars": ""
+        }
+      },
+      "measured": {
+        "width": 232,
+        "height": 233
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "managed_rs_deployment-4",
+      "type": "architecture",
+      "position": {
+        "x": 1384.5182282064352,
+        "y": 10.199651997019771
+      },
+      "data": {
+        "componentId": "replicaset",
+        "label": "ReplicaSet",
+        "status": "healthy",
+        "isInitial": false,
+        "isNeeded": true,
+        "properties": {
+          "replicas": 1
+        },
+        "managedBy": "deployment-4"
+      },
+      "measured": {
+        "width": 188,
+        "height": 120
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "service-5",
+      "type": "architecture",
+      "position": {
+        "x": 638.5091856322911,
+        "y": -207.6938616245535
+      },
+      "data": {
+        "label": "Service (ClusterIP)",
+        "componentId": "service",
+        "properties": {
+          "type": "ClusterIP",
+          "port": 80,
+          "targetPort": 8080,
+          "name": "my-service",
+          "namespace": "default",
+          "loadBalancerIP": ""
+        }
+      },
+      "measured": {
+        "width": 251,
+        "height": 190
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "users-6",
+      "type": "architecture",
+      "position": {
+        "x": 632.8766567436796,
+        "y": -496.2816920108691
+      },
+      "data": {
+        "label": "Users/Clients",
+        "componentId": "users",
+        "properties": {
+          "trafficPattern": "constant",
+          "requestsPerSecond": 1000,
+          "peakRps": 500,
+          "duration": 60,
+          "targetHost": "example.com",
+          "customHeaders": "{}"
+        },
+        "metrics": {
+          "label": "Current Load",
+          "value": "1000 RPS",
+          "trend": "stable"
+        }
+      },
+      "measured": {
+        "width": 216,
+        "height": 209
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "prometheus-8",
+      "type": "architecture",
+      "position": {
+        "x": 779.0317744739173,
+        "y": 897.1238751408458
+      },
+      "data": {
+        "label": "Prometheus",
+        "componentId": "prometheus",
+        "properties": {
+          "scrapeInterval": "15s",
+          "retentionPeriod": "15d"
+        }
+      },
+      "measured": {
+        "width": 206,
+        "height": 115
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "grafana-10",
+      "type": "architecture",
+      "position": {
+        "x": 932.3297536070444,
+        "y": 1224.5364207486182
+      },
+      "data": {
+        "label": "Grafana",
+        "componentId": "grafana",
+        "properties": {}
+      },
+      "measured": {
+        "width": 164,
+        "height": 88
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "loki-14",
+      "type": "architecture",
+      "position": {
+        "x": 1005.235411414922,
+        "y": 926.7098232055315
+      },
+      "data": {
+        "label": "Loki",
+        "componentId": "loki",
+        "properties": {}
+      },
+      "measured": {
+        "width": 164,
+        "height": 64
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "hpa-15",
+      "type": "architecture",
+      "position": {
+        "x": 166.753114421503,
+        "y": 855.9139974493609
+      },
+      "data": {
+        "label": "HPA",
+        "componentId": "hpa",
+        "properties": {
+          "minReplicas": 3,
+          "maxReplicas": 15,
+          "cpuTarget": 80,
+          "memoryTarget": 80
+        },
+        "status": "healthy",
+        "labelStatus": "Stable",
+        "metrics": {
+          "label": "CPU",
+          "value": "77%",
+          "trend": "stable"
+        }
+      },
+      "measured": {
+        "width": 192,
+        "height": 185
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "metrics-server-16",
+      "type": "architecture",
+      "position": {
+        "x": 165.9995491300815,
+        "y": 698.0998273007668
+      },
+      "data": {
+        "label": "Metrics Server",
+        "componentId": "metrics-server",
+        "properties": {}
+      },
+      "measured": {
+        "width": 184,
+        "height": 64
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "managed_pod_deployment-4_0",
+      "type": "architecture",
+      "position": {
+        "x": 1642.8074744429573,
+        "y": 193.05004400549132
+      },
+      "data": {
+        "componentId": "pod",
+        "label": "Pod 1",
+        "status": "healthy",
+        "labelStatus": "Running (77%)",
+        "isInitial": false,
+        "isNeeded": false,
+        "properties": {
+          "cpuRequest": "500m",
+          "memoryRequest": "512Mi",
+          "cpuLimit": "1000m",
+          "memoryLimit": "1024Mi",
+          "image": "nginx:latest",
+          "name": "my-app-1",
+          "secretName": "",
+          "configMapName": ""
+        },
+        "managedBy": "deployment-4",
+        "scheduledTo": "worker-nodes-2",
+        "virtualNode": "node-1",
+        "isReady": true,
+        "logs": [
+          "[01:27:11] [INFO] Pulling image \"nginx:latest\"",
+          "[01:27:12] [INFO] Successfully pulled image",
+          "[01:27:12] [INFO] Created container application",
+          "[01:27:12] [INFO] Started container application",
+          "[01:27:14] [INFO] Readiness probe succeeded. Pod is READY."
+        ]
+      },
+      "measured": {
+        "width": 276,
+        "height": 263
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "managed_pod_deployment-4_1",
+      "type": "architecture",
+      "position": {
+        "x": 1116.9185584563184,
+        "y": 187.64783291375682
+      },
+      "data": {
+        "componentId": "pod",
+        "label": "Pod 2",
+        "status": "healthy",
+        "labelStatus": "Running (77%)",
+        "isInitial": false,
+        "isNeeded": false,
+        "properties": {
+          "cpuRequest": "500m",
+          "memoryRequest": "512Mi",
+          "cpuLimit": "1000m",
+          "memoryLimit": "1024Mi",
+          "image": "nginx:latest",
+          "name": "my-app-2",
+          "secretName": "",
+          "configMapName": ""
+        },
+        "managedBy": "deployment-4",
+        "scheduledTo": "worker-nodes-2",
+        "virtualNode": "node-2",
+        "isReady": true,
+        "logs": [
+          "[01:27:13] [INFO] Pulling image \"nginx:latest\"",
+          "[01:27:14] [INFO] Successfully pulled image",
+          "[01:27:14] [INFO] Created container application",
+          "[01:27:14] [INFO] Started container application",
+          "[01:27:16] [INFO] Readiness probe succeeded. Pod is READY."
+        ]
+      },
+      "measured": {
+        "width": 276,
+        "height": 263
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "managed_pod_deployment-4_2",
+      "type": "architecture",
+      "position": {
+        "x": 1388.7561470158048,
+        "y": 187.64783291375682
+      },
+      "data": {
+        "componentId": "pod",
+        "label": "Pod 3",
+        "status": "healthy",
+        "labelStatus": "Running (77%)",
+        "isInitial": false,
+        "isNeeded": false,
+        "properties": {
+          "cpuRequest": "500m",
+          "memoryRequest": "512Mi",
+          "cpuLimit": "1000m",
+          "memoryLimit": "1024Mi",
+          "image": "nginx:latest",
+          "name": "my-app-3",
+          "secretName": "",
+          "configMapName": ""
+        },
+        "managedBy": "deployment-4",
+        "scheduledTo": "worker-nodes-2",
+        "virtualNode": "node-1",
+        "isReady": true,
+        "logs": [
+          "[01:27:15] [INFO] Pulling image \"nginx:latest\"",
+          "[01:27:16] [INFO] Successfully pulled image",
+          "[01:27:16] [INFO] Created container application",
+          "[01:27:16] [INFO] Started container application",
+          "[01:27:18] [INFO] Readiness probe passed",
+          "[01:27:18] [INFO] Added to service endpoints",
+          "[01:27:18] [INFO] Readiness probe succeeded. Pod is READY."
+        ]
+      },
+      "measured": {
+        "width": 276,
+        "height": 263
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "managed_pod_deployment-4_3",
+      "type": "architecture",
+      "position": {
+        "x": 1894.9106587238996,
+        "y": 181.59624077328561
+      },
+      "data": {
+        "componentId": "pod",
+        "label": "Pod 4",
+        "status": "healthy",
+        "labelStatus": "Running (77%)",
+        "isInitial": false,
+        "isNeeded": false,
+        "properties": {
+          "cpuRequest": "500m",
+          "memoryRequest": "512Mi",
+          "cpuLimit": "1000m",
+          "memoryLimit": "1024Mi",
+          "image": "nginx:latest",
+          "name": "my-app-4",
+          "secretName": "",
+          "configMapName": ""
+        },
+        "managedBy": "deployment-4",
+        "scheduledTo": "worker-nodes-2",
+        "virtualNode": "node-3",
+        "isReady": true,
+        "logs": [
+          "[01:27:17] [INFO] Pulling image \"nginx:latest\"",
+          "[01:27:18] [INFO] Readiness probe passed",
+          "[01:27:18] [INFO] Added to service endpoints",
+          "[01:27:18] [INFO] Successfully pulled image",
+          "[01:27:18] [INFO] Created container application",
+          "[01:27:18] [INFO] Started container application",
+          "[01:27:20] [INFO] Readiness probe succeeded. Pod is READY."
+        ]
+      },
+      "measured": {
+        "width": 276,
+        "height": 263
+      },
+      "selected": true,
+      "dragging": false
+    }
+  ],
+  "edges": [
+    {
+      "type": "traffic",
+      "animated": false,
+      "source": "control-plane-3",
+      "sourceHandle": "output-bottom-config",
+      "target": "worker-nodes-2",
+      "targetHandle": "input-config",
+      "data": {
+        "trafficLevel": "idle",
+        "portType": "bottom-config"
+      },
+      "id": "xy-edge__control-plane-3output-bottom-config-worker-nodes-2input-config"
+    },
+    {
+      "id": "edge_deployment-4_to_managed_rs_deployment-4",
+      "source": "deployment-4",
+      "sourceHandle": "output-scaling",
+      "target": "managed_rs_deployment-4",
+      "targetHandle": "input-scaling",
+      "type": "traffic",
+      "data": {
+        "trafficLevel": "idle",
+        "label": "manages",
+        "portType": "scaling"
+      },
+      "animated": false
+    },
+    {
+      "id": "scheduling_managed_pod_deployment-4_0_to_worker-nodes-2",
+      "source": "managed_pod_deployment-4_0",
+      "sourceHandle": "output-traffic-out",
+      "target": "worker-nodes-2",
+      "targetHandle": "input-traffic-in",
+      "type": "traffic",
+      "data": {
+        "trafficLevel": "idle",
+        "label": "→ node-1",
+        "portType": "traffic-in",
+        "isSchedulingEdge": true
+      },
+      "animated": false,
+      "style": {
+        "strokeDasharray": "5,5",
+        "opacity": 0.5
+      }
+    },
+    {
+      "id": "scheduling_managed_pod_deployment-4_1_to_worker-nodes-2",
+      "source": "managed_pod_deployment-4_1",
+      "sourceHandle": "output-traffic-out",
+      "target": "worker-nodes-2",
+      "targetHandle": "input-traffic-in",
+      "type": "traffic",
+      "data": {
+        "trafficLevel": "idle",
+        "label": "→ node-2",
+        "portType": "traffic-in",
+        "isSchedulingEdge": true
+      },
+      "animated": false,
+      "style": {
+        "strokeDasharray": "5,5",
+        "opacity": 0.5
+      }
+    },
+    {
+      "id": "scheduling_managed_pod_deployment-4_2_to_worker-nodes-2",
+      "source": "managed_pod_deployment-4_2",
+      "sourceHandle": "output-traffic-out",
+      "target": "worker-nodes-2",
+      "targetHandle": "input-traffic-in",
+      "type": "traffic",
+      "data": {
+        "trafficLevel": "idle",
+        "label": "→ node-2",
+        "portType": "traffic-in",
+        "isSchedulingEdge": true
+      },
+      "animated": false,
+      "style": {
+        "strokeDasharray": "5,5",
+        "opacity": 0.5
+      }
+    },
+    {
+      "type": "traffic",
+      "animated": true,
+      "source": "service-5",
+      "sourceHandle": "output-bottom-traffic-out",
+      "target": "deployment-4",
+      "targetHandle": "input-traffic-in",
+      "data": {
+        "trafficLevel": "overloaded",
+        "portType": "bottom-traffic-out"
+      },
+      "id": "xy-edge__service-5output-bottom-traffic-out-deployment-4input-traffic-in"
+    },
+    {
+      "type": "traffic",
+      "animated": true,
+      "source": "users-6",
+      "sourceHandle": "output-bottom-traffic-out",
+      "target": "service-5",
+      "targetHandle": "input-traffic-in",
+      "data": {
+        "trafficLevel": "overloaded",
+        "portType": "bottom-traffic-out"
+      },
+      "id": "xy-edge__users-6output-bottom-traffic-out-service-5input-traffic-in"
+    },
+    {
+      "type": "traffic",
+      "animated": false,
+      "source": "worker-nodes-2",
+      "sourceHandle": "output-bottom-metrics",
+      "target": "prometheus-8",
+      "targetHandle": "input-metrics",
+      "data": {
+        "trafficLevel": "idle",
+        "portType": "bottom-metrics"
+      },
+      "id": "xy-edge__worker-nodes-2output-bottom-metrics-prometheus-8input-metrics"
+    },
+    {
+      "type": "traffic",
+      "animated": false,
+      "source": "prometheus-8",
+      "sourceHandle": "output-bottom-metrics",
+      "target": "grafana-10",
+      "targetHandle": "input-metrics",
+      "data": {
+        "trafficLevel": "idle",
+        "portType": "bottom-metrics"
+      },
+      "id": "xy-edge__prometheus-8output-bottom-metrics-grafana-10input-metrics"
+    },
+    {
+      "type": "traffic",
+      "animated": false,
+      "source": "managed_pod_deployment-4_0",
+      "sourceHandle": "output-bottom-metrics",
+      "target": "prometheus-8",
+      "targetHandle": "input-bottom-metrics",
+      "data": {
+        "trafficLevel": "idle",
+        "portType": "bottom-metrics"
+      },
+      "id": "xy-edge__managed_pod_deployment-4_0output-bottom-metrics-prometheus-8input-bottom-metrics"
+    },
+    {
+      "type": "traffic",
+      "animated": false,
+      "source": "loki-14",
+      "sourceHandle": "output-logs",
+      "target": "grafana-10",
+      "targetHandle": "input-logs",
+      "data": {
+        "trafficLevel": "idle",
+        "portType": "logs"
+      },
+      "id": "xy-edge__loki-14output-logs-grafana-10input-logs"
+    },
+    {
+      "id": "scheduling_managed_pod_deployment-4_0_to_worker-nodes-2",
+      "source": "managed_pod_deployment-4_0",
+      "sourceHandle": "output-traffic-out",
+      "target": "worker-nodes-2",
+      "targetHandle": "input-traffic-in",
+      "type": "traffic",
+      "data": {
+        "trafficLevel": "idle",
+        "label": "→ node-1",
+        "portType": "traffic-in",
+        "isSchedulingEdge": true
+      },
+      "animated": false,
+      "style": {
+        "strokeDasharray": "5,5",
+        "opacity": 0.5
+      }
+    },
+    {
+      "id": "scheduling_managed_pod_deployment-4_1_to_worker-nodes-2",
+      "source": "managed_pod_deployment-4_1",
+      "sourceHandle": "output-traffic-out",
+      "target": "worker-nodes-2",
+      "targetHandle": "input-traffic-in",
+      "type": "traffic",
+      "data": {
+        "trafficLevel": "idle",
+        "label": "→ node-2",
+        "portType": "traffic-in",
+        "isSchedulingEdge": true
+      },
+      "animated": false,
+      "style": {
+        "strokeDasharray": "5,5",
+        "opacity": 0.5
+      }
+    },
+    {
+      "id": "scheduling_managed_pod_deployment-4_2_to_worker-nodes-2",
+      "source": "managed_pod_deployment-4_2",
+      "sourceHandle": "output-traffic-out",
+      "target": "worker-nodes-2",
+      "targetHandle": "input-traffic-in",
+      "type": "traffic",
+      "data": {
+        "trafficLevel": "idle",
+        "label": "→ node-2",
+        "portType": "traffic-in",
+        "isSchedulingEdge": true
+      },
+      "animated": false,
+      "style": {
+        "strokeDasharray": "5,5",
+        "opacity": 0.5
+      }
+    },
+    {
+      "type": "traffic",
+      "animated": false,
+      "source": "managed_pod_deployment-4_0",
+      "sourceHandle": "output-bottom-logs",
+      "target": "loki-14",
+      "targetHandle": "input-logs",
+      "data": {
+        "trafficLevel": "idle",
+        "portType": "bottom-logs"
+      },
+      "id": "xy-edge__managed_pod_deployment-4_0output-bottom-logs-loki-14input-logs"
+    },
+    {
+      "type": "traffic",
+      "animated": false,
+      "source": "worker-nodes-2",
+      "sourceHandle": "output-bottom-metrics",
+      "target": "metrics-server-16",
+      "targetHandle": "input-metrics",
+      "data": {
+        "trafficLevel": "idle",
+        "portType": "bottom-metrics"
+      },
+      "id": "xy-edge__worker-nodes-2output-bottom-metrics-metrics-server-16input-metrics"
+    },
+    {
+      "type": "traffic",
+      "animated": false,
+      "source": "metrics-server-16",
+      "sourceHandle": "output-bottom-metrics",
+      "target": "hpa-15",
+      "targetHandle": "input-metrics",
+      "data": {
+        "trafficLevel": "idle",
+        "portType": "bottom-metrics"
+      },
+      "id": "xy-edge__metrics-server-16output-bottom-metrics-hpa-15input-metrics"
+    },
+    {
+      "type": "traffic",
+      "animated": false,
+      "source": "hpa-15",
+      "sourceHandle": "output-scaling",
+      "target": "deployment-4",
+      "targetHandle": "input-bottom-scaling",
+      "data": {
+        "trafficLevel": "idle",
+        "portType": "scaling"
+      },
+      "id": "xy-edge__hpa-15output-scaling-deployment-4input-bottom-scaling"
+    },
+    {
+      "id": "edge_rs_to_managed_pod_deployment-4_0",
+      "source": "managed_rs_deployment-4",
+      "target": "managed_pod_deployment-4_0",
+      "sourceHandle": "output-scaling",
+      "targetHandle": "input-traffic-in",
+      "type": "traffic",
+      "data": {
+        "trafficLevel": "overloaded",
+        "label": "creates",
+        "portType": "scaling"
+      },
+      "animated": true
+    },
+    {
+      "id": "scheduling_managed_pod_deployment-4_0_to_worker-nodes-2",
+      "source": "managed_pod_deployment-4_0",
+      "sourceHandle": "output-traffic-out",
+      "target": "worker-nodes-2",
+      "targetHandle": "input-traffic-in",
+      "type": "traffic",
+      "data": {
+        "trafficLevel": "idle",
+        "label": "→ node-1",
+        "portType": "traffic-in",
+        "isSchedulingEdge": true
+      },
+      "animated": false,
+      "style": {
+        "strokeDasharray": "5,5",
+        "opacity": 0.5
+      }
+    },
+    {
+      "id": "edge_rs_to_managed_pod_deployment-4_1",
+      "source": "managed_rs_deployment-4",
+      "target": "managed_pod_deployment-4_1",
+      "sourceHandle": "output-scaling",
+      "targetHandle": "input-traffic-in",
+      "type": "traffic",
+      "data": {
+        "trafficLevel": "overloaded",
+        "label": "creates",
+        "portType": "scaling"
+      },
+      "animated": true
+    },
+    {
+      "id": "scheduling_managed_pod_deployment-4_1_to_worker-nodes-2",
+      "source": "managed_pod_deployment-4_1",
+      "sourceHandle": "output-traffic-out",
+      "target": "worker-nodes-2",
+      "targetHandle": "input-traffic-in",
+      "type": "traffic",
+      "data": {
+        "trafficLevel": "idle",
+        "label": "→ node-2",
+        "portType": "traffic-in",
+        "isSchedulingEdge": true
+      },
+      "animated": false,
+      "style": {
+        "strokeDasharray": "5,5",
+        "opacity": 0.5
+      }
+    },
+    {
+      "id": "edge_rs_to_managed_pod_deployment-4_2",
+      "source": "managed_rs_deployment-4",
+      "target": "managed_pod_deployment-4_2",
+      "sourceHandle": "output-scaling",
+      "targetHandle": "input-traffic-in",
+      "type": "traffic",
+      "data": {
+        "trafficLevel": "overloaded",
+        "label": "creates",
+        "portType": "scaling"
+      },
+      "animated": true
+    },
+    {
+      "id": "scheduling_managed_pod_deployment-4_2_to_worker-nodes-2",
+      "source": "managed_pod_deployment-4_2",
+      "sourceHandle": "output-traffic-out",
+      "target": "worker-nodes-2",
+      "targetHandle": "input-traffic-in",
+      "type": "traffic",
+      "data": {
+        "trafficLevel": "idle",
+        "label": "→ node-1",
+        "portType": "traffic-in",
+        "isSchedulingEdge": true
+      },
+      "animated": false,
+      "style": {
+        "strokeDasharray": "5,5",
+        "opacity": 0.5
+      }
+    },
+    {
+      "id": "edge_rs_to_managed_pod_deployment-4_3",
+      "source": "managed_rs_deployment-4",
+      "target": "managed_pod_deployment-4_3",
+      "sourceHandle": "output-scaling",
+      "targetHandle": "input-traffic-in",
+      "type": "traffic",
+      "data": {
+        "trafficLevel": "overloaded",
+        "label": "creates",
+        "portType": "scaling"
+      },
+      "animated": true
+    },
+    {
+      "id": "scheduling_managed_pod_deployment-4_3_to_worker-nodes-2",
+      "source": "managed_pod_deployment-4_3",
+      "sourceHandle": "output-traffic-out",
+      "target": "worker-nodes-2",
+      "targetHandle": "input-traffic-in",
+      "type": "traffic",
+      "data": {
+        "trafficLevel": "idle",
+        "label": "→ node-3",
+        "portType": "traffic-in",
+        "isSchedulingEdge": true
+      },
+      "animated": false,
+      "style": {
+        "strokeDasharray": "5,5",
+        "opacity": 0.5
+      }
+    }
+  ],
+  "version": "1.0",
+  "exportedAt": "2026-01-23T01:28:36.364Z",
+  "type": "system-craft-scenario"
+}
