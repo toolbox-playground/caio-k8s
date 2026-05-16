@@ -106,9 +106,9 @@ helm install kind-prometheus prometheus-community/kube-prometheus-stack \
 
 ---
 
-## Instalação do Loki + Fluent Bit via Helm
+## Instalação do Loki 3.x (chart oficial) via Helm
 
-O **loki-stack** da Grafana inclui Loki + Fluent Bit em um único chart. O Grafana já está instalado pelo kube-prometheus-stack, então desabilitamos o Grafana do loki-stack para não duplicar.
+> 🎯 **Por que mudamos o chart?** O `grafana/loki-stack` é um chart legado que congela o Loki na versão 2.x e acopla o agente de coleta ao banco de logs num único pacote. O padrão moderno de mercado é separar responsabilidades: **Loki cuida do armazenamento**, **Fluent Bit cuida da coleta**. Isso permite evoluir cada peça independentemente.
 
 **PowerShell e bash:**
 
@@ -121,49 +121,114 @@ helm repo update
 **PowerShell:**
 
 ```powershell
-helm install loki grafana/loki-stack `
+helm install loki grafana/loki `
   --namespace monitoring `
-  --set fluent-bit.enabled=true `
-  --set promtail.enabled=false `
-  --set grafana.enabled=false `
-  --set loki.persistence.enabled=false
+  --set deploymentMode=SingleBinary `
+  --set loki.auth_enabled=false `
+  --set loki.commonConfig.replication_factor=1 `
+  --set loki.storage.type=filesystem `
+  --set singleBinary.replicas=1 `
+  --set read.replicas=0 `
+  --set write.replicas=0 `
+  --set backend.replicas=0 `
+  --set memcached.chunks.enabled=false `
+  --set memcached.results.enabled=false `
+  --set memcached.write.enabled=false `
+  --set memcached.metadata.enabled=false `
+  --set minio.enabled=false `
+  --set grafana.enabled=false
 ```
 
 **bash / zsh:**
 
 ```bash
-helm install loki grafana/loki-stack \
+helm install loki grafana/loki \
   --namespace monitoring \
-  --set fluent-bit.enabled=true \
-  --set promtail.enabled=false \
-  --set grafana.enabled=false \
-  --set loki.persistence.enabled=false
+  --set deploymentMode=SingleBinary \
+  --set loki.auth_enabled=false \
+  --set loki.commonConfig.replication_factor=1 \
+  --set loki.storage.type=filesystem \
+  --set singleBinary.replicas=1 \
+  --set read.replicas=0 \
+  --set write.replicas=0 \
+  --set backend.replicas=0 \
+  --set memcached.chunks.enabled=false \
+  --set memcached.results.enabled=false \
+  --set memcached.write.enabled=false \
+  --set memcached.metadata.enabled=false \
+  --set minio.enabled=false \
+  --set grafana.enabled=false
 ```
 
-> 💡 `fluent-bit.enabled=true` ativa o Fluent Bit como coletor de logs (DaemonSet).
-> `promtail.enabled=false` desativa o Promtail para não coletar logs duplicados.
-> `loki.persistence.enabled=false` usa armazenamento em memória — adequado para Kind/desenvolvimento.
+> 💡 **O que cada flag faz:**
+> - `deploymentMode=SingleBinary` — Loki roda como processo monolítico único (ideal para Kind)
+> - `loki.auth_enabled=false` — desabilita multi-tenancy; sem esse flag o Grafana precisaria enviar o header `X-Scope-OrgID` em toda requisição
+> - `read/write/backend.replicas=0` — desativa os microserviços do modo distribuído (para produção); aqui só o processo único sobe
+> - `memcached.*.enabled=false` — desativa caches distribuídos, economizando ~300 MB de RAM no cluster local
+> - `minio.enabled=false` — usa filesystem local em vez de object storage externo
 
-Aguardar Loki e Fluent Bit subirem:
+Aguardar o Loki subir (pode demorar até 2 min):
 
 **PowerShell e bash:**
 
 ```sh
 kubectl get pods -n monitoring -w
-# Aguarde os pods loki-0 e loki-fluent-bit-* ficarem Running
+# Aguarde:
+# loki-0                1/1   Running   ← instância do Loki (SingleBinary)
+# loki-gateway-xxxx     1/1   Running   ← proxy HTTP que roteia para o Loki
 ```
+
+---
+
+## Instalação do Fluent Bit (agente de coleta independente)
+
+> 🎯 **Arquitetura desacoplada:** Em vez de embutir o agente dentro do chart do Loki (padrão legado do `loki-stack`), instalamos o Fluent Bit separadamente com o chart oficial `fluent/fluent-bit`. Cada node do cluster roda uma instância (DaemonSet) que lê os arquivos de log dos containers em `/var/log/containers/` e os envia ao gateway do Loki via HTTP. Isso permite trocar o agente por Fluentd, Vector ou outro sem reinstalar o Loki.
+
+**PowerShell e bash:**
+
+```sh
+# Adicionar repositório oficial do Fluent Bit
+helm repo add fluent https://fluent.github.io/helm-charts
+helm repo update
+```
+
+**PowerShell:**
+
+```powershell
+helm install fluent-bit fluent/fluent-bit `
+  --namespace monitoring `
+  -f manifests/values-fluent-bit.yaml
+```
+
+**bash / zsh:**
+
+```bash
+helm install fluent-bit fluent/fluent-bit \
+  --namespace monitoring \
+  -f manifests/values-fluent-bit.yaml
+```
+
+> O arquivo `manifests/values-fluent-bit.yaml` sobrescreve o bloco `[OUTPUT]` padrão do chart para apontar ao endpoint `http://loki-gateway.monitoring.svc.cluster.local:80/loki/api/v1/push`, adicionando automaticamente os labels de `namespace`, `pod` e `container` em cada stream de log.
+
+Aguardar o Fluent Bit subir (DaemonSet — um pod por node do cluster):
+
+**PowerShell e bash:**
+
+```sh
+kubectl get pods -n monitoring -w
+# Aguarde: fluent-bit-xxxx   1/1   Running
+```
+
+---
 
 ### Adicionar Loki como datasource no Grafana
 
 1. Acesse **http://localhost:3000**
 2. Vá em **Connections → Data Sources → Add data source → Loki**
-3. **URL:** `http://loki.monitoring.svc.cluster.local:3100`
-4. Expanda **HTTP headers** → clique em **Add header**
-   - **Header name:** `X-Scope-OrgID`
-   - **Value:** `1`
-5. Clique em **Save & Test**
+3. **URL:** `http://loki-gateway.monitoring.svc.cluster.local`
+4. Clique em **Save & Test**
 
-> ⚠️ O header `X-Scope-OrgID: 1` é obrigatório no Loki 3.x. Sem ele, o Grafana mostra "Unable to connect" mesmo com o Loki rodando normalmente — o endpoint `/ready` responde, mas as queries de labels e logs exigem autenticação de tenant.
+> ✅ Com `loki.auth_enabled=false`, o Grafana conecta direto ao gateway sem nenhum header adicional. O "Save & Test" deve retornar sucesso imediato.
 
 ### Verificar logs do Super Mario no Grafana
 
@@ -327,31 +392,38 @@ kube_deployment_status_replicas{namespace="games"}
 
 ## Troubleshooting: Loki não conecta no Grafana
 
-### 1. Verificar se o Loki está rodando
+### 1. Verificar se todos os pods subiram
 
 **PowerShell:**
 
 ```powershell
-kubectl get pods -n monitoring | Select-String loki
-# Esperado: loki-0   1/1   Running
-#           loki-fluent-bit-xxxx   1/1   Running
+kubectl get pods -n monitoring | Select-String "loki|fluent"
+# Esperado:
+# loki-0                1/1   Running   ← instância principal (SingleBinary)
+# loki-gateway-xxxx     1/1   Running   ← proxy HTTP de entrada
+# fluent-bit-xxxx       1/1   Running   ← agente de coleta (DaemonSet, um por node)
 ```
 
 **bash / zsh:**
 
 ```bash
-kubectl get pods -n monitoring | grep loki
+kubectl get pods -n monitoring | grep -E "loki|fluent"
 ```
 
-Se não aparecer nenhum pod, o Loki não foi instalado. Volte para a seção "Instalação do Loki + Fluent Bit via Helm".
+Se não aparecer nenhum pod do Loki, volte para a seção "Instalação do Loki 3.x".
+Se não aparecer o Fluent Bit, volte para "Instalação do Fluent Bit".
 
-### 2. Verificar o nome exato do Service
+### 2. Verificar os Services do Loki
 
 **PowerShell:**
 
 ```powershell
 kubectl get svc -n monitoring | Select-String loki
-# O nome do service determina a URL usada no Grafana
+# Esperado:
+# loki              ClusterIP   ...   3100/TCP   ← porta interna do Loki
+# loki-gateway      ClusterIP   ...   80/TCP     ← use este no Grafana
+# loki-headless     ClusterIP   None  ...
+# loki-memberlist   ClusterIP   None  ...
 ```
 
 **bash / zsh:**
@@ -360,13 +432,13 @@ kubectl get svc -n monitoring | Select-String loki
 kubectl get svc -n monitoring | grep loki
 ```
 
-### 3. Testar conectividade de dentro do cluster
+### 3. Teste de fumaça — conectividade ao gateway
 
 **PowerShell:**
 
 ```powershell
 kubectl run curl-test --image=curlimages/curl --rm -it --restart=Never `
-  -- curl http://loki.monitoring.svc.cluster.local:3100/ready
+  -- curl http://loki-gateway.monitoring.svc.cluster.local/ready
 # Esperado: ready
 ```
 
@@ -374,57 +446,48 @@ kubectl run curl-test --image=curlimages/curl --rm -it --restart=Never `
 
 ```bash
 kubectl run curl-test --image=curlimages/curl --rm -it --restart=Never \
-  -- curl http://loki.monitoring.svc.cluster.local:3100/ready
+  -- curl http://loki-gateway.monitoring.svc.cluster.local/ready
 # Esperado: ready
 ```
 
-### 4. Verificar logs do pod do Loki
+### 4. Verificar logs do Loki
 
 **PowerShell e bash:**
 
 ```sh
-kubectl logs -n monitoring -l app=loki --tail=50
+kubectl logs -n monitoring loki-0 --tail=50
+# Erros de ring nos primeiros 2-3 min são normais; aguarde o pod estabilizar
 ```
 
-### 5. URL correta no Grafana
+### 5. Verificar se o Fluent Bit está enviando logs
 
-Vá em **Connections → Data Sources → Loki** e use:
+**PowerShell e bash:**
+
+```sh
+kubectl logs -n monitoring -l app.kubernetes.io/name=fluent-bit --tail=30
+# Procure por linhas como: [output] loki > Flush chunk ... bytes
+```
+
+### 6. URL correta no datasource do Grafana
+
+Vá em **Connections → Data Sources → Loki** e confirme:
 
 ```
-http://loki.monitoring.svc.cluster.local:3100
+http://loki-gateway.monitoring.svc.cluster.local
 ```
 
-> Se o Grafana e o Loki estão no mesmo namespace (`monitoring`), também funciona a URL curta `http://loki:3100`.
+> Sem porta explícita (usa 80 por padrão). Não use `:3100` — essa é a porta interna do Loki, não do gateway.
 
-### 6. Reinstalar o Loki (se necessário)
+### 7. Reinstalar do zero (se necessário)
 
 **PowerShell e bash:**
 
 ```sh
 helm uninstall loki -n monitoring
+helm uninstall fluent-bit -n monitoring
 ```
 
-**PowerShell:**
-
-```powershell
-helm install loki grafana/loki-stack `
-  --namespace monitoring `
-  --set fluent-bit.enabled=true `
-  --set promtail.enabled=false `
-  --set grafana.enabled=false `
-  --set loki.persistence.enabled=false
-```
-
-**bash / zsh:**
-
-```bash
-helm install loki grafana/loki-stack \
-  --namespace monitoring \
-  --set fluent-bit.enabled=true \
-  --set promtail.enabled=false \
-  --set grafana.enabled=false \
-  --set loki.persistence.enabled=false
-```
+Em seguida, repita as seções de instalação acima.
 
 ---
 
@@ -435,9 +498,11 @@ helm install loki grafana/loki-stack \
 ```sh
 # Remover apenas o stack de monitoramento (manter o cluster)
 helm uninstall kind-prometheus -n monitoring
+helm uninstall loki -n monitoring
+helm uninstall fluent-bit -n monitoring
 kubectl delete namespace monitoring
 
-# Ou deletar o cluster inteiro
+# Ou deletar o cluster inteiro (mais rápido)
 kind delete cluster --name k8s-essentials
 ```
 
@@ -453,3 +518,6 @@ kind delete cluster --name k8s-essentials
 | Node Exporter | Métricas do node (CPU/mem/disco) | 9100 |
 | kube-state-metrics | Estado dos objetos K8s | interno |
 | Prometheus Operator | Gerencia o Prometheus via CRDs | interno |
+| Loki | Armazena e indexa logs (SingleBinary) | interno (3100) |
+| Loki Gateway | Proxy HTTP de entrada para o Loki | interno (80) |
+| Fluent Bit | Coleta logs dos containers (DaemonSet) | interno |

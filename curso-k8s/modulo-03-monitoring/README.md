@@ -158,9 +158,12 @@ Definidos pelo livro **Site Reliability Engineering do Google**, os Four Golden 
 │  │ CPU/mem/disco│  │ estado dos objetos  │                          │
 │  └──────────────┘  └────────────────────┘                           │
 └──────────────────────────────────────────────────────────────────────┘
-         │              │              │              │
-    localhost:9090  localhost:3000  localhost:9093  localhost:3100
-     (Prometheus)    (Grafana)    (Alertmanager)    (Loki)
+         │              │              │
+    localhost:9090  localhost:3000  localhost:9093
+     (Prometheus)    (Grafana)    (Alertmanager)
+
+  Loki e Fluent Bit são internos ao cluster (sem exposição externa).
+  Grafana acessa o Loki via: http://loki-gateway.monitoring.svc.cluster.local
 ```
 
 ---
@@ -202,6 +205,8 @@ Definidos pelo livro **Site Reliability Engineering do Google**, os Four Golden 
 - O conteúdo (texto) é comprimido e armazenado em chunks
 - Resultado: muito mais barato e rápido que Elasticsearch para a maioria dos casos
 - Linguagem de consulta: **LogQL**
+- Neste módulo usamos o modo **SingleBinary** (Loki 3.x) — uma única instância gerencia ingestão, armazenamento e queries. Ideal para laboratório; em produção usa-se o modo distribuído com componentes separados de leitura/escrita.
+- O **Loki Gateway** é um proxy Nginx que exposto como Service HTTP (porta 80) e roteia as requisições para o Loki. O Grafana e o Fluent Bit se comunicam exclusivamente com o gateway — nunca diretamente com a porta interna 3100.
 
 **Comparação com Elasticsearch:**
 
@@ -222,6 +227,7 @@ Definidos pelo livro **Site Reliability Engineering do Google**, os Four Golden 
 - Roda como **DaemonSet** — um pod por node do cluster
 - Lê os arquivos de log dos containers em `/var/log/containers/*.log`
 - Parseia, filtra e envia para o Loki (ou outros destinos)
+- Neste módulo, o Fluent Bit é instalado **separadamente** do Loki via chart oficial `fluent/fluent-bit`. Ele aponta ao **Loki Gateway** (`loki-gateway.monitoring.svc.cluster.local:80`), não diretamente ao Loki. Esse desacoplamento permite trocar o agente sem reinstalar o banco de logs.
 
 **Por que Fluent Bit em vez de Promtail?**
 
@@ -299,7 +305,8 @@ modulo-03-monitoring/
 └── manifests/
     ├── README.md                      ← Documentação dos manifestos
     ├── cluster-config.yaml            ← Kind com todos os port mappings
-    └── 03-four-golden-signals.yaml    ← PrometheusRule com alertas
+    ├── 03-four-golden-signals.yaml    ← PrometheusRule com alertas
+    └── values-fluent-bit.yaml         ← Configuração do Fluent Bit (output → Loki Gateway)
 ```
 
 ---

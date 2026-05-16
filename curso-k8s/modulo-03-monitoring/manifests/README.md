@@ -6,6 +6,7 @@
 |---|---|
 | `cluster-config.yaml` | Config do Kind com port mappings para Prometheus, Grafana e Alertmanager |
 | `03-four-golden-signals.yaml` | PrometheusRule com alertas dos Four Golden Signals para o namespace `games` |
+| `values-fluent-bit.yaml` | Values do Helm para o Fluent Bit — configura o output Loki apontando ao gateway |
 
 ---
 
@@ -16,7 +17,8 @@ Todos são instalados via **Helm**, que gerencia centenas de recursos automatica
 | Stack | Chart Helm |
 |---|---|
 | Prometheus + Grafana + Alertmanager | `prometheus-community/kube-prometheus-stack` |
-| Loki + Fluent Bit | `grafana/loki-stack` |
+| Loki 3.x (SingleBinary) | `grafana/loki` |
+| Fluent Bit (agente independente) | `fluent/fluent-bit` |
 
 Os comandos de instalação estão no [QUICK-START.md](../QUICK-START.md).
 
@@ -31,9 +33,19 @@ Os comandos de instalação estão no [QUICK-START.md](../QUICK-START.md).
 | Grafana | 31000 | 3000 | http://localhost:3000 |
 | Alertmanager | 32000 | 9093 | http://localhost:9093 |
 | Node Exporter | 32001 | 9100 | http://localhost:9100/metrics |
-| Loki | interno | 3100 | `http://loki:3100` (DNS interno) |
 
-> O Loki não precisa de NodePort — o Grafana o acessa internamente pelo DNS do cluster.
+> Loki e Fluent Bit são **internos ao cluster** — sem NodePort. O Grafana acessa o Loki via DNS interno: `http://loki-gateway.monitoring.svc.cluster.local`.
+
+---
+
+## DNS interno dos componentes de logs
+
+| Componente | DNS interno | Porta |
+|---|---|---|
+| Loki (instância) | `loki.monitoring.svc.cluster.local` | 3100 |
+| Loki Gateway (proxy HTTP) | `loki-gateway.monitoring.svc.cluster.local` | 80 |
+
+> O Grafana e o Fluent Bit sempre se comunicam com o **gateway** (porta 80), nunca diretamente com a instância Loki (porta 3100).
 
 ---
 
@@ -47,3 +59,4 @@ kubectl get prometheusrule -n monitoring
 
 # Ver no Prometheus UI: Status → Rules → four-golden-signals.games
 ```
+
