@@ -114,6 +114,17 @@ helm install kind-prometheus prometheus-community/kube-prometheus-stack \
 
 > 💡 A diferença entre os dois é apenas o caractere de continuação de linha: `` ` `` (backtick) no PowerShell e `\` (backslash) no bash/zsh.
 
+> 💡 **O que cada `--set` faz:**
+>
+> | Flag | O que faz | Sem ele |
+> |---|---|---|
+> | `prometheus.service.nodePort=30090` + `type=NodePort` | Expõe o Prometheus na porta `30090` de cada node; mapeada para `localhost:9090` pelo Kind | O serviço fica `ClusterIP` — inacessível fora do cluster |
+> | `grafana.service.nodePort=31000` + `type=NodePort` | Expõe o Grafana na porta `31000`; mapeada para `localhost:3000` | Idem |
+> | `alertmanager.service.nodePort=32000` + `type=NodePort` | Expõe o Alertmanager na porta `32000`; mapeada para `localhost:9093` | Idem |
+> | `prometheus-node-exporter.service.nodePort=32001` + `type=NodePort` | Expõe o Node Exporter na porta `32001`; mapeada para `localhost:9100` | Idem |
+>
+> O NodePort sozinho não é suficiente — o Kind também precisa do mapeamento `hostPort` no `cluster-config.yaml` para repassar a porta do container do Kind para o `localhost` do seu computador.
+
 ---
 
 ## Instalação do Loki 3.x (chart oficial) via Helm
@@ -137,14 +148,15 @@ helm install loki grafana/loki `
   --set loki.auth_enabled=false `
   --set loki.commonConfig.replication_factor=1 `
   --set loki.storage.type=filesystem `
+  --set loki.useTestSchema=true `
   --set singleBinary.replicas=1 `
   --set read.replicas=0 `
   --set write.replicas=0 `
   --set backend.replicas=0 `
-  --set memcached.chunks.enabled=false `
-  --set memcached.results.enabled=false `
-  --set memcached.write.enabled=false `
-  --set memcached.metadata.enabled=false `
+  --set chunksCache.enabled=false `
+  --set resultsCache.enabled=false `
+  --set lokiCanary.enabled=false `
+  --set test.enabled=false `
   --set minio.enabled=false `
   --set grafana.enabled=false
 ```
@@ -158,24 +170,36 @@ helm install loki grafana/loki \
   --set loki.auth_enabled=false \
   --set loki.commonConfig.replication_factor=1 \
   --set loki.storage.type=filesystem \
+  --set loki.useTestSchema=true \
   --set singleBinary.replicas=1 \
   --set read.replicas=0 \
   --set write.replicas=0 \
   --set backend.replicas=0 \
-  --set memcached.chunks.enabled=false \
-  --set memcached.results.enabled=false \
-  --set memcached.write.enabled=false \
-  --set memcached.metadata.enabled=false \
+  --set chunksCache.enabled=false \
+  --set resultsCache.enabled=false \
+  --set lokiCanary.enabled=false \
+  --set test.enabled=false \
   --set minio.enabled=false \
   --set grafana.enabled=false
 ```
 
 > 💡 **O que cada flag faz:**
-> - `deploymentMode=SingleBinary` — Loki roda como processo monolítico único (ideal para Kind)
-> - `loki.auth_enabled=false` — desabilita multi-tenancy; sem esse flag o Grafana precisaria enviar o header `X-Scope-OrgID` em toda requisição
-> - `read/write/backend.replicas=0` — desativa os microserviços do modo distribuído (para produção); aqui só o processo único sobe
-> - `memcached.*.enabled=false` — desativa caches distribuídos, economizando ~300 MB de RAM no cluster local
-> - `minio.enabled=false` — usa filesystem local em vez de object storage externo
+>
+> | Flag | O que faz | Sem ele |
+> |---|---|---|
+> | `deploymentMode=SingleBinary` | Loki roda como um único processo (todos os componentes juntos) | Subiria no modo distribuído, que requer múltiplos pods separados |
+> | `loki.auth_enabled=false` | Desabilita multi-tenancy — nenhum tenant precisa ser informado | Grafana e Fluent Bit precisariam enviar `X-Scope-OrgID: <tenant>` em toda requisição |
+> | `loki.commonConfig.replication_factor=1` | Uma única réplica de cada chunk de log (sem redundância) | O padrão é 3 — o Loki recusaria writes por não ter quórum com um só pod |
+> | `loki.storage.type=filesystem` | Armazena os logs em disco local do pod | O padrão espera S3/GCS/Azure — o pod ficaria em erro sem credenciais de object storage |
+> | `loki.useTestSchema=true` | Injeta um `schema_config` padrão (v13, tsdb) | O chart 3.x falha na instalação exigindo schema explícito |
+> | `singleBinary.replicas=1` | Sobe 1 pod do processo único | Nenhum pod é criado no modo SingleBinary |
+> | `read/write/backend.replicas=0` | Desativa os microserviços do modo distribuído | Subiriam tentando formar cluster e ficariam em erro sem a infraestrutura completa |
+> | `chunksCache.enabled=false` | Desativa o Memcached de cache de chunks de log | Sobe um StatefulSet de Memcached que pode ficar Pending por falta de memória no Kind |
+> | `resultsCache.enabled=false` | Desativa o Memcached de cache de resultados de queries | Idem — pod extra desnecessário em ambiente local |
+> | `lokiCanary.enabled=false` | Desativa o Loki Canary (pod que testa o Loki continuamente) | Sobe um pod extra que consome recursos sem utilidade didática aqui |
+> | `test.enabled=false` | Desativa os Helm tests do chart (que dependem do canary) | O `helm upgrade` falha com erro de validação se o canary estiver desabilitado mas os testes não |
+> | `minio.enabled=false` | Não sobe um MinIO embutido como object storage | O chart criaria um StatefulSet de MinIO desnecessário aqui |
+> | `grafana.enabled=false` | Não instala um segundo Grafana dentro do chart do Loki | Conflitaria com o Grafana já instalado pelo `kube-prometheus-stack` |
 
 Aguardar o Loki subir (pode demorar até 2 min):
 
