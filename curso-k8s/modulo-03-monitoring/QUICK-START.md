@@ -268,17 +268,20 @@ kubectl get pods -n monitoring -w
 
 ```
 Grafana → Explore → Selecione datasource: Loki
-Label filter: namespace_name = games
-Label filter: container_name = super-mario
+⚠️ Ajuste o intervalo de tempo para "Last 1 hour" (canto superior direito)
+Label filter: kubernetes_namespace_name = games
+Label filter: kubernetes_container_name = super-mario
 Clique em Run query
 ```
 
 Query LogQL equivalente:
 ```logql
-{namespace_name="games", container_name="super-mario"}
+{kubernetes_namespace_name="games", kubernetes_container_name="super-mario"}
 ```
 
-> 💡 Os labels `namespace_name` e `container_name` vêm do metadado Kubernetes enriquecido pelo filtro do Fluent Bit (não das labels do pod). Se os labels não aparecerem no dropdown, o Fluent Bit pode ter sido instalado antes dessa configuração — rode `helm upgrade fluent-bit fluent/fluent-bit --namespace monitoring -f manifests/values-fluent-bit.yaml` e aguarde o DaemonSet reiniciar.
+> 💡 Os labels `kubernetes_namespace_name` e `kubernetes_container_name` vêm do metadado Kubernetes enriquecido pelo filtro do Fluent Bit (`label_keys` no `[OUTPUT]` do Loki plugin). Se os labels não aparecerem no dropdown, o Fluent Bit pode ter sido instalado antes dessa configuração — rode `helm upgrade fluent-bit fluent/fluent-bit --namespace monitoring -f manifests/values-fluent-bit.yaml` e aguarde o DaemonSet reiniciar.
+
+> ⚠️ Se o dropdown aparecer vazio, verifique o intervalo de tempo. O Loki expira queries sem range de tempo explícito — use sempre "Last 1 hour" ou mais no Grafana Explore.
 
 ---
 
@@ -501,6 +504,26 @@ kubectl logs -n monitoring loki-0 --tail=50
 kubectl logs -n monitoring -l app.kubernetes.io/name=fluent-bit --tail=30
 # Procure por linhas como: [output] loki > Flush chunk ... bytes
 ```
+
+### 5b. Verificar diretamente na API do Loki quais namespaces foram indexados
+
+**PowerShell:**
+
+```powershell
+# Port-forward temporário para o gateway
+kubectl port-forward svc/loki-gateway -n monitoring 3100:80
+
+# Em outro terminal — namespaces indexados (última hora)
+$start = [DateTimeOffset]::UtcNow.AddHours(-1).ToUnixTimeSeconds()
+Invoke-RestMethod "http://localhost:3100/loki/api/v1/label/kubernetes_namespace_name/values?start=$start"
+# Esperado: data: ["games", "kube-system", "monitoring"]
+
+# Containers indexados
+Invoke-RestMethod "http://localhost:3100/loki/api/v1/label/kubernetes_container_name/values?start=$start"
+# Esperado: data: [..., "super-mario", ...]
+```
+
+> Se `games` e `super-mario` aparecerem aqui mas não no Grafana, o problema é o **intervalo de tempo** no Grafana Explore — ajuste para "Last 1 hour".
 
 ### 6. URL correta no datasource do Grafana
 
