@@ -268,15 +268,17 @@ kubectl get pods -n monitoring -w
 
 ```
 Grafana → Explore → Selecione datasource: Loki
-Label filter: namespace = games
-Label filter: container = super-mario
+Label filter: namespace_name = games
+Label filter: container_name = super-mario
 Clique em Run query
 ```
 
 Query LogQL equivalente:
 ```logql
-{namespace="games", container="super-mario"}
+{namespace_name="games", container_name="super-mario"}
 ```
+
+> 💡 Os labels `namespace_name` e `container_name` vêm do metadado Kubernetes enriquecido pelo filtro do Fluent Bit (não das labels do pod). Se os labels não aparecerem no dropdown, o Fluent Bit pode ter sido instalado antes dessa configuração — rode `helm upgrade fluent-bit fluent/fluent-bit --namespace monitoring -f manifests/values-fluent-bit.yaml` e aguarde o DaemonSet reiniciar.
 
 ---
 

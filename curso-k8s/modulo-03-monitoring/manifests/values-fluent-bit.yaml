@@ -25,4 +25,5 @@ config:
         Host                   loki-gateway.monitoring.svc.cluster.local
         Port                   80
         Labels                 job=fluent-bit
+        label_keys             $kubernetes['namespace_name'],$kubernetes['container_name'],$kubernetes['pod_name']
         auto_kubernetes_labels on
