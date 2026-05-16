@@ -385,6 +385,94 @@ kubectl --namespace monitoring get secret kind-prometheus-grafana \
 
 ---
 
+## Usar o Alertmanager
+
+> 🎯 O Alertmanager não gera alertas — ele **recebe** alertas do Prometheus e decide o que fazer com eles: agrupar, rotear para um canal (Slack, PagerDuty, e-mail) ou silenciar temporariamente. O Prometheus avalia as regras do `PrometheusRule`, identifica condições violadas e empurra os alertas para o Alertmanager via API.
+
+Acesse: **http://localhost:9093**
+
+### O que você verá na UI
+
+| Aba | O que mostra |
+|---|---|
+| **Alerts** | Alertas ativos no momento, agrupados por `alertname` e labels |
+| **Silences** | Silêncios ativos — alertas suprimidos temporariamente |
+| **Status** | Configuração carregada, versão, uptime |
+
+### Estados de um alerta
+
+```
+Prometheus avalia a regra
+    │
+    ├── condição não violada → (nada acontece)
+    │
+    ├── condição violada < for: 5m → PENDING  ← ainda não foi para o Alertmanager
+    │
+    └── condição violada ≥ for: 5m → FIRING   ← Alertmanager recebe e roteia
+```
+
+> O campo `for:` na `PrometheusRule` define o tempo mínimo que a condição precisa persistir antes do alerta virar `FIRING`. Isso evita alertas de spike momentâneo.
+
+### Ver alertas ativos (FIRING) via linha de comando
+
+**PowerShell e bash:**
+
+```sh
+# Listar alertas que o Prometheus está avaliando
+kubectl get prometheusrule -n monitoring
+
+# Ver o estado de cada regra diretamente no Prometheus
+# http://localhost:9090 → Status → Rules
+```
+
+**PowerShell:**
+
+```powershell
+# Consultar a API do Alertmanager — alertas ativos
+Invoke-RestMethod "http://localhost:9093/api/v2/alerts" |
+  Select-Object -ExpandProperty labels |
+  Format-Table alertname, namespace, severity
+```
+
+**bash / zsh:**
+
+```bash
+curl -s http://localhost:9093/api/v2/alerts | jq '.[].labels | {alertname, namespace, severity}'
+```
+
+### Criar um silêncio (suprimir um alerta temporariamente)
+
+Na UI do Alertmanager (**http://localhost:9093**):
+
+1. Vá em **Silences → New Silence**
+2. Preencha o **Matcher** com o label do alerta a suprimir:
+   ```
+   alertname = HighErrorRate
+   namespace = games
+   ```
+3. Defina a duração (ex: `2h`)
+4. Adicione um comentário explicando o motivo
+5. Clique em **Create**
+
+> O silêncio não cancela a avaliação da regra no Prometheus — o alerta continua `FIRING` internamente. O Alertmanager apenas para de notificar durante o período do silêncio.
+
+### Fluxo completo: do código ao alerta
+
+```
+manifests/03-four-golden-signals.yaml   ← PrometheusRule (definição das regras)
+        │
+        ▼ kubectl apply
+Prometheus Operator detecta o CRD e atualiza a config do Prometheus
+        │
+        ▼ avalia a cada 15s (padrão)
+Prometheus → condição violada por N minutos → FIRING
+        │
+        ▼ HTTP POST /api/v2/alerts
+Alertmanager → agrupa → roteia → notifica (ou silencia)
+```
+
+---
+
 ## Rodar o Stress Test e Observar no Grafana
 
 **PowerShell e bash:**
