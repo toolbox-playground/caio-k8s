@@ -4,7 +4,9 @@
 
 O Super Mario e o HPA precisam estar rodando. Verifique:
 
-```powershell
+**PowerShell e bash:**
+
+```sh
 kubectl get pods -n games
 kubectl get hpa -n games
 ```
@@ -15,7 +17,9 @@ kubectl get hpa -n games
 
 Use se for recriar o cluster do zero ou se o cluster ainda não existe.
 
-```powershell
+**PowerShell e bash:**
+
+```sh
 # 1. Deletar cluster anterior (se existir)
 kind delete cluster --name k8s-essentials
 
@@ -24,8 +28,7 @@ kind create cluster --config manifests/cluster-config.yaml
 
 # 3. Reinstalar Metrics Server (necessário após recriar)
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-kubectl patch deployment metrics-server -n kube-system --type='json' \
-  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+kubectl patch deployment metrics-server -n kube-system --type=json -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
 
 # 4. Reinstalar o Super Mario (Módulo 02)
 kubectl create namespace games
@@ -40,7 +43,9 @@ kubectl apply -f ../modulo-02-deploy-app/manifests/03-hpa.yaml
 
 Use se não quiser recriar o cluster e perder o estado atual.
 
-```powershell
+**PowerShell e bash:**
+
+```sh
 # Após instalar o Prometheus (passo abaixo), use port-forward para acessar:
 kubectl port-forward svc/kind-prometheus-kube-prome-prometheus -n monitoring 9090:9090
 kubectl port-forward svc/kind-prometheus-grafana -n monitoring 3000:80
@@ -53,7 +58,9 @@ kubectl port-forward svc/kind-prometheus-kube-prome-alertmanager -n monitoring 9
 
 ## Instalação do kube-prometheus-stack via Helm
 
-```powershell
+**PowerShell e bash:**
+
+```sh
 # 1. Adicionar repositórios Helm
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add stable https://charts.helm.sh/stable
@@ -61,8 +68,13 @@ helm repo update
 
 # 2. Criar namespace de monitoramento
 kubectl create namespace monitoring
+```
 
 # 3. Instalar o stack completo
+
+**PowerShell:**
+
+```powershell
 helm install kind-prometheus prometheus-community/kube-prometheus-stack `
   --namespace monitoring `
   --set prometheus.service.nodePort=30090 `
@@ -75,18 +87,48 @@ helm install kind-prometheus prometheus-community/kube-prometheus-stack `
   --set prometheus-node-exporter.service.type=NodePort
 ```
 
-> 💡 **Por que backtick (`` ` ``) em vez de `\`?**
-> No PowerShell, o caractere de continuação de linha é `` ` `` (backtick), não `\` (backslash). O `\` é usado em bash/zsh (Linux/Mac).
+**bash / zsh (Linux, Mac, WSL):**
+
+```bash
+helm install kind-prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --set prometheus.service.nodePort=30090 \
+  --set prometheus.service.type=NodePort \
+  --set grafana.service.nodePort=31000 \
+  --set grafana.service.type=NodePort \
+  --set alertmanager.service.nodePort=32000 \
+  --set alertmanager.service.type=NodePort \
+  --set prometheus-node-exporter.service.nodePort=32001 \
+  --set prometheus-node-exporter.service.type=NodePort
+```
+
+> 💡 A diferença entre os dois é apenas o caractere de continuação de linha: `` ` `` (backtick) no PowerShell e `\` (backslash) no bash/zsh.
 
 ---
 
 ## Aguardar o stack subir
 
-```powershell
+**PowerShell e bash:**
+
+```sh
 # Acompanhar pods subindo (aguarde todos ficarem Running/Ready)
 kubectl get pods -n monitoring -w
+```
 
-# Ou verificar de uma vez:
+Ou aguardar todos ficarem prontos de uma vez:
+
+**PowerShell:**
+
+```powershell
+kubectl wait --for=condition=ready pod `
+  --selector=app.kubernetes.io/instance=kind-prometheus `
+  --namespace monitoring `
+  --timeout=300s
+```
+
+**bash / zsh:**
+
+```bash
 kubectl wait --for=condition=ready pod \
   --selector=app.kubernetes.io/instance=kind-prometheus \
   --namespace monitoring \
@@ -126,7 +168,9 @@ prometheus-kind-prometheus-kube-prome-prometheus-0       2/2     Running   0
 
 ## Rodar o Stress Test e Observar no Grafana
 
-```powershell
+**PowerShell e bash:**
+
+```sh
 # 1. Garantir que o Mario está rodando
 kubectl get pods -n games
 
@@ -146,9 +190,9 @@ kubectl get hpa -n games -w
 
 ## Verificar coleta de métricas do namespace games
 
-```powershell
-# Abrir o Prometheus (http://localhost:9090) e executar estas queries:
+> Abra o Prometheus em http://localhost:9090 e execute as queries abaixo no campo de expressão.
 
+```promql
 # Pods rodando no namespace games
 kube_pod_info{namespace="games"}
 
@@ -166,7 +210,9 @@ kube_deployment_status_replicas{namespace="games"}
 
 ## Limpar o ambiente
 
-```powershell
+**PowerShell e bash:**
+
+```sh
 # Remover apenas o stack de monitoramento (manter o cluster)
 helm uninstall kind-prometheus -n monitoring
 kubectl delete namespace monitoring
