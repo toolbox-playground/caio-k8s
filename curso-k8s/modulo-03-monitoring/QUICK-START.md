@@ -219,7 +219,7 @@ kube_pod_info{namespace="games"}
 sum(rate(container_cpu_usage_seconds_total{namespace="games", container!=""}[2m])) by (pod)
 
 # Memória dos pods do Mario
-container_memory_working_set_bytes{namespace="games", container="mario"}
+container_memory_working_set_bytes{namespace="games", container="super-mario"}
 
 # Réplicas do deployment ao longo do tempo
 kube_deployment_status_replicas{namespace="games"}
