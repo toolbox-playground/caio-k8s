@@ -155,16 +155,15 @@ kubectl get pods -n monitoring -w
 
 ### Adicionar Loki como datasource no Grafana
 
-**PowerShell e bash:**
+1. Acesse **http://localhost:3000**
+2. Vá em **Connections → Data Sources → Add data source → Loki**
+3. **URL:** `http://loki.monitoring.svc.cluster.local:3100`
+4. Expanda **HTTP headers** → clique em **Add header**
+   - **Header name:** `X-Scope-OrgID`
+   - **Value:** `1`
+5. Clique em **Save & Test**
 
-```sh
-# Abra o Grafana (http://localhost:3000)
-# Connections → Data Sources → Add data source → Loki
-# URL: http://loki:3100
-# Clique em Save & Test
-```
-
-> O Loki é acessível internamente pelo DNS do Kubernetes: `http://loki:3100`
+> ⚠️ O header `X-Scope-OrgID: 1` é obrigatório no Loki 3.x. Sem ele, o Grafana mostra "Unable to connect" mesmo com o Loki rodando normalmente — o endpoint `/ready` responde, mas as queries de labels e logs exigem autenticação de tenant.
 
 ### Verificar logs do Super Mario no Grafana
 
