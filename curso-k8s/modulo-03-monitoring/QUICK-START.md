@@ -362,18 +362,16 @@ Se a senha padrão `prom-operator` não funcionar, busque a senha real do secret
 **PowerShell:**
 
 ```powershell
-kubectl get secret --namespace monitoring `
-  -l app.kubernetes.io/component=admin-secret `
-  -o jsonpath="{.items[0].data.admin-password}" |
+kubectl --namespace monitoring get secret kind-prometheus-grafana `
+  -o jsonpath="{.data.admin-password}" |
   ForEach-Object { [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_)) }
 ```
 
 **bash / zsh:**
 
 ```bash
-kubectl get secret --namespace monitoring \
-  -l app.kubernetes.io/component=admin-secret \
-  -o jsonpath="{.items[0].data.admin-password}" | base64 --decode ; echo
+kubectl --namespace monitoring get secret kind-prometheus-grafana \
+  -o jsonpath="{.data.admin-password}" | base64 -d ; echo
 ```
 
 ### Alertmanager
