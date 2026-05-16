@@ -1,0 +1,213 @@
+# ============================================================
+# PrometheusRule: Four Golden Signals — namespace games
+# ============================================================
+# Recurso gerenciado pelo Prometheus Operator.
+# Aplicar com: kubectl apply -f 03-four-golden-signals.yaml
+#
+# O Prometheus Operator detecta este recurso automaticamente
+# e recarrega as regras sem reiniciar o Prometheus.
+#
+# Para verificar se foi carregado:
+#   kubectl get prometheusrule -n monitoring
+#   No Prometheus UI → Status → Rules
+# ============================================================
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+
+metadata:
+  name: four-golden-signals-games
+  namespace: monitoring
+
+  # O label 'release' deve corresponder ao nome do helm release
+  # do kube-prometheus-stack (padrão: kind-prometheus)
+  labels:
+    release: kind-prometheus
+    app: kube-prometheus-stack
+
+spec:
+  groups:
+
+  # ============================================================
+  # Grupo: Four Golden Signals — Super Mario (namespace: games)
+  # ============================================================
+  - name: four-golden-signals.games
+    # Intervalo de avaliação das regras (padrão global: 15s)
+    interval: 30s
+    rules:
+
+    # ----------------------------------------------------------
+    # SIGNAL 1: TRÁFEGO (Traffic)
+    # Pergunta: Qual é a demanda atual sobre o sistema?
+    # Proxy: bytes de rede recebidos pelos pods no namespace games
+    # ----------------------------------------------------------
+    - alert: AltoTrafego
+      expr: |
+        sum(rate(container_network_receive_bytes_total{
+          namespace="games",
+          container!=""
+        }[5m])) > 1048576
+      # 1048576 bytes = 1 MB/s
+      for: 2m
+      labels:
+        severity: warning
+        signal: traffic
+        namespace: games
+      annotations:
+        summary: "Alto volume de tráfego no namespace games"
+        description: >
+          Taxa de recebimento de rede está em
+          {{ $value | humanize }}B/s (acima de 1 MB/s)
+          por mais de 2 minutos.
+          Verifique o stress test ou pico de acessos reais.
+
+    # ----------------------------------------------------------
+    # SIGNAL 2: ERROS (Errors) — Pod reiniciando
+    # Pergunta: Com que frequência as requisições falham?
+    # Proxy: container reiniciando indica crash / OOMKill / erro
+    # ----------------------------------------------------------
+    - alert: PodRestartandoFrequentemente
+      expr: |
+        increase(
+          kube_pod_container_status_restarts_total{
+            namespace="games"
+          }[15m]
+        ) > 2
+      for: 0m
+      # for: 0m = alerta dispara imediatamente (sem período de espera)
+      # restarts são eventos discretos — esperar pode mascarar CrashLoopBackOff
+      labels:
+        severity: critical
+        signal: errors
+        namespace: games
+      annotations:
+        summary: "Pod reiniciando com frequência no namespace games"
+        description: >
+          Pod {{ $labels.pod }} (container: {{ $labels.container }})
+          reiniciou {{ $value | humanize }} vezes nos últimos 15 minutos.
+          Possível causa: OOMKill, erro de aplicação ou liveness probe falhando.
+
+    # ----------------------------------------------------------
+    # SIGNAL 2: ERROS (Errors) — Pod não disponível
+    # Pod existe mas não está em estado Ready (não recebe tráfego)
+    # ----------------------------------------------------------
+    - alert: PodNaoDisponivel
+      expr: |
+        kube_pod_status_ready{
+          namespace="games",
+          condition="false"
+        } == 1
+      for: 5m
+      labels:
+        severity: critical
+        signal: errors
+        namespace: games
+      annotations:
+        summary: "Pod não está em estado Ready no namespace games"
+        description: >
+          Pod {{ $labels.pod }} não está Ready há 5 minutos.
+          O Service pode estar roteando tráfego para um pod não funcional.
+          Verifique: kubectl describe pod {{ $labels.pod }} -n games
+
+    # ----------------------------------------------------------
+    # SIGNAL 3: SATURAÇÃO (Saturation) — CPU
+    # Pergunta: O serviço está próximo do limite de CPU?
+    # Compara uso atual com o limit definido no container spec
+    # ----------------------------------------------------------
+    - alert: AltoCPUSuperMario
+      expr: |
+        sum by (pod) (
+          rate(container_cpu_usage_seconds_total{
+            namespace="games",
+            container="super-mario"
+          }[5m])
+        )
+        /
+        sum by (pod) (
+          kube_pod_container_resource_limits{
+            namespace="games",
+            container="super-mario",
+            resource="cpu"
+          }
+        ) > 0.80
+      for: 3m
+      labels:
+        severity: warning
+        signal: saturation
+        namespace: games
+      annotations:
+        summary: "CPU acima de 80% do limit no Super Mario"
+        description: >
+          Pod {{ $labels.pod }} está usando
+          {{ $value | humanizePercentage }} de CPU em relação ao limit
+          por mais de 3 minutos.
+          O HPA deveria estar criando mais réplicas. Verifique:
+          kubectl get hpa -n games
+
+    # ----------------------------------------------------------
+    # SIGNAL 3: SATURAÇÃO (Saturation) — Memória
+    # Pergunta: O serviço está próximo do limite de memória?
+    # OOMKill acontece quando o pod excede o memory limit
+    # ----------------------------------------------------------
+    - alert: AltaMemoriaSuperMario
+      expr: |
+        container_memory_working_set_bytes{
+          namespace="games",
+          container="super-mario"
+        }
+        /
+        container_spec_memory_limit_bytes{
+          namespace="games",
+          container="super-mario"
+        } > 0.80
+      for: 3m
+      labels:
+        severity: warning
+        signal: saturation
+        namespace: games
+      annotations:
+        summary: "Memória acima de 80% do limit no Super Mario"
+        description: >
+          Pod {{ $labels.pod }} está usando
+          {{ $value | humanizePercentage }} de memória em relação ao limit
+          por mais de 3 minutos.
+          Risco de OOMKill. Verifique se o limit está subdimensionado.
+
+    # ----------------------------------------------------------
+    # SIGNAL 4: LATÊNCIA (Latency) — Proxy via HPA
+    # Pergunta: O sistema está conseguindo responder a tempo?
+    #
+    # NOTA: O Super Mario não expõe métricas HTTP nativas
+    # (http_request_duration_seconds). Como proxy, monitoramos
+    # o HPA atingindo réplicas máximas — situação em que o sistema
+    # não consegue mais escalar para absorver carga, indicando
+    # risco real de degradação de latência para os usuários.
+    #
+    # Em aplicações instrumentadas (Spring Boot, FastAPI, Go, etc.),
+    # substituir por:
+    #   histogram_quantile(0.99,
+    #     rate(http_request_duration_seconds_bucket{namespace="games"}[5m])
+    #   ) > 0.5
+    # ----------------------------------------------------------
+    - alert: HPANoLimiteMaximo
+      expr: |
+        kube_horizontalpodautoscaler_status_current_replicas{
+          namespace="games"
+        }
+        >=
+        kube_horizontalpodautoscaler_spec_max_replicas{
+          namespace="games"
+        }
+      for: 5m
+      labels:
+        severity: warning
+        signal: latency
+        namespace: games
+      annotations:
+        summary: "HPA atingiu número máximo de réplicas no namespace games"
+        description: >
+          HPA {{ $labels.horizontalpodautoscaler }} está operando no limite
+          máximo de réplicas ({{ $value }}) há mais de 5 minutos.
+          O sistema não consegue mais escalar horizontalmente.
+          Risco de degradação de latência. Considere aumentar maxReplicas
+          ou ajustar os limits de recursos dos pods.

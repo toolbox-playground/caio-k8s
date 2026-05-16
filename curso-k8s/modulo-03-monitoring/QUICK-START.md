@@ -106,6 +106,105 @@ helm install kind-prometheus prometheus-community/kube-prometheus-stack \
 
 ---
 
+## Instalação do Loki + Fluent Bit via Helm
+
+O **loki-stack** da Grafana inclui Loki + Fluent Bit em um único chart. O Grafana já está instalado pelo kube-prometheus-stack, então desabilitamos o Grafana do loki-stack para não duplicar.
+
+**PowerShell e bash:**
+
+```sh
+# Adicionar repositório Grafana (se ainda não adicionado)
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
+```
+
+**PowerShell:**
+
+```powershell
+helm install loki grafana/loki-stack `
+  --namespace monitoring `
+  --set fluent-bit.enabled=true `
+  --set promtail.enabled=false `
+  --set grafana.enabled=false `
+  --set loki.persistence.enabled=false
+```
+
+**bash / zsh:**
+
+```bash
+helm install loki grafana/loki-stack \
+  --namespace monitoring \
+  --set fluent-bit.enabled=true \
+  --set promtail.enabled=false \
+  --set grafana.enabled=false \
+  --set loki.persistence.enabled=false
+```
+
+> 💡 `fluent-bit.enabled=true` ativa o Fluent Bit como coletor de logs (DaemonSet).
+> `promtail.enabled=false` desativa o Promtail para não coletar logs duplicados.
+> `loki.persistence.enabled=false` usa armazenamento em memória — adequado para Kind/desenvolvimento.
+
+Aguardar Loki e Fluent Bit subirem:
+
+**PowerShell e bash:**
+
+```sh
+kubectl get pods -n monitoring -w
+# Aguarde os pods loki-0 e loki-fluent-bit-* ficarem Running
+```
+
+### Adicionar Loki como datasource no Grafana
+
+**PowerShell e bash:**
+
+```sh
+# Abra o Grafana (http://localhost:3000)
+# Connections → Data Sources → Add data source → Loki
+# URL: http://loki:3100
+# Clique em Save & Test
+```
+
+> O Loki é acessível internamente pelo DNS do Kubernetes: `http://loki:3100`
+
+### Verificar logs do Super Mario no Grafana
+
+```
+Grafana → Explore → Selecione datasource: Loki
+Label filter: namespace = games
+Label filter: container = super-mario
+Clique em Run query
+```
+
+Query LogQL equivalente:
+```logql
+{namespace="games", container="super-mario"}
+```
+
+---
+
+## Aplicar os alertas dos Four Golden Signals
+
+**PowerShell e bash:**
+
+```sh
+kubectl apply -f manifests/03-four-golden-signals.yaml
+```
+
+Verificar se o Prometheus carregou as regras:
+
+**PowerShell e bash:**
+
+```sh
+kubectl get prometheusrule -n monitoring
+```
+
+Confirmar no Prometheus UI:
+```
+http://localhost:9090 → Status → Rules → four-golden-signals.games
+```
+
+---
+
 ## Aguardar o stack subir
 
 **PowerShell e bash:**
