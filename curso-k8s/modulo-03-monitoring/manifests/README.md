@@ -7,6 +7,8 @@
 | `cluster-config.yaml` | Config do Kind com port mappings para Prometheus, Grafana e Alertmanager |
 | `03-four-golden-signals.yaml` | PrometheusRule com alertas dos Four Golden Signals para o namespace `games` |
 | `values-fluent-bit.yaml` | Values do Helm para o Fluent Bit — configura o output Loki apontando ao gateway |
+| `mailhog.yaml` | Deployment + Service do Mailhog — SMTP fake para testar envio de e-mail localmente |
+| `values-alertmanager-email.yaml` | Values do Helm para configurar roteamento de alertas por e-mail no Alertmanager |
 
 ---
 
@@ -33,6 +35,7 @@ Os comandos de instalação estão no [QUICK-START.md](../QUICK-START.md).
 | Grafana | 31000 | 3000 | http://localhost:3000 |
 | Alertmanager | 32000 | 9093 | http://localhost:9093 |
 | Node Exporter | 32001 | 9100 | http://localhost:9100/metrics |
+| Mailhog (UI) | 32025 | 8025 | http://localhost:8025 |
 
 > Loki e Fluent Bit são **internos ao cluster** — sem NodePort. O Grafana acessa o Loki via DNS interno: `http://loki-gateway.monitoring.svc.cluster.local`.
 

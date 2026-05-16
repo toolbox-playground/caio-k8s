@@ -385,6 +385,122 @@ kubectl --namespace monitoring get secret kind-prometheus-grafana \
 
 ---
 
+## Receber alertas por e-mail
+
+> 🎯 O Alertmanager tem suporte nativo a SMTP. Para testar localmente sem precisar de conta real, usamos o **Mailhog** — um servidor SMTP falso com caixa de entrada acessível no browser. Para produção, basta trocar as configs do SMTP pelo Gmail (ou qualquer outro provedor).
+
+### Passo 1 — Subir o Mailhog (caixa de entrada fake local)
+
+**PowerShell e bash:**
+
+```sh
+kubectl apply -f manifests/mailhog.yaml
+```
+
+Aguardar subir e verificar:
+
+**PowerShell e bash:**
+
+```sh
+kubectl get pods -n monitoring | grep mailhog
+# Esperado: mailhog-xxxx   1/1   Running
+```
+
+Acesse a caixa de entrada em **http://localhost:8025**
+
+> Se a porta 8025 não estiver mapeada no seu `cluster-config.yaml`, use port-forward:
+> ```sh
+> kubectl port-forward svc/mailhog -n monitoring 8025:8025
+> ```
+
+### Passo 2 — Aplicar a configuração de e-mail no Alertmanager
+
+O arquivo `manifests/values-alertmanager-email.yaml` sobrescreve o bloco `alertmanager.config` do Helm release. Abra o arquivo e ajuste o campo `to:` com o e-mail de destino desejado (pode ser qualquer endereço — o Mailhog aceita tudo).
+
+**PowerShell:**
+
+```powershell
+helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack `
+  --namespace monitoring `
+  --reuse-values `
+  -f manifests/values-alertmanager-email.yaml
+```
+
+**bash / zsh:**
+
+```bash
+helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --reuse-values \
+  -f manifests/values-alertmanager-email.yaml
+```
+
+> `--reuse-values` mantém todos os `--set` que foram usados na instalação original (NodePorts, etc.) e aplica apenas as novas configs do arquivo.
+
+Aguardar o Alertmanager reiniciar com a nova config:
+
+**PowerShell e bash:**
+
+```sh
+kubectl rollout status statefulset/alertmanager-kind-prometheus-kube-prome-alertmanager -n monitoring
+```
+
+### Passo 3 — Disparar um alerta e verificar o e-mail
+
+```sh
+# Sobe o stress test para gerar carga e disparar as regras dos Four Golden Signals
+kubectl apply -f ../modulo-02-deploy-app/manifests/04-stress-test-fortio.yaml
+```
+
+Após ~5 minutos (tempo do `for:` nas regras), os alertas passam de `PENDING` para `FIRING` e o Alertmanager envia o e-mail. Verifique no Mailhog: **http://localhost:8025**
+
+### Usar Gmail em vez do Mailhog (produção)
+
+1. Gere uma **App Password** do Gmail em: https://myaccount.google.com/apppasswords  
+   _(requer 2FA ativado na conta Google)_
+
+2. Crie um Secret Kubernetes com a senha:
+
+**PowerShell e bash:**
+
+```sh
+kubectl create secret generic alertmanager-smtp \
+  --from-literal=password='SUA_APP_PASSWORD' \
+  -n monitoring
+```
+
+3. No arquivo `manifests/values-alertmanager-email.yaml`, comente o bloco do Mailhog e descomente o bloco do Gmail:
+
+```yaml
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: '<seu-email>@gmail.com'
+  smtp_auth_username: '<seu-email>@gmail.com'
+  smtp_auth_password: '<sua-app-password>'
+  smtp_require_tls: true
+```
+
+4. Repita o `helm upgrade` do Passo 2.
+
+> ⚠️ Nunca coloque a senha em texto simples em arquivos versionados. O bloco acima é apenas para referência — em produção, use `smtp_auth_password_file` apontando para um Secret montado como volume, ou o campo `alertmanager.config.global.smtp_auth_password` via Secret do Helm.
+
+### Como funciona o roteamento
+
+```
+PrometheusRule (FIRING)
+    │
+    ▼ HTTP POST /api/v2/alerts
+Alertmanager
+    ├── alertname = Watchdog ou InfoInhibitor  →  receiver: null  (descartado)
+    ├── severity = critical                    →  receiver: email-receiver (imediato, 30m)
+    └── qualquer outro                         →  receiver: email-receiver (group_wait: 30s)
+                                                        │
+                                                        ▼ SMTP → mailhog:1025
+                                               Caixa de entrada: http://localhost:8025
+```
+
+---
+
 ## Usar o Alertmanager
 
 > 🎯 O Alertmanager não gera alertas — ele **recebe** alertas do Prometheus e decide o que fazer com eles: agrupar, rotear para um canal (Slack, PagerDuty, e-mail) ou silenciar temporariamente. O Prometheus avalia as regras do `PrometheusRule`, identifica condições violadas e empurra os alertas para o Alertmanager via API.

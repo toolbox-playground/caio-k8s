@@ -1,0 +1,79 @@
+# values-alertmanager-email.yaml
+# Configuração de e-mail para o Alertmanager via helm upgrade.
+#
+# Este arquivo sobrescreve o bloco `alertmanager.config` do kube-prometheus-stack
+# para rotear alertas FIRING para uma caixa de entrada de e-mail.
+#
+# ─── OPÇÃO A: Mailhog (teste local, sem conta real) ─────────────────────────
+# Requer: kubectl apply -f manifests/mailhog.yaml
+# Acesso: http://localhost:8025
+#
+# ─── OPÇÃO B: Gmail (produção) ───────────────────────────────────────────────
+# 1. Gere uma App Password em https://myaccount.google.com/apppasswords
+#    (exige 2FA ativado na conta Google)
+# 2. Substitua os campos marcados com <> abaixo
+# 3. Armazene a senha num Secret Kubernetes (não em texto simples):
+#    kubectl create secret generic alertmanager-smtp \
+#      --from-literal=password='SUA_APP_PASSWORD' \
+#      -n monitoring
+#    E use `smtp_auth_password_file` ou a integração via secretRef do chart.
+# ─────────────────────────────────────────────────────────────────────────────
+
+alertmanager:
+  config:
+    global:
+      # ── OPÇÃO A: Mailhog ──────────────────────────────────────────────────
+      smtp_smarthost: 'mailhog.monitoring.svc.cluster.local:1025'
+      smtp_from: 'alertmanager@k8s-essentials'
+      smtp_require_tls: false
+
+      # ── OPÇÃO B: Gmail (comentado — descomente e substitua os campos) ─────
+      # smtp_smarthost: 'smtp.gmail.com:587'
+      # smtp_from: '<seu-email>@gmail.com'
+      # smtp_auth_username: '<seu-email>@gmail.com'
+      # smtp_auth_password: '<sua-app-password>'
+      # smtp_require_tls: true
+
+      # Tempo de resolução: quanto tempo aguardar antes de notificar "resolvido"
+      resolve_timeout: 5m
+
+    route:
+      # Agrupa alertas com mesmos labels para evitar flood de e-mails
+      group_by: ['alertname', 'namespace', 'severity']
+
+      # Aguarda 30s depois do primeiro alerta antes de enviar o e-mail do grupo
+      group_wait: 30s
+
+      # Aguarda 5min antes de enviar novos alertas do mesmo grupo
+      group_interval: 5m
+
+      # Reenvia o e-mail a cada 1h enquanto o alerta continuar FIRING
+      repeat_interval: 1h
+
+      # Receiver padrão para todos os alertas
+      receiver: 'email-receiver'
+
+      routes:
+        # Watchdog é um alerta "sempre firing" para provar que o pipeline funciona
+        # InfoInhibitor suprime alertas Info quando há alertas críticos ativos
+        # Ambos não precisam de e-mail — silenciamos aqui
+        - receiver: 'null'
+          matchers:
+            - alertname =~ "InfoInhibitor|Watchdog"
+
+        # Alertas críticos: e-mail imediato (sem espera de agrupamento)
+        - receiver: 'email-receiver'
+          matchers:
+            - severity = "critical"
+          group_wait: 0s
+          repeat_interval: 30m
+
+    receivers:
+      - name: 'null'  # Receptor vazio — descarta os alertas roteados para ele
+
+      - name: 'email-receiver'
+        email_configs:
+          - to: 'equipe@example.com'   # ← substitua pelo e-mail de destino
+            send_resolved: true         # envia e-mail também quando o alerta se resolver
+            headers:
+              Subject: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }} — {{ .GroupLabels.namespace }}'
