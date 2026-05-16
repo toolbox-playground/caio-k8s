@@ -1,0 +1,80 @@
+# ============================================================
+# Deployment: Ranking API
+# ============================================================
+# Aplicação FastAPI instrumentada com OpenTelemetry SDK.
+# Envia traces, métricas e logs para o OTel Collector via OTLP.
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: ranking-api
+  namespace: games
+  labels:
+    app: ranking-api
+    module: "04-opentelemetry"
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: ranking-api
+
+  template:
+    metadata:
+      labels:
+        app: ranking-api
+        # Label usado pelo Loki/Fluent Bit para identificar logs
+        version: "1.0.0"
+
+    spec:
+      containers:
+      - name: ranking-api
+        image: ranking-api:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+
+        # ── Variáveis de ambiente OpenTelemetry ────────────────
+        # O OTel SDK lê automaticamente as variáveis OTEL_*
+        env:
+        - name: OTEL_SERVICE_NAME
+          value: "ranking-api"
+
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector.otel.svc.cluster.local:4317"
+
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: "deployment.environment=kind-dev,service.version=1.0.0"
+
+        - name: DEPLOYMENT_ENV
+          value: "kind-dev"
+
+        # ── Recursos ──────────────────────────────────────────
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 128Mi
+
+        # ── Health checks ──────────────────────────────────────
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          failureThreshold: 3

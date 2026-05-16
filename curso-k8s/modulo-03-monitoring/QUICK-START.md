@@ -326,6 +326,109 @@ kube_deployment_status_replicas{namespace="games"}
 
 ---
 
+## Troubleshooting: Loki não conecta no Grafana
+
+### 1. Verificar se o Loki está rodando
+
+**PowerShell:**
+
+```powershell
+kubectl get pods -n monitoring | Select-String loki
+# Esperado: loki-0   1/1   Running
+#           loki-fluent-bit-xxxx   1/1   Running
+```
+
+**bash / zsh:**
+
+```bash
+kubectl get pods -n monitoring | grep loki
+```
+
+Se não aparecer nenhum pod, o Loki não foi instalado. Volte para a seção "Instalação do Loki + Fluent Bit via Helm".
+
+### 2. Verificar o nome exato do Service
+
+**PowerShell:**
+
+```powershell
+kubectl get svc -n monitoring | Select-String loki
+# O nome do service determina a URL usada no Grafana
+```
+
+**bash / zsh:**
+
+```bash
+kubectl get svc -n monitoring | grep loki
+```
+
+### 3. Testar conectividade de dentro do cluster
+
+**PowerShell:**
+
+```powershell
+kubectl run curl-test --image=curlimages/curl --rm -it --restart=Never `
+  -- curl http://loki.monitoring.svc.cluster.local:3100/ready
+# Esperado: ready
+```
+
+**bash / zsh:**
+
+```bash
+kubectl run curl-test --image=curlimages/curl --rm -it --restart=Never \
+  -- curl http://loki.monitoring.svc.cluster.local:3100/ready
+# Esperado: ready
+```
+
+### 4. Verificar logs do pod do Loki
+
+**PowerShell e bash:**
+
+```sh
+kubectl logs -n monitoring -l app=loki --tail=50
+```
+
+### 5. URL correta no Grafana
+
+Vá em **Connections → Data Sources → Loki** e use:
+
+```
+http://loki.monitoring.svc.cluster.local:3100
+```
+
+> Se o Grafana e o Loki estão no mesmo namespace (`monitoring`), também funciona a URL curta `http://loki:3100`.
+
+### 6. Reinstalar o Loki (se necessário)
+
+**PowerShell e bash:**
+
+```sh
+helm uninstall loki -n monitoring
+```
+
+**PowerShell:**
+
+```powershell
+helm install loki grafana/loki-stack `
+  --namespace monitoring `
+  --set fluent-bit.enabled=true `
+  --set promtail.enabled=false `
+  --set grafana.enabled=false `
+  --set loki.persistence.enabled=false
+```
+
+**bash / zsh:**
+
+```bash
+helm install loki grafana/loki-stack \
+  --namespace monitoring \
+  --set fluent-bit.enabled=true \
+  --set promtail.enabled=false \
+  --set grafana.enabled=false \
+  --set loki.persistence.enabled=false
+```
+
+---
+
 ## Limpar o ambiente
 
 **PowerShell e bash:**
