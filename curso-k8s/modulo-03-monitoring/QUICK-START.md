@@ -158,7 +158,26 @@ prometheus-kind-prometheus-kube-prome-prometheus-0       2/2     Running   0
 ### Grafana
 - **Opção A (NodePort):** http://localhost:3000
 - **Opção B (port-forward):** `kubectl port-forward svc/kind-prometheus-grafana -n monitoring 3000:80`
-- **Login:** usuário `admin` / senha `prom-operator`
+- **Login:** usuário `admin` / senha: recupere com o comando abaixo
+
+Se a senha padrão `prom-operator` não funcionar, busque a senha real do secret:
+
+**PowerShell:**
+
+```powershell
+kubectl get secret --namespace monitoring `
+  -l app.kubernetes.io/component=admin-secret `
+  -o jsonpath="{.items[0].data.admin-password}" |
+  ForEach-Object { [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_)) }
+```
+
+**bash / zsh:**
+
+```bash
+kubectl get secret --namespace monitoring \
+  -l app.kubernetes.io/component=admin-secret \
+  -o jsonpath="{.items[0].data.admin-password}" | base64 --decode ; echo
+```
 
 ### Alertmanager
 - **Opção A (NodePort):** http://localhost:9093
