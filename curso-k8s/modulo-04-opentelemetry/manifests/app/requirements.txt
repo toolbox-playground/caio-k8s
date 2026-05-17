@@ -1,0 +1,19 @@
+# ── Web framework ────────────────────────────────────────────
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+
+# ── OpenTelemetry API + SDK (core) ───────────────────────────
+opentelemetry-api==1.29.0
+opentelemetry-sdk==1.29.0
+
+# ── Exportador OTLP via gRPC ─────────────────────────────────
+# Envia traces, métricas e logs para o OTel Collector
+opentelemetry-exporter-otlp-proto-grpc==1.29.0
+
+# ── Instrumentação automática para FastAPI ───────────────────
+# Injeta spans em cada requisição HTTP sem alterar o código dos endpoints
+opentelemetry-instrumentation-fastapi==0.50b0
+
+# ── Semantic conventions ─────────────────────────────────────
+opentelemetry-semantic-conventions==0.50b0

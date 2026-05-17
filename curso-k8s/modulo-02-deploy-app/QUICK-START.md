@@ -39,6 +39,15 @@ kind create cluster --config manifests/cluster-config.yaml
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 
 # Patch para ambientes locais
+# O patch abaixo adiciona --kubelet-insecure-tls ao Metrics Server.
+# Por quê? O Metrics Server coleta CPU/memória conectando ao kubelet de cada
+# node via HTTPS (porta 10250). No Kind, o kubelet usa um certificado TLS
+# autoassinado (não emitido por CA reconhecida), então a validação falha com:
+#   x509: cannot validate certificate for <node-ip> because it does not
+#   contain any IP SANs
+# O flag instrui o Metrics Server a pular essa verificação.
+# Resultado sem o patch: kubectl top pods falha e o HPA não consegue escalar.
+# ⚠️ Não use em produção — em EKS/GKE/AKS os certificados são válidos.
 kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
 
 # Aguardar estar pronto
