@@ -353,7 +353,7 @@ Acesse **http://localhost:3000**, faça login e siga os passos abaixo.
 
 **Query:**
 ```promql
-sum(rate(container_network_receive_bytes_total{namespace="games", container!=""}[5m]))
+sum(rate(container_network_receive_bytes_total{namespace="games", pod!=""}[5m]))
 ```
 
 **Configuração:**
@@ -365,6 +365,8 @@ sum(rate(container_network_receive_bytes_total{namespace="games", container!=""}
 | Thresholds | Base: verde → 1048576 (1 MB/s): amarelo |
 
 > A linha vermelha tracejada no painel aparece quando você adiciona o threshold de 1048576 — o mesmo valor do alerta `AltoTrafego`.
+>
+> ⚠️ **Por que `pod!=""` e não `container!=""`?** Métricas de rede são coletadas em nível de pod — todos os containers de um pod compartilham o mesmo namespace de rede. O label `container` fica vazio nessas métricas, então `container!=""` filtra tudo e o painel aparece em branco. Use `pod!=""` para excluir apenas entradas sem pod associado.
 
 #### Painel 2 — Erros: Restarts de containers
 
