@@ -26,7 +26,7 @@ Este módulo monta o stack completo de observabilidade usado em produção:
 
 - **Métricas** → Prometheus coleta, Grafana exibe
 - **Logs** → Fluent Bit coleta, Loki armazena, Grafana exibe
-- **Alertas** → Alertmanager dispara quando os **Four Golden Signals** saem do normal
+- **Alertas** → Alertmanager e Grafana disparam notificações no **Discord** quando os **Four Golden Signals** saem do normal
 
 > 🎬 **Cenário real:** O Mario está sob stress test. Com este stack, você consegue abrir o Grafana, ver a curva de CPU subindo, clicar em um pod com memória alta, e em dois cliques ver os logs de erro daquele pod — tudo na mesma tela.
 

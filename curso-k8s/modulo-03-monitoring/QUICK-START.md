@@ -204,7 +204,12 @@ helm install fluent-bit fluent/fluent-bit \
   -f helm-values/values-fluent-bit.yaml
 ```
 
-> O arquivo `helm-values/values-fluent-bit.yaml` sobrescreve o bloco `[OUTPUT]` padrão do chart para apontar ao endpoint `http://loki-gateway.monitoring.svc.cluster.local:80/loki/api/v1/push`, adicionando automaticamente os labels de `namespace`, `pod` e `container` em cada stream de log.
+> **O que o `helm-values/values-fluent-bit.yaml` faz:**
+>
+> O chart padrão do Fluent Bit usa `stdout` como output — ou seja, não envia logs a lugar nenhum por padrão. O values sobrescreve dois blocos:
+>
+> - **`[FILTER] kubernetes`** — enriquece cada linha de log com os metadados do pod: namespace, nome do pod, nome do container, labels, etc. Sem esse filtro, os logs chegam ao Loki sem contexto — você não conseguiria filtrar por `namespace` ou `container` no Grafana.
+> - **`[OUTPUT] loki`** — usa o plugin nativo do Fluent Bit para enviar os logs ao `loki-gateway.monitoring.svc.cluster.local:80` via HTTP. O campo `label_keys` extrai os metadados do filtro acima e os expõe como labels indexáveis no Loki (`kubernetes_namespace_name`, `kubernetes_container_name`, `kubernetes_pod_name`). Esses labels são exatamente os que você usará nas queries LogQL do Grafana.
 
 Aguardar o Fluent Bit subir (DaemonSet — um pod por node do cluster):
 
@@ -274,9 +279,28 @@ http://localhost:9090 → Status → Rule Health → four-golden-signals.games
 
 > 🎯 O objetivo é ter uma única tela que mostre os 4 signals do Super Mario em tempo real: Tráfego, Erros, Saturação e Latência (proxy via HPA). Cada painel usa exatamente a mesma PromQL dos alertas — assim você vê o número que vai acionar o alerta antes dele disparar.
 
-Acesse **http://localhost:3000**, faça login e siga os passos abaixo.
+### Opção A — Importar o JSON pronto (recomendado)
 
-### Criar o dashboard
+Em algumas versões do Grafana, o editor de painéis pode apresentar um erro React ao adicionar a primeira visualização (`An unexpected error happened`). A forma mais confiável — e a usada em produção — é importar o dashboard via JSON:
+
+1. Acesse **http://localhost:3000**, faça login
+2. Menu lateral → **Dashboards → New → Import**
+3. Clique em **Upload dashboard JSON file**
+4. Selecione o arquivo `grafana-dashboards/four-golden-signals.json`
+5. No campo **Prometheus**, selecione o datasource `Prometheus`
+6. Clique em **Import**
+
+O dashboard abre com os 5 painéis já configurados, com thresholds, unidades corretas e auto-refresh de 10s.
+
+---
+
+### Opção B — Criar painel a painel pela UI
+
+Use se quiser entender cada configuração individualmente. Se aparecer o erro React, tente:
+1. `Ctrl+Shift+R` para forçar um reload completo da página
+2. Entrar no dashboard vazio e usar o menu **Add → Visualization** (em vez do botão `+` central)
+
+Acesse **http://localhost:3000**, faça login e siga os passos abaixo.
 
 1. Menu lateral → **Dashboards → New → New dashboard**
 2. Clique em **+ Add visualization**
@@ -284,9 +308,7 @@ Acesse **http://localhost:3000**, faça login e siga os passos abaixo.
 
 > Você vai criar 5 painéis. Para cada um: cole a query, configure o título/unidade e clique em **Apply**. Depois **Add → Visualization** para o próximo.
 
----
-
-### Painel 1 — Tráfego (Traffic)
+#### Painel 1 — Tráfego (Traffic)
 
 **Query:**
 ```promql
@@ -303,9 +325,7 @@ sum(rate(container_network_receive_bytes_total{namespace="games", container!=""}
 
 > A linha vermelha tracejada no painel aparece quando você adiciona o threshold de 1048576 — o mesmo valor do alerta `AltoTrafego`.
 
----
-
-### Painel 2 — Erros: Restarts de containers
+#### Painel 2 — Erros: Restarts de containers
 
 **Query:**
 ```promql
@@ -322,9 +342,7 @@ sum by (pod) (increase(kube_pod_container_status_restarts_total{namespace="games
 
 > Quando qualquer pod ultrapassar 2 restarts em 15 min, a linha vira vermelha — mesma condição do alerta `PodRestartandoFrequentemente`.
 
----
-
-### Painel 3 — Erros: Pods não Ready
+#### Painel 3 — Erros: Pods não Ready
 
 **Query:**
 ```promql
@@ -342,9 +360,7 @@ sum(kube_pod_status_ready{namespace="games", condition="false"})
 
 > No modo Stat com Background, o painel vira vermelho assim que qualquer pod sai do estado Ready.
 
----
-
-### Painel 4 — Saturação: CPU vs Limit
+#### Painel 4 — Saturação: CPU vs Limit
 
 **Query A** (uso atual):
 ```promql
@@ -365,9 +381,7 @@ sum by (pod) (
 | Unit | `Percent (0.0-1.0)` |
 | Thresholds | Base: verde → 0.8: amarelo → 0.95: vermelho |
 
----
-
-### Painel 5 — Latência proxy: Réplicas do HPA
+#### Painel 5 — Latência proxy: Réplicas do HPA
 
 **Query A** — réplicas atuais:
 ```promql
@@ -389,22 +403,20 @@ kube_horizontalpodautoscaler_spec_max_replicas{namespace="games"}
 
 > Quando a linha de atual tocar a linha de máximo, o alerta `HPANoLimiteMaximo` vai disparar. O painel deixa isso visível antes do alerta chegar.
 
----
-
-### Salvar o dashboard
+#### Salvar o dashboard
 
 1. Clique no ícone 💾 (Save dashboard) no canto superior direito
 2. Nome: `Four Golden Signals — Super Mario`
 3. Pasta: `General` (ou crie `Módulo 03`)
 4. Clique em **Save**
 
-### Ajustar o auto-refresh
+#### Ajustar o auto-refresh
 
 No canto superior direito do dashboard:
 - Intervalo de tempo: **Last 1 hour**
 - Auto-refresh: **10s** (ícone de relógio ao lado do intervalo)
 
-### Ver os painéis durante o stress test
+#### Ver os painéis durante o stress test
 
 ```sh
 # Subir o stress test (se ainda não estiver rodando)
