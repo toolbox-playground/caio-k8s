@@ -1,5 +1,5 @@
 # values-fluent-bit.yaml
-# Configuração do Fluent Bit para enviar logs ao Loki 3.x via gateway
+# Configuração do Fluent Bit para enviar logs ao Loki 3.x via gateway.
 #
 # Este arquivo sobrescreve o bloco [OUTPUT] padrão do chart fluent/fluent-bit.
 # O output `loki` envia cada linha de log ao endpoint HTTP do loki-gateway,

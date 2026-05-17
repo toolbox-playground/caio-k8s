@@ -1,4 +1,4 @@
-# 🚀 Módulo 03 — Guia de Início Rápido
+﻿# 🚀 Módulo 03 — Guia de Início Rápido
 
 ## Pré-condição: Módulo 02 concluído
 
@@ -87,14 +87,7 @@ kubectl create namespace monitoring
 ```powershell
 helm install kind-prometheus prometheus-community/kube-prometheus-stack `
   --namespace monitoring `
-  --set prometheus.service.nodePort=30090 `
-  --set prometheus.service.type=NodePort `
-  --set grafana.service.nodePort=31000 `
-  --set grafana.service.type=NodePort `
-  --set alertmanager.service.nodePort=32000 `
-  --set alertmanager.service.type=NodePort `
-  --set prometheus-node-exporter.service.nodePort=32001 `
-  --set prometheus-node-exporter.service.type=NodePort
+  -f helm-values/values-prometheus-stack.yaml
 ```
 
 **bash / zsh (Linux, Mac, WSL):**
@@ -102,26 +95,21 @@ helm install kind-prometheus prometheus-community/kube-prometheus-stack `
 ```bash
 helm install kind-prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
-  --set prometheus.service.nodePort=30090 \
-  --set prometheus.service.type=NodePort \
-  --set grafana.service.nodePort=31000 \
-  --set grafana.service.type=NodePort \
-  --set alertmanager.service.nodePort=32000 \
-  --set alertmanager.service.type=NodePort \
-  --set prometheus-node-exporter.service.nodePort=32001 \
-  --set prometheus-node-exporter.service.type=NodePort
+  -f helm-values/values-prometheus-stack.yaml
 ```
 
-> 💡 A diferença entre os dois é apenas o caractere de continuação de linha: `` ` `` (backtick) no PowerShell e `\` (backslash) no bash/zsh.
+> O arquivo `helm-values/values-prometheus-stack.yaml` contém todos os `--set` abaixo já convertidos para YAML versionado. Ele pode ser editado e commitado — o estado do ambiente é reproduzível.
 
-> 💡 **O que cada `--set` faz:**
+> 💡 **O que cada configuração faz:**
 >
-> | Flag | O que faz | Sem ele |
+> | Chave | O que faz | Sem ela |
 > |---|---|---|
 > | `prometheus.service.nodePort=30090` + `type=NodePort` | Expõe o Prometheus na porta `30090` de cada node; mapeada para `localhost:9090` pelo Kind | O serviço fica `ClusterIP` — inacessível fora do cluster |
 > | `grafana.service.nodePort=31000` + `type=NodePort` | Expõe o Grafana na porta `31000`; mapeada para `localhost:3000` | Idem |
 > | `alertmanager.service.nodePort=32000` + `type=NodePort` | Expõe o Alertmanager na porta `32000`; mapeada para `localhost:9093` | Idem |
 > | `prometheus-node-exporter.service.nodePort=32001` + `type=NodePort` | Expõe o Node Exporter na porta `32001`; mapeada para `localhost:9100` | Idem |
+> | `serviceMonitorSelectorNilUsesHelmValues=false` | Coleta ServiceMonitors de qualquer namespace | Só coleta do namespace do chart |
+> | `externalUrl` | URL do link "Source" nas notificações (Discord, e-mail) | Usa DNS interno do cluster |
 >
 > O NodePort sozinho não é suficiente — o Kind também precisa do mapeamento `hostPort` no `cluster-config.yaml` para repassar a porta do container do Kind para o `localhost` do seu computador.
 
@@ -144,21 +132,7 @@ helm repo update
 ```powershell
 helm install loki grafana/loki `
   --namespace monitoring `
-  --set deploymentMode=SingleBinary `
-  --set loki.auth_enabled=false `
-  --set loki.commonConfig.replication_factor=1 `
-  --set loki.storage.type=filesystem `
-  --set loki.useTestSchema=true `
-  --set singleBinary.replicas=1 `
-  --set read.replicas=0 `
-  --set write.replicas=0 `
-  --set backend.replicas=0 `
-  --set chunksCache.enabled=false `
-  --set resultsCache.enabled=false `
-  --set lokiCanary.enabled=false `
-  --set test.enabled=false `
-  --set minio.enabled=false `
-  --set grafana.enabled=false
+  -f helm-values/values-loki.yaml
 ```
 
 **bash / zsh:**
@@ -166,24 +140,12 @@ helm install loki grafana/loki `
 ```bash
 helm install loki grafana/loki \
   --namespace monitoring \
-  --set deploymentMode=SingleBinary \
-  --set loki.auth_enabled=false \
-  --set loki.commonConfig.replication_factor=1 \
-  --set loki.storage.type=filesystem \
-  --set loki.useTestSchema=true \
-  --set singleBinary.replicas=1 \
-  --set read.replicas=0 \
-  --set write.replicas=0 \
-  --set backend.replicas=0 \
-  --set chunksCache.enabled=false \
-  --set resultsCache.enabled=false \
-  --set lokiCanary.enabled=false \
-  --set test.enabled=false \
-  --set minio.enabled=false \
-  --set grafana.enabled=false
+  -f helm-values/values-loki.yaml
 ```
 
-> 💡 **O que cada flag faz:**
+> O arquivo `helm-values/values-loki.yaml` contém todas as configurações abaixo com comentário explicativo em cada chave.
+
+> 💡 **O que cada configuração faz:**
 >
 > | Flag | O que faz | Sem ele |
 > |---|---|---|
@@ -231,7 +193,7 @@ helm repo update
 ```powershell
 helm install fluent-bit fluent/fluent-bit `
   --namespace monitoring `
-  -f manifests/values-fluent-bit.yaml
+  -f helm-values/values-fluent-bit.yaml
 ```
 
 **bash / zsh:**
@@ -239,10 +201,10 @@ helm install fluent-bit fluent/fluent-bit `
 ```bash
 helm install fluent-bit fluent/fluent-bit \
   --namespace monitoring \
-  -f manifests/values-fluent-bit.yaml
+  -f helm-values/values-fluent-bit.yaml
 ```
 
-> O arquivo `manifests/values-fluent-bit.yaml` sobrescreve o bloco `[OUTPUT]` padrão do chart para apontar ao endpoint `http://loki-gateway.monitoring.svc.cluster.local:80/loki/api/v1/push`, adicionando automaticamente os labels de `namespace`, `pod` e `container` em cada stream de log.
+> O arquivo `helm-values/values-fluent-bit.yaml` sobrescreve o bloco `[OUTPUT]` padrão do chart para apontar ao endpoint `http://loki-gateway.monitoring.svc.cluster.local:80/loki/api/v1/push`, adicionando automaticamente os labels de `namespace`, `pod` e `container` em cada stream de log.
 
 Aguardar o Fluent Bit subir (DaemonSet — um pod por node do cluster):
 
@@ -279,7 +241,7 @@ Query LogQL equivalente:
 {kubernetes_namespace_name="games", kubernetes_container_name="super-mario"}
 ```
 
-> 💡 Os labels `kubernetes_namespace_name` e `kubernetes_container_name` vêm do metadado Kubernetes enriquecido pelo filtro do Fluent Bit (`label_keys` no `[OUTPUT]` do Loki plugin). Se os labels não aparecerem no dropdown, o Fluent Bit pode ter sido instalado antes dessa configuração — rode `helm upgrade fluent-bit fluent/fluent-bit --namespace monitoring -f manifests/values-fluent-bit.yaml` e aguarde o DaemonSet reiniciar.
+> 💡 Os labels `kubernetes_namespace_name` e `kubernetes_container_name` vêm do metadado Kubernetes enriquecido pelo filtro do Fluent Bit (`label_keys` no `[OUTPUT]` do Loki plugin). Se os labels não aparecerem no dropdown, o Fluent Bit pode ter sido instalado antes dessa configuração — rode `helm upgrade fluent-bit fluent/fluent-bit --namespace monitoring -f helm-values/values-fluent-bit.yaml` e aguarde o DaemonSet reiniciar.
 
 > ⚠️ Se o dropdown aparecer vazio, verifique o intervalo de tempo. O Loki expira queries sem range de tempo explícito — use sempre "Last 1 hour" ou mais no Grafana Explore.
 
@@ -558,7 +520,7 @@ Você tem duas opções. Use a **Opção A** para testar localmente e a **Opçã
 
 #### Opção A — URL direto no arquivo (local / estudo)
 
-Arquivo: `manifests/values-alertmanager-discord.yaml`
+Arquivo: `helm-values/values-alertmanager-discord.yaml`
 
 Abra o arquivo e faça **duas** substituições:
 
@@ -588,13 +550,13 @@ alertmanager:
 
 > ⚠️ Nunca versione a URL real do webhook em repositórios públicos.
 
-No Passo 3, use: `-f manifests/values-alertmanager-discord.yaml`
+No Passo 3, use: `-f helm-values/values-alertmanager-discord.yaml`
 
 ---
 
 #### Opção B — Secret Kubernetes + `webhook_url_file` (produção)
 
-Arquivo: `manifests/values-alertmanager-discord-secret.yaml`
+Arquivo: `helm-values/values-alertmanager-discord-secret.yaml`
 
 A URL fica armazenada em um Secret no cluster — nunca aparece em YAML versionado nem em `helm get values`.
 
@@ -616,7 +578,7 @@ kubectl exec -n monitoring \
   cat /etc/alertmanager/secrets/alertmanager-discord-webhook/webhook_url
 ```
 
-No Passo 3, use: `-f manifests/values-alertmanager-discord-secret.yaml`
+No Passo 3, use: `-f helm-values/values-alertmanager-discord-secret.yaml`
 
 ---
 
@@ -636,13 +598,13 @@ helm get values kind-prometheus -n monitoring -o yaml |
 helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack `
   --namespace monitoring `
   -f "$env:TEMP\kind-prometheus-values.yaml" `
-  -f manifests/values-alertmanager-discord.yaml
+  -f helm-values/values-alertmanager-discord.yaml
 
 # Opção B (Secret):
 helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack `
   --namespace monitoring `
   -f "$env:TEMP\kind-prometheus-values.yaml" `
-  -f manifests/values-alertmanager-discord-secret.yaml
+  -f helm-values/values-alertmanager-discord-secret.yaml
 ```
 
 **bash / zsh:**
@@ -654,13 +616,13 @@ helm get values kind-prometheus -n monitoring -o yaml > /tmp/kind-prometheus-val
 helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   -f /tmp/kind-prometheus-values.yaml \
-  -f manifests/values-alertmanager-discord.yaml
+  -f helm-values/values-alertmanager-discord.yaml
 
 # Opção B (Secret):
 helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   -f /tmp/kind-prometheus-values.yaml \
-  -f manifests/values-alertmanager-discord-secret.yaml
+  -f helm-values/values-alertmanager-discord-secret.yaml
 ```
 
 Aguardar o Alertmanager reiniciar com a nova config:

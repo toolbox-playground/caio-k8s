@@ -1,4 +1,4 @@
-# 📊 Módulo 03: Observabilidade com Prometheus, Grafana, Loki e Fluent Bit
+﻿# 📊 Módulo 03: Observabilidade com Prometheus, Grafana, Loki e Fluent Bit
 
 ## 📋 Índice
 
@@ -261,7 +261,7 @@ Definidos pelo livro **Site Reliability Engineering do Google**, os Four Golden 
 - **group_wait / group_interval / repeat_interval:** controles de frequência de notificação — evitam flood de mensagens
 
 **Configuração de roteamento neste módulo:**
-O arquivo `manifests/values-alertmanager-discord.yaml` configura o roteamento de alertas para Discord. Aplique com `helm upgrade --reuse-values -f manifests/values-alertmanager-discord.yaml`. Veja a seção [Receber Alertas no Discord](#-receber-alertas-no-discord).
+O arquivo `helm-values/values-alertmanager-discord.yaml` configura o roteamento de alertas para Discord. Aplique com `helm upgrade --reuse-values -f helm-values/values-alertmanager-discord.yaml`. Veja a seção [Receber Alertas no Discord](#-receber-alertas-no-discord).
 
 ---
 
@@ -422,13 +422,16 @@ modulo-03-monitoring/
 ├── README.md                               ← Este arquivo
 ├── QUICK-START.md                          ← Passo a passo completo com explicações
 ├── HELM.md                                 ← Guia de Helm: conceitos, comandos e como foi usado no módulo
-└── manifests/
-    ├── README.md                                    ← Documentação dos manifestos
-    ├── cluster-config.yaml                          ← Kind com todos os port mappings
-    ├── 03-four-golden-signals.yaml                  ← PrometheusRule: alertas dos 4 Golden Signals
-    ├── values-fluent-bit.yaml                       ← Helm values do Fluent Bit (output → Loki Gateway)
-    ├── values-alertmanager-discord.yaml             ← Helm values para rotear alertas ao Discord (URL direta)
-    └── values-alertmanager-discord-secret.yaml      ← Helm values para rotear alertas ao Discord (Secret K8s)
+├── helm-values/                            ← Values Helm de todos os releases (fonte da verdade)
+│   ├── values-prometheus-stack.yaml        ← kube-prometheus-stack: NodePorts, externalUrl
+│   ├── values-loki.yaml                    ← Loki: SingleBinary, filesystem, sem cache
+│   ├── values-fluent-bit.yaml              ← Fluent Bit: output → Loki Gateway
+│   ├── values-alertmanager-discord.yaml    ← Alertmanager: receiver Discord (URL direta)
+│   └── values-alertmanager-discord-secret.yaml  ← Alertmanager: receiver Discord (Secret K8s)
+└── manifests/                              ← Recursos Kubernetes (não Helm)
+    ├── README.md                           ← Documentação dos manifestos
+    ├── cluster-config.yaml                 ← Kind com todos os port mappings
+    └── 03-four-golden-signals.yaml         ← PrometheusRule: alertas dos 4 Golden Signals
 ```
 
 ---

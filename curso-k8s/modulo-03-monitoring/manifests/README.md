@@ -2,19 +2,26 @@
 
 ## Arquivos
 
+### Manifestos Kubernetes
+
 | Arquivo | Descrição |
 |---|---|
 | `cluster-config.yaml` | Config do Kind com port mappings para Prometheus, Grafana e Alertmanager |
 | `03-four-golden-signals.yaml` | PrometheusRule com alertas dos Four Golden Signals para o namespace `games` |
-| `values-fluent-bit.yaml` | Values do Helm para o Fluent Bit — configura o output Loki apontando ao gateway |
-| `values-alertmanager-discord.yaml` | Values do Helm para rotear alertas ao Discord — URL do webhook direta no arquivo (local/estudo) |
-| `values-alertmanager-discord-secret.yaml` | Values do Helm para rotear alertas ao Discord — URL lida de um Secret Kubernetes (produção) |
+
+> Os values do Helm estão em [`../helm-values/`](../helm-values/) — separados dos recursos Kubernetes.
 
 ---
 
-## Por que não há YAMLs do Prometheus, Loki ou Fluent Bit aqui?
+## Por que usar arquivos de values em vez de `--set`?
 
-Todos são instalados via **Helm**, que gerencia centenas de recursos automaticamente:
+Os valores passados via `--set` no `helm install` não ficam registrados em lugar nenhum no repositório — eles estão apenas no histórico de comandos. Se o cluster for recreado, os valores se perdem. Com arquivos de values versionados:
+
+- O estado do ambiente é reproduzível: qualquer máquina consegue recriar o cluster com os mesmos parâmetros
+- É possível revisar alterações via diff no Git
+- O `helm upgrade` usa os mesmos arquivos, sem depender de `--reuse-values` ou `helm get values`
+
+Todos são instalados via **Helm**:
 
 | Stack | Chart Helm |
 |---|---|

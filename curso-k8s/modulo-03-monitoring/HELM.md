@@ -1,4 +1,4 @@
-# Helm — O gerenciador de pacotes do Kubernetes
+﻿# Helm — O gerenciador de pacotes do Kubernetes
 
 > 🎯 Helm é para o Kubernetes o que `apt` é para o Ubuntu ou `npm` é para o Node.js. Em vez de aplicar dezenas de YAMLs manualmente, você instala um **chart** (pacote) com um único comando e o Helm cuida de criar todos os recursos no cluster.
 
@@ -159,7 +159,7 @@ helm get values kind-prometheus -n monitoring -o yaml |
 helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack `
   --namespace monitoring `
   -f "$env:TEMP\kind-prometheus-values.yaml" `
-  -f manifests/values-alertmanager-discord.yaml
+  -f helm-values/values-alertmanager-discord.yaml
 ```
 
 **bash / zsh:**
@@ -171,7 +171,7 @@ helm get values kind-prometheus -n monitoring -o yaml > /tmp/kind-prometheus-val
 helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   -f /tmp/kind-prometheus-values.yaml \
-  -f manifests/values-alertmanager-discord.yaml
+  -f helm-values/values-alertmanager-discord.yaml
 ```
 
 > Quando múltiplos `-f` são passados, o Helm mescla os valores em ordem — o último arquivo tem precedência em caso de conflito. Os values do arquivo de alterações sobrescrevem os do release atual.
@@ -202,29 +202,18 @@ O módulo instalou três stacks via Helm no namespace `monitoring`:
 ### Instalação do kube-prometheus-stack
 
 **PowerShell:**
+**PowerShell:**
 ```powershell
 helm install kind-prometheus prometheus-community/kube-prometheus-stack `
   --namespace monitoring --create-namespace `
-  --set prometheus.service.nodePort=30090 `
-  --set prometheus.service.type=NodePort `
-  --set grafana.service.nodePort=32000 `
-  --set grafana.service.type=NodePort `
-  --set alertmanager.service.nodePort=30093 `
-  --set alertmanager.service.type=NodePort `
-  --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false
+  -f helm-values/values-prometheus-stack.yaml
 ```
 
 **bash / zsh:**
 ```bash
 helm install kind-prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring --create-namespace \
-  --set prometheus.service.nodePort=30090 \
-  --set prometheus.service.type=NodePort \
-  --set grafana.service.nodePort=32000 \
-  --set grafana.service.type=NodePort \
-  --set alertmanager.service.nodePort=30093 \
-  --set alertmanager.service.type=NodePort \
-  --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false
+  -f helm-values/values-prometheus-stack.yaml
 ```
 
 ### Instalação do Loki
@@ -233,26 +222,14 @@ helm install kind-prometheus prometheus-community/kube-prometheus-stack \
 ```powershell
 helm install loki grafana/loki `
   --namespace monitoring `
-  --set loki.commonConfig.replication_factor=1 `
-  --set loki.storage.type=filesystem `
-  --set singleBinary.replicas=1 `
-  --set loki.useTestSchema=true `
-  --set write.replicas=0 `
-  --set read.replicas=0 `
-  --set backend.replicas=0
+  -f helm-values/values-loki.yaml
 ```
 
 **bash / zsh:**
 ```bash
 helm install loki grafana/loki \
   --namespace monitoring \
-  --set loki.commonConfig.replication_factor=1 \
-  --set loki.storage.type=filesystem \
-  --set singleBinary.replicas=1 \
-  --set loki.useTestSchema=true \
-  --set write.replicas=0 \
-  --set read.replicas=0 \
-  --set backend.replicas=0
+  -f helm-values/values-loki.yaml
 ```
 
 ### Instalação do Fluent Bit
@@ -261,14 +238,14 @@ helm install loki grafana/loki \
 ```powershell
 helm install fluent-bit fluent/fluent-bit `
   --namespace monitoring `
-  -f manifests/values-fluent-bit.yaml
+  -f helm-values/values-fluent-bit.yaml
 ```
 
 **bash / zsh:**
 ```bash
 helm install fluent-bit fluent/fluent-bit \
   --namespace monitoring \
-  -f manifests/values-fluent-bit.yaml
+  -f helm-values/values-fluent-bit.yaml
 ```
 
 ### Upgrade para configurar Discord no Alertmanager
@@ -285,7 +262,7 @@ helm get values kind-prometheus -n monitoring -o yaml |
 helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack `
   --namespace monitoring `
   -f "$env:TEMP\kind-prometheus-values.yaml" `
-  -f manifests/values-alertmanager-discord.yaml
+  -f helm-values/values-alertmanager-discord.yaml
 ```
 
 **bash / zsh:**
@@ -297,18 +274,20 @@ helm get values kind-prometheus -n monitoring -o yaml > /tmp/kind-prometheus-val
 helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   -f /tmp/kind-prometheus-values.yaml \
-  -f manifests/values-alertmanager-discord.yaml
+  -f helm-values/values-alertmanager-discord.yaml
 ```
 
-O arquivo `manifests/values-alertmanager-discord.yaml` contém apenas as chaves que precisam ser alteradas (`alertmanager.config` e `prometheus.prometheusSpec.externalUrl`) — o restante dos values vem do arquivo exportado.
+O arquivo `helm-values/values-alertmanager-discord.yaml` contém apenas as chaves que precisam ser alteradas (`alertmanager.config` e `prometheus.prometheusSpec.externalUrl`) — o restante dos values vem do arquivo exportado.
 
 ### Arquivos de values do módulo
 
 | Arquivo | Chart | O que configura |
 |---|---|---|
-| `manifests/values-fluent-bit.yaml` | `fluent/fluent-bit` | Output Loki, labels de metadado Kubernetes |
-| `manifests/values-alertmanager-discord.yaml` | `kube-prometheus-stack` | Receiver Discord (URL direta), `externalUrl` |
-| `manifests/values-alertmanager-discord-secret.yaml` | `kube-prometheus-stack` | Receiver Discord (via Secret K8s), `externalUrl` |
+| `helm-values/values-prometheus-stack.yaml` | `kube-prometheus-stack` | NodePorts, `externalUrl`, `serviceMonitorSelectorNilUsesHelmValues` |
+| `helm-values/values-loki.yaml` | `grafana/loki` | SingleBinary, filesystem, auth desativado, caches desativados |
+| `helm-values/values-fluent-bit.yaml` | `fluent/fluent-bit` | Output Loki, labels de metadado Kubernetes |
+| `helm-values/values-alertmanager-discord.yaml` | `kube-prometheus-stack` | Receiver Discord (URL direta), `externalUrl` |
+| `helm-values/values-alertmanager-discord-secret.yaml` | `kube-prometheus-stack` | Receiver Discord (via Secret K8s), `externalUrl` |
 
 ---
 
