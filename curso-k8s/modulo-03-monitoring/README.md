@@ -421,12 +421,14 @@ curl -s http://localhost:9093/api/v2/alerts | jq '.[].labels | {alertname, names
 modulo-03-monitoring/
 ├── README.md                               ← Este arquivo
 ├── QUICK-START.md                          ← Passo a passo completo com explicações
+├── HELM.md                                 ← Guia de Helm: conceitos, comandos e como foi usado no módulo
 └── manifests/
-    ├── README.md                           ← Documentação dos manifestos
-    ├── cluster-config.yaml                 ← Kind com todos os port mappings
-    ├── 03-four-golden-signals.yaml         ← PrometheusRule: alertas dos 4 Golden Signals
-    ├── values-fluent-bit.yaml              ← Helm values do Fluent Bit (output → Loki Gateway)
-    └── values-alertmanager-discord.yaml    ← Helm values para rotear alertas ao Discord
+    ├── README.md                                    ← Documentação dos manifestos
+    ├── cluster-config.yaml                          ← Kind com todos os port mappings
+    ├── 03-four-golden-signals.yaml                  ← PrometheusRule: alertas dos 4 Golden Signals
+    ├── values-fluent-bit.yaml                       ← Helm values do Fluent Bit (output → Loki Gateway)
+    ├── values-alertmanager-discord.yaml             ← Helm values para rotear alertas ao Discord (URL direta)
+    └── values-alertmanager-discord-secret.yaml      ← Helm values para rotear alertas ao Discord (Secret K8s)
 ```
 
 ---

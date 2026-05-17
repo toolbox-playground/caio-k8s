@@ -927,6 +927,7 @@ kubectl logs -n monitoring -l app.kubernetes.io/name=fluent-bit --tail=30
 
 **PowerShell:**
 
+**PowerShell:**
 ```powershell
 # Port-forward temporário para o gateway
 kubectl port-forward svc/loki-gateway -n monitoring 3100:80
@@ -939,6 +940,21 @@ Invoke-RestMethod "http://localhost:3100/loki/api/v1/label/kubernetes_namespace_
 # Containers indexados
 Invoke-RestMethod "http://localhost:3100/loki/api/v1/label/kubernetes_container_name/values?start=$start"
 # Esperado: data: [..., "super-mario", ...]
+```
+
+**bash / zsh:**
+```bash
+# Port-forward temporário para o gateway (rode em um terminal separado)
+kubectl port-forward svc/loki-gateway -n monitoring 3100:80
+
+# Em outro terminal — namespaces indexados (última hora)
+start=$(date -d '1 hour ago' +%s 2>/dev/null || date -v-1H +%s)
+curl -sG "http://localhost:3100/loki/api/v1/label/kubernetes_namespace_name/values?start=$start"
+# Esperado: {"data":["games","kube-system","monitoring"]}
+
+# Containers indexados
+curl -sG "http://localhost:3100/loki/api/v1/label/kubernetes_container_name/values?start=$start"
+# Esperado: {"data":[..."super-mario"...]}
 ```
 
 > Se `games` e `super-mario` aparecerem aqui mas não no Grafana, o problema é o **intervalo de tempo** no Grafana Explore — ajuste para "Last 1 hour".
