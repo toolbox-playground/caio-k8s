@@ -2,7 +2,7 @@
 # PrometheusRule: Four Golden Signals — namespace games
 # ============================================================
 # Recurso gerenciado pelo Prometheus Operator.
-# Aplicar com: kubectl apply -f 03-four-golden-signals.yaml
+# Aplicar com: kubectl apply -f 01-four-golden-signals.yaml
 #
 # O Prometheus Operator detecta este recurso automaticamente
 # e recarrega as regras sem reiniciar o Prometheus.

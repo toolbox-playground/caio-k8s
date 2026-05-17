@@ -7,7 +7,9 @@
 | Arquivo | Descrição |
 |---|---|
 | `cluster-config.yaml` | Config do Kind com port mappings para Prometheus, Grafana e Alertmanager |
-| `03-four-golden-signals.yaml` | PrometheusRule com alertas dos Four Golden Signals para o namespace `games` |
+| `01-four-golden-signals.yaml` | PrometheusRule com alertas dos Four Golden Signals para o namespace `games` |
+| `02-blackbox-probe.yaml` | Probe: latência sintética via Blackbox Exporter |
+| `03-grafana-alert-rules.yaml` | ConfigMap: Grafana alert rules (motor nativo do Grafana) |
 
 > Os values do Helm estão em [`../helm-values/`](../helm-values/) — separados dos recursos Kubernetes.
 
@@ -61,7 +63,7 @@ Os comandos de instalação estão no [QUICK-START.md](../QUICK-START.md).
 ## Aplicar os alertas
 
 ```sh
-kubectl apply -f 03-four-golden-signals.yaml
+kubectl apply -f 01-four-golden-signals.yaml
 
 # Verificar se foi registrado
 kubectl get prometheusrule -n monitoring

@@ -447,7 +447,9 @@ modulo-03-monitoring/
 └── manifests/                              ← Recursos Kubernetes (não Helm)
     ├── README.md                           ← Documentação dos manifestos
     ├── cluster-config.yaml                 ← Kind com todos os port mappings
-    └── 03-four-golden-signals.yaml         ← PrometheusRule: alertas dos 4 Golden Signals
+    ├── 01-four-golden-signals.yaml         ← PrometheusRule: alertas dos 4 Golden Signals
+    ├── 02-blackbox-probe.yaml              ← Probe: latência sintética via Blackbox Exporter
+    └── 03-grafana-alert-rules.yaml         ← ConfigMap: Grafana alert rules (motor nativo do Grafana)
 ```
 
 ---
@@ -460,7 +462,7 @@ Veja o [QUICK-START.md](./QUICK-START.md) para instalação passo a passo de tod
 
 ## 🚨 Alertas dos Four Golden Signals
 
-Os alertas estão definidos em [`manifests/03-four-golden-signals.yaml`](./manifests/03-four-golden-signals.yaml) como um `PrometheusRule` — recurso nativo do Prometheus Operator.
+Os alertas estão definidos em [`manifests/01-four-golden-signals.yaml`](./manifests/01-four-golden-signals.yaml) como um `PrometheusRule` — recurso nativo do Prometheus Operator.
 
 ### Como funciona o ciclo de alerta
 
@@ -487,7 +489,50 @@ Os alertas estão definidos em [`manifests/03-four-golden-signals.yaml`](./manif
 
 ---
 
-## � Receber Alertas no Discord
+## 🔔 Grafana Alert Rules (motor nativo do Grafana)
+
+Além dos alertas do Prometheus/Alertmanager, o módulo inclui as mesmas 6 regras provisionadas como **Grafana-native alerts** em [`manifests/03-grafana-alert-rules.yaml`](./manifests/03-grafana-alert-rules.yaml).
+
+### Dois motores de alerta, dois casos de uso
+
+| | PrometheusRule | Grafana Alert Rules |
+|---|---|---|
+| **Avaliado por** | Prometheus | Grafana |
+| **Roteamento** | Alertmanager → Discord/Slack/PagerDuty | Contact Points do Grafana |
+| **Formato** | CRD `PrometheusRule` (YAML k8s) | ConfigMap provisionado via sidecar |
+| **Ideal para** | Alertas de infraestrutura, SRE | Times de produto, notificações no Grafana |
+| **Silêncio/inibição** | Alertmanager UI | Grafana Alerting UI |
+
+### Como funciona o provisionamento
+
+O kube-prometheus-stack inclui um sidecar `grafana-sc-alerts` que fica monitorando ConfigMaps no cluster. Quando detecta um ConfigMap com o label `grafana_alert: "1"`, extrai o conteúdo e o provisionam como alert rules no Grafana — sem reiniciar o pod.
+
+```
+kubectl apply -f 03-grafana-alert-rules.yaml
+        │
+        ▼ (label: grafana_alert: "1")
+grafana-sc-alerts (sidecar) detecta o ConfigMap
+        │
+        ▼
+Grafana carrega as regras em: Alerting → Alert Rules → pasta "K8s Essentials"
+```
+
+### Resumo das regras Grafana
+
+| uid | Título | Signal | Threshold |
+|---|---|---|---|
+| `fgs-alto-trafego` | Alto Tráfego — namespace games | Traffic | rede > 1 MB/s por 2m |
+| `fgs-pod-restart` | Pod Reiniciando Frequentemente | Errors | > 2 restarts em 15m |
+| `fgs-pod-not-ready` | Pod Não Disponível | Errors | pod não-Ready por 5m |
+| `fgs-alto-cpu` | Alto CPU — Super Mario | Saturation | CPU > 80% do limit por 3m |
+| `fgs-alta-memoria` | Alta Memória — Super Mario | Saturation | Memória > 80% do limit por 3m |
+| `fgs-hpa-limite` | HPA no Limite Máximo | Latency | réplicas current ≥ max por 5m |
+
+> **Pré-requisito:** `grafana.sidecar.alerts.enabled: true` no `helm-values/values-prometheus-stack.yaml` (já configurado). Ative com `helm upgrade kind-prometheus ... -f helm-values/values-prometheus-stack.yaml` antes de aplicar o ConfigMap.
+
+---
+
+## 📣 Receber Alertas no Discord
 
 O Grafana, com o kube-prometheus-stack, gerencia o Alertmanager via API interna. Isso significa que contact points e notification policies configurados no Grafana são escritos diretamente no Alertmanager — sem editar YAMLs.
 

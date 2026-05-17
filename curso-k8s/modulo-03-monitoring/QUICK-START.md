@@ -316,7 +316,7 @@ Aplicar o recurso `Probe` que diz ao Prometheus qual URL sondar:
 **PowerShell e bash:**
 
 ```sh
-kubectl apply -f manifests/04-blackbox-probe.yaml
+kubectl apply -f manifests/02-blackbox-probe.yaml
 ```
 
 O recurso `Probe` é um CRD do Prometheus Operator. Confirmar que foi carregado:
@@ -344,10 +344,10 @@ probe_duration_seconds{job="blackbox-mario"}
 > # Retorna: {"matchLabels":{"release":"kind-prometheus"}}
 > ```
 >
-> O arquivo `manifests/04-blackbox-probe.yaml` já inclui esse label. Se o Probe foi aplicado antes dessa correção, reaplicar:
+> O arquivo `manifests/02-blackbox-probe.yaml` já inclui esse label. Se o Probe foi aplicado antes dessa correção, reaplicar:
 >
 > ```sh
-> kubectl apply -f manifests/04-blackbox-probe.yaml
+> kubectl apply -f manifests/02-blackbox-probe.yaml
 > ```
 >
 > A mesma regra vale para qualquer `ServiceMonitor` ou `PodMonitor` customizado que você criar — sem o label `release: kind-prometheus`, o Prometheus não vai coletar.
@@ -387,7 +387,7 @@ curl "http://localhost:9115/probe?target=http://super-mario-service.games.svc.cl
 **PowerShell e bash:**
 
 ```sh
-kubectl apply -f manifests/03-four-golden-signals.yaml
+kubectl apply -f manifests/01-four-golden-signals.yaml
 ```
 
 Verificar se o Prometheus carregou as regras:
@@ -402,6 +402,90 @@ Confirmar no Prometheus UI:
 ```
 http://localhost:9090 → Status → Rule Health → four-golden-signals.games
 ```
+
+---
+
+## Ativar os Grafana Alert Rules
+
+> Os alertas acima são avaliados pelo **Prometheus** e roteados pelo **Alertmanager**. O Grafana tem seu próprio motor de alertas (Unified Alerting) — avalia regras independentemente e pode notificar por Contact Points cadastrados direto no Grafana (Discord, Slack, e-mail).
+>
+> São dois sistemas **paralelos e complementares**: o Alertmanager é o padrão para alertas de infraestrutura, enquanto os Grafana alert rules são úteis quando times de negócio querem configurar notificações sem mexer no Alertmanager.
+
+### Passo 1 — Habilitar o sidecar de alertas
+
+O arquivo `helm-values/values-prometheus-stack.yaml` já inclui `grafana.sidecar.alerts.enabled: true`. Faça o upgrade para aplicar:
+
+**PowerShell:**
+
+```powershell
+helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack `
+  --namespace monitoring `
+  -f helm-values/values-prometheus-stack.yaml
+```
+
+**bash / zsh:**
+
+```bash
+helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  -f helm-values/values-prometheus-stack.yaml
+```
+
+O sidecar `grafana-sc-alerts` passa a monitorar ConfigMaps com label `grafana_alert: "1"` e os provisionam automaticamente no Grafana.
+
+### Passo 2 — Aplicar o ConfigMap com as regras
+
+**PowerShell e bash:**
+
+```sh
+kubectl apply -f manifests/03-grafana-alert-rules.yaml
+```
+
+Verificar se o sidecar carregou (aguarde ~10s após aplicar):
+
+**PowerShell:**
+
+```powershell
+kubectl logs -n monitoring `
+  -l app.kubernetes.io/name=grafana `
+  -c grafana-sc-alerts --tail=20
+# Deve aparecer: "Configmap added" ou "Updating existing configmap"
+```
+
+**bash / zsh:**
+
+```bash
+kubectl logs -n monitoring \
+  -l app.kubernetes.io/name=grafana \
+  -c grafana-sc-alerts --tail=20
+```
+
+Verificar no Grafana:
+
+```
+http://localhost:3000 → Alerting → Alert Rules
+Pasta: K8s Essentials → 6 regras listadas (fgs-alto-trafego, fgs-pod-restart, ...)
+```
+
+> ⚠️ **Se as regras aparecerem com erro de datasource**
+>
+> As regras usam `datasourceUid: prometheus`. Se o UID do Prometheus no seu Grafana for diferente, as regras são carregadas mas não executam as queries.
+>
+> Para verificar o UID real:
+> ```
+> Grafana → Connections → Data sources → Prometheus → campo UID
+> ```
+>
+> Se necessário, corrija no ConfigMap:
+>
+> **PowerShell e bash:**
+> ```sh
+> kubectl edit configmap grafana-alert-rules-four-golden-signals -n monitoring
+> # Substitua todas as ocorrências de: datasourceUid: prometheus
+> # pelo UID real encontrado no Grafana
+> ```
+>
+> O sidecar detecta a mudança e recarrega automaticamente.
 
 ---
 
@@ -872,7 +956,7 @@ Na UI do Alertmanager (**http://localhost:9093**):
 ### Fluxo completo: do código ao alerta
 
 ```
-manifests/03-four-golden-signals.yaml   ← PrometheusRule (definição das regras)
+manifests/01-four-golden-signals.yaml   ← PrometheusRule (definição das regras)
         │
         ▼ kubectl apply
 Prometheus Operator detecta o CRD e atualiza a config do Prometheus
