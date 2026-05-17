@@ -113,6 +113,47 @@ helm install kind-prometheus prometheus-community/kube-prometheus-stack \
 >
 > O NodePort sozinho não é suficiente — o Kind também precisa do mapeamento `hostPort` no `cluster-config.yaml` para repassar a porta do container do Kind para o `localhost` do seu computador.
 
+## Aguardar o stack subir
+
+**PowerShell e bash:**
+
+```sh
+# Acompanhar pods subindo (aguarde todos ficarem Running/Ready)
+kubectl get pods -n monitoring -w
+```
+
+Ou aguardar todos ficarem prontos de uma vez:
+
+**PowerShell:**
+
+```powershell
+kubectl wait --for=condition=ready pod `
+  --selector=app.kubernetes.io/instance=kind-prometheus `
+  --namespace monitoring `
+  --timeout=300s
+```
+
+**bash / zsh:**
+
+```bash
+kubectl wait --for=condition=ready pod \
+  --selector=app.kubernetes.io/instance=kind-prometheus \
+  --namespace monitoring \
+  --timeout=300s
+```
+
+Resultado esperado (todos `1/1 Running` ou `2/2 Running`):
+
+```
+NAME                                                      READY   STATUS    RESTARTS
+alertmanager-kind-prometheus-kube-prome-alertmanager-0   2/2     Running   0
+kind-prometheus-grafana-xxxx                             3/3     Running   0
+kind-prometheus-kube-prome-operator-xxxx                 1/1     Running   0
+kind-prometheus-kube-state-metrics-xxxx                  1/1     Running   0
+kind-prometheus-prometheus-node-exporter-xxxx            1/1     Running   0
+prometheus-kind-prometheus-kube-prome-prometheus-0       2/2     Running   0
+```
+
 ---
 
 ## Instalação do Loki 3.x (chart oficial) via Helm
@@ -427,49 +468,6 @@ Abra o dashboard e observe:
 - **Painel 1 (Tráfego):** curva sobe e cruza o threshold de 1 MB/s
 - **Painel 4 (CPU):** % do limit sobe — quando passar de 80% por 3 min → alerta `AltoCPUSuperMario`
 - **Painel 5 (HPA):** réplicas sobem; quando atingir o máximo → alerta `HPANoLimiteMaximo`
-
----
-
-## Aguardar o stack subir
-
-**PowerShell e bash:**
-
-```sh
-# Acompanhar pods subindo (aguarde todos ficarem Running/Ready)
-kubectl get pods -n monitoring -w
-```
-
-Ou aguardar todos ficarem prontos de uma vez:
-
-**PowerShell:**
-
-```powershell
-kubectl wait --for=condition=ready pod `
-  --selector=app.kubernetes.io/instance=kind-prometheus `
-  --namespace monitoring `
-  --timeout=300s
-```
-
-**bash / zsh:**
-
-```bash
-kubectl wait --for=condition=ready pod \
-  --selector=app.kubernetes.io/instance=kind-prometheus \
-  --namespace monitoring \
-  --timeout=300s
-```
-
-Resultado esperado (todos `1/1 Running` ou `2/2 Running`):
-
-```
-NAME                                                      READY   STATUS    RESTARTS
-alertmanager-kind-prometheus-kube-prome-alertmanager-0   2/2     Running   0
-kind-prometheus-grafana-xxxx                             3/3     Running   0
-kind-prometheus-kube-prome-operator-xxxx                 1/1     Running   0
-kind-prometheus-kube-state-metrics-xxxx                  1/1     Running   0
-kind-prometheus-prometheus-node-exporter-xxxx            1/1     Running   0
-prometheus-kind-prometheus-kube-prome-prometheus-0       2/2     Running   0
-```
 
 ---
 
