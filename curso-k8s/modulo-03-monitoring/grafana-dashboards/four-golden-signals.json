@@ -216,7 +216,42 @@
           "refId": "B"
         }
       ],
-      "title": "HPA — Réplicas (atual vs máximo)",
+      "title": "Saturação — Réplicas do HPA",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "red", "value": 1.0 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "id": 6,
+      "options": {
+        "tooltip": { "mode": "single", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "probe_duration_seconds{job=\"blackbox-mario\"}",
+          "legendFormat": "tempo de resposta (s)",
+          "refId": "A"
+        }
+      ],
+      "title": "Latência HTTP — Super Mario (Blackbox Exporter)",
       "type": "timeseries"
     }
   ],

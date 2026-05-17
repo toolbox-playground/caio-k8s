@@ -296,9 +296,25 @@ O arquivo `helm-values/values-alertmanager-discord.yaml` configura o roteamento 
 - `PrometheusRule` → define regras de alerta como YAML no cluster
 - `ServiceMonitor` → diz ao Prometheus quais Services monitorar
 - `PodMonitor` → diz ao Prometheus quais Pods monitorar
+- `Probe` → diz ao Prometheus para usar o Blackbox Exporter para sondar uma URL
 
 **Por que isso importa?**
 > Sem o Operator, você editaria arquivos de configuração do Prometheus manualmente e reiniciaria o pod. Com o Operator, você aplica um `kubectl apply -f alerta.yaml` e o Prometheus recarrega automaticamente.
+
+**⚠️ Armadilha comum: o `release` label**
+
+O Prometheus Operator usa *seletores* para decidir quais recursos ele deve observar. No `kube-prometheus-stack`, o seletor padrão exige o label `release: kind-prometheus` em todos os recursos CRD:
+
+```sh
+# Ver o seletor configurado
+kubectl get prometheus -n monitoring \
+  -o jsonpath='{.items[*].spec.probeSelector}'
+# {"matchLabels":{"release":"kind-prometheus"}}
+
+# O mesmo vale para serviceMonitorSelector, podMonitorSelector, ruleSelector
+```
+
+Se você criar um `ServiceMonitor`, `PodMonitor`, `Probe` ou `PrometheusRule` sem esse label, o Prometheus ignora silenciosamente o recurso e nenhum dado é coletado. Todos os manifestos deste módulo já incluem o label correto.
 
 ---
 

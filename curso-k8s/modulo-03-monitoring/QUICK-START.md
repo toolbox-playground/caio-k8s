@@ -293,6 +293,95 @@ Query LogQL equivalente:
 
 ---
 
+## Instalar o Blackbox Exporter (latência sintética)
+
+> 🎯 **O que é?** O Blackbox Exporter funciona como um cliente persistente: fica batendo no Service do Super Mario a cada 15 segundos e mede o tempo de resposta HTTP. É monitoramento **sintético** — não depende de instrumentação no código do app. A métrica resultante é `probe_duration_seconds`, que mede a latência de ponta a ponta vista de fora do pod.
+
+**PowerShell e bash:**
+
+```sh
+helm install blackbox-exporter prometheus-community/prometheus-blackbox-exporter \
+  --namespace monitoring
+```
+
+Aguardar subir:
+
+```sh
+kubectl get pods -n monitoring -w
+# Aguarde: blackbox-exporter-prometheus-blackbox-exporter-xxxx   1/1   Running
+```
+
+Aplicar o recurso `Probe` que diz ao Prometheus qual URL sondar:
+
+**PowerShell e bash:**
+
+```sh
+kubectl apply -f manifests/04-blackbox-probe.yaml
+```
+
+O recurso `Probe` é um CRD do Prometheus Operator. Confirmar que foi carregado:
+
+```sh
+kubectl get probe -n monitoring
+# NAME                  AGE
+# super-mario-http      10s
+```
+
+Após ~30 segundos, confirmar no Prometheus que a métrica chegou:
+
+```
+http://localhost:9090 → Graph → execute:
+probe_duration_seconds{job="blackbox-mario"}
+```
+
+> ⚠️ **Se não retornar dados: o `probeSelector` requer um label específico**
+>
+> O Prometheus Operator só descobre recursos `Probe` (e `ServiceMonitor`, `PodMonitor`, `PrometheusRule`) que tenham os labels definidos no seletor da instância do Prometheus. Neste setup, o seletor exige `release: kind-prometheus`:
+>
+> ```sh
+> kubectl get prometheus -n monitoring \
+>   -o jsonpath='{.items[*].spec.probeSelector}'
+> # Retorna: {"matchLabels":{"release":"kind-prometheus"}}
+> ```
+>
+> O arquivo `manifests/04-blackbox-probe.yaml` já inclui esse label. Se o Probe foi aplicado antes dessa correção, reaplicar:
+>
+> ```sh
+> kubectl apply -f manifests/04-blackbox-probe.yaml
+> ```
+>
+> A mesma regra vale para qualquer `ServiceMonitor` ou `PodMonitor` customizado que você criar — sem o label `release: kind-prometheus`, o Prometheus não vai coletar.
+
+**Diagnóstico rápido se ainda não aparecer:**
+
+**PowerShell:**
+```powershell
+# Confirmar que o label foi aplicado
+kubectl get probe super-mario-http -n monitoring --show-labels
+
+# Verificar se o Blackbox Exporter está rodando
+kubectl get pods -n monitoring | Select-String "blackbox"
+
+# Testar o exporter diretamente (em outro terminal, abra o port-forward):
+kubectl port-forward svc/blackbox-exporter-prometheus-blackbox-exporter -n monitoring 9115:9115
+```
+
+**bash / zsh:**
+```bash
+kubectl get probe super-mario-http -n monitoring --show-labels
+kubectl get pods -n monitoring | grep blackbox
+kubectl port-forward svc/blackbox-exporter-prometheus-blackbox-exporter -n monitoring 9115:9115
+```
+
+Com o port-forward ativo, testar a sondagem manualmente:
+```sh
+curl "http://localhost:9115/probe?target=http://super-mario-service.games.svc.cluster.local:8080&module=http_2xx"
+# Procure: probe_success 1  (1 = OK, 0 = falhou)
+# Procure: probe_duration_seconds <valor>
+```
+
+---
+
 ## Aplicar os alertas dos Four Golden Signals
 
 **PowerShell e bash:**
@@ -318,7 +407,7 @@ http://localhost:9090 → Status → Rule Health → four-golden-signals.games
 
 ## Criar o dashboard dos Four Golden Signals no Grafana
 
-> 🎯 O objetivo é ter uma única tela que mostre os 4 signals do Super Mario em tempo real: Tráfego, Erros, Saturação e Latência (proxy via HPA). Cada painel usa exatamente a mesma PromQL dos alertas — assim você vê o número que vai acionar o alerta antes dele disparar.
+> O objetivo é ter uma única tela que mostre os 4 signals do Super Mario em tempo real: Tráfego, Erros, Saturação e Latência. Cada painel usa a mesma lógica das regras de alerta — assim você vê o número que vai acionar o alerta antes dele disparar.
 
 ### Opção A — Importar o JSON pronto (recomendado)
 
@@ -424,7 +513,7 @@ sum by (pod) (
 | Unit | `Percent (0.0-1.0)` |
 | Thresholds | Base: verde → 0.8: amarelo → 0.95: vermelho |
 
-#### Painel 5 — Latência proxy: Réplicas do HPA
+#### Painel 5 — Saturação: Réplicas do HPA
 
 **Query A** — réplicas atuais:
 ```promql
@@ -439,12 +528,31 @@ kube_horizontalpodautoscaler_spec_max_replicas{namespace="games"}
 **Configuração:**
 | Campo | Valor |
 |---|---|
-| Título | `HPA — Réplicas (atual vs máximo)` |
+| Título | `Saturação — Réplicas do HPA` |
 | Tipo de visualização | Time series |
 | Unit | `short` |
 | Thresholds | Base: verde → (valor do maxReplicas): vermelho |
 
 > Quando a linha de atual tocar a linha de máximo, o alerta `HPANoLimiteMaximo` vai disparar. O painel deixa isso visível antes do alerta chegar.
+
+#### Painel 6 — Latência (Latency)
+
+> Requer o Blackbox Exporter instalado e o `Probe` aplicado (seção anterior).
+
+**Query:**
+```promql
+probe_duration_seconds{job="blackbox-mario"}
+```
+
+**Configuração:**
+| Campo | Valor |
+|---|---|
+| Título | `Latência HTTP — Super Mario (Blackbox Exporter)` |
+| Tipo de visualização | Time series |
+| Unit | `seconds (s)` |
+| Thresholds | Base: verde → 0.5s: amarelo → 1.0s: vermelho |
+
+> O Blackbox Exporter bate no `super-mario-service.games.svc.cluster.local:8080` a cada 15s e mede o tempo total de resposta HTTP. Sob stress test, a latência sobe à medida que os pods ficam sobrecarregados.
 
 #### Salvar o dashboard
 
@@ -470,6 +578,7 @@ Abra o dashboard e observe:
 - **Painel 1 (Tráfego):** curva sobe e cruza o threshold de 1 MB/s
 - **Painel 4 (CPU):** % do limit sobe — quando passar de 80% por 3 min → alerta `AltoCPUSuperMario`
 - **Painel 5 (HPA):** réplicas sobem; quando atingir o máximo → alerta `HPANoLimiteMaximo`
+- **Painel 6 (Latência):** tempo de resposta HTTP sobe à medida que os pods ficam sobrecarregados
 
 ---
 
