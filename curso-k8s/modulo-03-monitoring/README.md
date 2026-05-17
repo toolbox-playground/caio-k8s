@@ -12,7 +12,7 @@
 8. [Estrutura do Módulo](#-estrutura-do-módulo)
 9. [Início Rápido](#-início-rápido)
 10. [Alertas dos Four Golden Signals](#-alertas-dos-four-golden-signals)
-11. [Receber Alertas por E-mail](#-receber-alertas-por-e-mail)
+11. [Receber Alertas no Discord](#-receber-alertas-no-discord)
 12. [Questões de Fixação](#-questões-de-fixação)
 13. [Recursos Adicionais](#-recursos-adicionais)
 
@@ -251,31 +251,17 @@ Definidos pelo livro **Site Reliability Engineering do Google**, os Four Golden 
 **Como funciona:**
 1. Prometheus avalia regras (PrometheusRule) continuamente
 2. Quando uma condição é violada, dispara um alerta para o Alertmanager
-3. Alertmanager agrupa, deduplica e roteia para canais: Slack, PagerDuty, e-mail, webhook
+3. Alertmanager agrupa, deduplica e roteia para canais: Discord, Slack, PagerDuty, e-mail, webhook
 
 **Conceitos importantes:**
 - **Firing:** alerta ativo, condição ainda violada
 - **Resolved:** condição voltou ao normal
 - **Silence:** supressão temporária de alertas (durante manutenção, por exemplo)
 - **Inhibition:** alerta A suprime alerta B (ex: node down suprime todos os alertas dos pods daquele node)
-- **group_wait / group_interval / repeat_interval:** controles de frequência de notificação — evitam flood de e-mails
+- **group_wait / group_interval / repeat_interval:** controles de frequência de notificação — evitam flood de mensagens
 
-**Configuração de e-mail neste módulo:**
-O arquivo `manifests/values-alertmanager-email.yaml` configura o roteamento de alertas para e-mail. Para testes locais, usa o **Mailhog** como SMTP fake. Para produção, basta substituir pelo Gmail ou outro SMTP. Veja a seção [Receber Alertas por E-mail](#-receber-alertas-por-e-mail).
-
----
-
-### Mailhog
-**O que é:** Servidor SMTP falso para desenvolvimento e testes — aceita qualquer e-mail e os exibe numa interface web, sem precisar de conta real nem configuração de relay.
-
-**Como funciona:**
-- Roda como Deployment no namespace `monitoring`
-- Expõe a porta `1025` para SMTP (Alertmanager aponta aqui)
-- Expõe a porta `8025` como interface web (você lê os e-mails aqui)
-- Qualquer e-mail enviado para qualquer destinatário aparece na caixa de entrada
-
-**Quando usar:**
-> Sempre que quiser testar a pipeline de alertas sem precisar configurar Gmail, SendGrid ou qualquer SMTP real. Em produção, você apenas substitui o `smtp_smarthost` e as credenciais.
+**Configuração de roteamento neste módulo:**
+O arquivo `manifests/values-alertmanager-discord.yaml` configura o roteamento de alertas para Discord. Aplique com `helm upgrade --reuse-values -f manifests/values-alertmanager-discord.yaml`. Veja a seção [Receber Alertas no Discord](#-receber-alertas-no-discord).
 
 ---
 
@@ -323,7 +309,7 @@ O arquivo `manifests/values-alertmanager-email.yaml` configura o roteamento de a
 | O que fazer | Caminho na UI |
 |---|---|
 | Ver quais endpoints estão sendo coletados | **Status → Targets** |
-| Confirmar que os alertas foram carregados | **Status → Rules** |
+| Confirmar que os alertas foram carregados | **Status → Rule Health** |
 | Ver alertas ativos (Pending/Firing) | **Alerts** |
 | Executar queries PromQL | **Graph** |
 
@@ -352,6 +338,8 @@ kube_horizontalpodautoscaler_status_current_replicas{namespace="games"}
 | Consultar métricas via PromQL | **Explore → selecione Prometheus** |
 | Consultar logs por label | **Explore → selecione Loki** |
 | Configurar datasources | **Connections → Data Sources** |
+| Cadastrar contact point (Discord, Slack...) | **Alerting → Contact Points** |
+| Configurar roteamento de alertas | **Alerting → Notification Policies** |
 
 Query LogQL para ver logs do Super Mario:
 ```logql
@@ -409,12 +397,13 @@ Labels indexados pelo Fluent Bit neste módulo:
 | Ver alertas FIRING agora | **Alerts** |
 | Criar silêncio (suprimir alerta) | **Silences → New Silence** |
 | Verificar a config carregada | **Status** |
+| Confirmar que o Discord foi configurado | **Status → Config → busque `discord`** |
 
 Consultar alertas via API:
 
 **PowerShell:**
 ```powershell
-Invoke-RestMethod "http://localhost:9093/api/v2/alerts" |
+(Invoke-RestMethod "http://localhost:9093/api/v2/alerts") |
   Select-Object -ExpandProperty labels |
   Format-Table alertname, namespace, severity
 ```
@@ -423,25 +412,6 @@ Invoke-RestMethod "http://localhost:9093/api/v2/alerts" |
 ```bash
 curl -s http://localhost:9093/api/v2/alerts | jq '.[].labels | {alertname, namespace, severity}'
 ```
-
----
-
-### Mailhog — http://localhost:8025
-
-Caixa de entrada fake para receber os e-mails de alerta durante o desenvolvimento.
-
-```sh
-# Subir o Mailhog (se ainda não estiver rodando)
-kubectl apply -f manifests/mailhog.yaml
-
-# Ver se está Running
-kubectl get pods -n monitoring -l app=mailhog
-```
-
-> Se a porta 8025 não estiver no `cluster-config.yaml`, use port-forward:
-> ```sh
-> kubectl port-forward svc/mailhog -n monitoring 8025:8025
-> ```
 
 ---
 
@@ -456,8 +426,7 @@ modulo-03-monitoring/
     ├── cluster-config.yaml                 ← Kind com todos os port mappings
     ├── 03-four-golden-signals.yaml         ← PrometheusRule: alertas dos 4 Golden Signals
     ├── values-fluent-bit.yaml              ← Helm values do Fluent Bit (output → Loki Gateway)
-    ├── mailhog.yaml                        ← Deployment+Service do Mailhog (SMTP fake local)
-    └── values-alertmanager-email.yaml      ← Helm values para alertas por e-mail
+    └── values-alertmanager-discord.yaml    ← Helm values para rotear alertas ao Discord
 ```
 
 ---
@@ -497,64 +466,40 @@ Os alertas estão definidos em [`manifests/03-four-golden-signals.yaml`](./manif
 
 ---
 
-## 📧 Receber Alertas por E-mail
+## � Receber Alertas no Discord
 
-O Alertmanager roteia alertas FIRING para e-mail via SMTP. Este módulo inclui dois arquivos para configurar isso:
+O Grafana, com o kube-prometheus-stack, gerencia o Alertmanager via API interna. Isso significa que contact points e notification policies configurados no Grafana são escritos diretamente no Alertmanager — sem editar YAMLs.
 
-| Arquivo | Função |
-|---|---|
-| `manifests/mailhog.yaml` | SMTP fake local — aceita qualquer e-mail, exibe em http://localhost:8025 |
-| `manifests/values-alertmanager-email.yaml` | Configura o roteamento de e-mail no Alertmanager via `helm upgrade` |
+### Passos rápidos
 
-### Aplicar (teste local com Mailhog)
+| Passo | Onde | O que fazer |
+|---|---|---|
+| 1 | Discord | Criar webhook: **Config do canal → Integrações → Webhooks → Novo Webhook** |
+| 2 | Grafana | **Alerting → Contact Points → + Add** → tipo Discord → colar URL → Test → Save |
+| 3 | Grafana | **Alerting → Notification Policies → Edit Default** → selecionar contact point Discord |
+| 4 | Terminal | `kubectl apply -f ../modulo-02-deploy-app/manifests/04-stress-test-fortio.yaml` |
+| 5 | Discord | Aguardar ~5 min e ver o alerta chegar no canal |
 
-```sh
-# 1. Subir o Mailhog
-kubectl apply -f manifests/mailhog.yaml
-
-# 2. Atualizar o Alertmanager com a config de e-mail
-# PowerShell:
-helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack `
-  --namespace monitoring `
-  --reuse-values `
-  -f manifests/values-alertmanager-email.yaml
-
-# bash:
-helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack \
-  --namespace monitoring \
-  --reuse-values \
-  -f manifests/values-alertmanager-email.yaml
-
-# 3. Aguardar o Alertmanager reiniciar
-kubectl rollout status statefulset/alertmanager-kind-prometheus-kube-prome-alertmanager -n monitoring
-
-# 4. Disparar carga para acionar os alertas
-kubectl apply -f ../modulo-02-deploy-app/manifests/04-stress-test-fortio.yaml
-
-# 5. Após ~5 minutos: abrir http://localhost:8025 para ver os e-mails
-```
-
-### Roteamento configurado
+### Fluxo do alerta
 
 ```
-Prometheus FIRING
+PrometheusRule (FIRING)
     │
-    ├── alertname = Watchdog ou InfoInhibitor  →  descartado (sem notificação)
-    ├── severity = critical                    →  e-mail imediato (repeat: 30min)
-    └── qualquer outro                         →  e-mail agrupado (group_wait: 30s)
-                                                       │
-                                               mailhog:1025 (SMTP)
-                                               http://localhost:8025 (UI)
+    ▼
+Prometheus → Alertmanager
+    │
+    │  Grafana escreve a config do Alertmanager via API
+    │  (contact point Discord + notification policy)
+    │
+    ▼ Notification Policy
+    ├── Watchdog / InfoInhibitor  →  descartado
+    └── qualquer outro           →  discord-k8s-essentials
+                                         │
+                                         ▼ HTTPS POST
+                                 discord.com/api/webhooks/...
 ```
 
-### Para usar Gmail em produção
-
-1. Gere uma **App Password** em https://myaccount.google.com/apppasswords
-2. No arquivo `values-alertmanager-email.yaml`, comente o bloco Mailhog e descomente o bloco Gmail
-3. Substitua os campos `<seu-email>` e `<sua-app-password>`
-4. Repita o `helm upgrade` acima
-
-> ⚠️ Nunca versione a senha em texto simples. Use um Secret Kubernetes ou variável de ambiente injetada pelo CI/CD.
+> Instruções completas com prints e troubleshooting no [QUICK-START.md](./QUICK-START.md).
 
 ---
 
@@ -578,11 +523,11 @@ Prometheus FIRING
 8. Qual é a diferença entre `Node Exporter` e `kube-state-metrics`? Você precisaria dos dois se tivesse apenas um node?
 9. Se o Alertmanager receber o mesmo alerta 50 vezes em 1 minuto (de 50 pods diferentes), ele dispara 50 notificações? O que evita isso?
 
-**Fase 4 — Logs e E-mail**
+**Fase 4 — Logs e Discord**
 
 10. Por que o label do Loki para o namespace chama `kubernetes_namespace_name` e não só `namespace`? De onde vem esse nome?
-11. Você configurou o Mailhog para receber alertas. Quais mudanças seriam necessárias para trocar para um SMTP real em produção sem reinstalar o Alertmanager?
-12. No `values-alertmanager-email.yaml`, existe uma rota que descarta os alertas `Watchdog` e `InfoInhibitor`. Por que esses alertas existem no Prometheus mas não devem gerar e-mails?
+11. O Grafana tem **Contact Points** e o Alertmanager também recebe notificações. Qual é a relação entre os dois no kube-prometheus-stack? Quando você salva um contact point no Grafana, o que acontece no Alertmanager?
+12. No Discord contact point, existe uma rota que descarta os alertas `Watchdog` e `InfoInhibitor`. Por que esses alertas existem no Prometheus mas não devem gerar notificações?
 
 ---
 

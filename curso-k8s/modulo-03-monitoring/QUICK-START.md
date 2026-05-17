@@ -303,8 +303,156 @@ kubectl get prometheusrule -n monitoring
 
 Confirmar no Prometheus UI:
 ```
-http://localhost:9090 → Status → Rules → four-golden-signals.games
+http://localhost:9090 → Status → Rule Health → four-golden-signals.games
 ```
+
+---
+
+## Criar o dashboard dos Four Golden Signals no Grafana
+
+> 🎯 O objetivo é ter uma única tela que mostre os 4 signals do Super Mario em tempo real: Tráfego, Erros, Saturação e Latência (proxy via HPA). Cada painel usa exatamente a mesma PromQL dos alertas — assim você vê o número que vai acionar o alerta antes dele disparar.
+
+Acesse **http://localhost:3000**, faça login e siga os passos abaixo.
+
+### Criar o dashboard
+
+1. Menu lateral → **Dashboards → New → New dashboard**
+2. Clique em **+ Add visualization**
+3. No seletor de datasource: escolha **Prometheus**
+
+> Você vai criar 5 painéis. Para cada um: cole a query, configure o título/unidade e clique em **Apply**. Depois **Add → Visualization** para o próximo.
+
+---
+
+### Painel 1 — Tráfego (Traffic)
+
+**Query:**
+```promql
+sum(rate(container_network_receive_bytes_total{namespace="games", container!=""}[5m]))
+```
+
+**Configuração:**
+| Campo | Valor |
+|---|---|
+| Título | `Tráfego de Rede — namespace games` |
+| Tipo de visualização | Time series |
+| Unit (em Standard options) | `bytes/sec (SI)` |
+| Thresholds | Base: verde → 1048576 (1 MB/s): amarelo |
+
+> A linha vermelha tracejada no painel aparece quando você adiciona o threshold de 1048576 — o mesmo valor do alerta `AltoTrafego`.
+
+---
+
+### Painel 2 — Erros: Restarts de containers
+
+**Query:**
+```promql
+sum by (pod) (increase(kube_pod_container_status_restarts_total{namespace="games"}[15m]))
+```
+
+**Configuração:**
+| Campo | Valor |
+|---|---|
+| Título | `Restarts de Pods (últimos 15 min)` |
+| Tipo de visualização | Time series |
+| Unit | `short` |
+| Thresholds | Base: verde → 2: vermelho |
+
+> Quando qualquer pod ultrapassar 2 restarts em 15 min, a linha vira vermelha — mesma condição do alerta `PodRestartandoFrequentemente`.
+
+---
+
+### Painel 3 — Erros: Pods não Ready
+
+**Query:**
+```promql
+sum(kube_pod_status_ready{namespace="games", condition="false"})
+```
+
+**Configuração:**
+| Campo | Valor |
+|---|---|
+| Título | `Pods fora do estado Ready` |
+| Tipo de visualização | Stat |
+| Unit | `short` |
+| Thresholds | Base: verde → 1: vermelho |
+| Color mode | Background |
+
+> No modo Stat com Background, o painel vira vermelho assim que qualquer pod sai do estado Ready.
+
+---
+
+### Painel 4 — Saturação: CPU vs Limit
+
+**Query A** (uso atual):
+```promql
+sum by (pod) (
+  rate(container_cpu_usage_seconds_total{namespace="games", container="super-mario"}[5m])
+)
+/
+sum by (pod) (
+  kube_pod_container_resource_limits{namespace="games", container="super-mario", resource="cpu"}
+)
+```
+
+**Configuração:**
+| Campo | Valor |
+|---|---|
+| Título | `CPU — % do Limit (Super Mario)` |
+| Tipo de visualização | Time series |
+| Unit | `Percent (0.0-1.0)` |
+| Thresholds | Base: verde → 0.8: amarelo → 0.95: vermelho |
+
+---
+
+### Painel 5 — Latência proxy: Réplicas do HPA
+
+**Query A** — réplicas atuais:
+```promql
+kube_horizontalpodautoscaler_status_current_replicas{namespace="games"}
+```
+
+**Query B** — réplicas máximas (label: `max`):
+```promql
+kube_horizontalpodautoscaler_spec_max_replicas{namespace="games"}
+```
+
+**Configuração:**
+| Campo | Valor |
+|---|---|
+| Título | `HPA — Réplicas (atual vs máximo)` |
+| Tipo de visualização | Time series |
+| Unit | `short` |
+| Thresholds | Base: verde → (valor do maxReplicas): vermelho |
+
+> Quando a linha de atual tocar a linha de máximo, o alerta `HPANoLimiteMaximo` vai disparar. O painel deixa isso visível antes do alerta chegar.
+
+---
+
+### Salvar o dashboard
+
+1. Clique no ícone 💾 (Save dashboard) no canto superior direito
+2. Nome: `Four Golden Signals — Super Mario`
+3. Pasta: `General` (ou crie `Módulo 03`)
+4. Clique em **Save**
+
+### Ajustar o auto-refresh
+
+No canto superior direito do dashboard:
+- Intervalo de tempo: **Last 1 hour**
+- Auto-refresh: **10s** (ícone de relógio ao lado do intervalo)
+
+### Ver os painéis durante o stress test
+
+```sh
+# Subir o stress test (se ainda não estiver rodando)
+kubectl apply -f ../modulo-02-deploy-app/manifests/04-stress-test-fortio.yaml
+```
+
+Abra o dashboard e observe:
+- **Painel 1 (Tráfego):** curva sobe e cruza o threshold de 1 MB/s
+- **Painel 4 (CPU):** % do limit sobe — quando passar de 80% por 3 min → alerta `AltoCPUSuperMario`
+- **Painel 5 (HPA):** réplicas sobem; quando atingir o máximo → alerta `HPANoLimiteMaximo`
 
 ---
 
@@ -385,57 +533,119 @@ kubectl --namespace monitoring get secret kind-prometheus-grafana \
 
 ---
 
-## Receber alertas por e-mail
+## Receber alertas no Discord
 
-> 🎯 O Alertmanager tem suporte nativo a SMTP. Para testar localmente sem precisar de conta real, usamos o **Mailhog** — um servidor SMTP falso com caixa de entrada acessível no browser. Para produção, basta trocar as configs do SMTP pelo Gmail (ou qualquer outro provedor).
+> 🎯 Os alertas dos Four Golden Signals são gerados pelo **Prometheus** (via PrometheusRule) e enviados ao **Alertmanager**. O Alertmanager usa sua própria configuração de roteamento — independente do Grafana — para decidir para onde enviar cada alerta. Para rotear ao Discord, configuramos o Alertmanager com um receiver Discord via `helm upgrade`.
 
-### Passo 1 — Subir o Mailhog (caixa de entrada fake local)
+> 💡 **Grafana Contact Points vs Alertmanager:** Os Contact Points do Grafana funcionam apenas para regras criadas diretamente no Grafana UI (Grafana-native alerts). Os alertas do `PrometheusRule` (como os Four Golden Signals) são avaliados pelo Prometheus e roteados pelo **Alertmanager**, que tem sua própria config — independente do Grafana.
 
-**PowerShell e bash:**
+### Passo 1 — Criar o webhook no Discord
 
-```sh
-kubectl apply -f manifests/mailhog.yaml
+1. No Discord, abra o canal onde quer receber os alertas
+2. **Configurações do canal** (engrenagem) → **Integrações → Webhooks → Novo Webhook**
+3. Dê um nome (ex: `k8s-alertas`) e clique em **Copiar URL do webhook**
+
+A URL terá o formato:
+```
+https://discord.com/api/webhooks/SEU_ID/SEU_TOKEN
 ```
 
-Aguardar subir e verificar:
+### Passo 2 — Configurar a URL do webhook
 
-**PowerShell e bash:**
+Você tem duas opções. Use a **Opção A** para testar localmente e a **Opção B** em ambientes reais.
 
-```sh
-kubectl get pods -n monitoring | grep mailhog
-# Esperado: mailhog-xxxx   1/1   Running
+---
+
+#### Opção A — URL direto no arquivo (local / estudo)
+
+Arquivo: `manifests/values-alertmanager-discord.yaml`
+
+Abra o arquivo e substitua o placeholder `COLE_AQUI_A_URL_DO_WEBHOOK` pela URL copiada:
+
+```yaml
+    receivers:
+      - name: "null"
+      - name: discord
+        discord_configs:
+          - webhook_url: "https://discord.com/api/webhooks/SEU_ID/SEU_TOKEN"
 ```
 
-Acesse a caixa de entrada em **http://localhost:8025**
+> ⚠️ Nunca versione a URL real em repositórios públicos.
 
-> Se a porta 8025 não estiver mapeada no seu `cluster-config.yaml`, use port-forward:
-> ```sh
-> kubectl port-forward svc/mailhog -n monitoring 8025:8025
-> ```
+No Passo 3, use: `-f manifests/values-alertmanager-discord.yaml`
 
-### Passo 2 — Aplicar a configuração de e-mail no Alertmanager
+---
 
-O arquivo `manifests/values-alertmanager-email.yaml` sobrescreve o bloco `alertmanager.config` do Helm release. Abra o arquivo e ajuste o campo `to:` com o e-mail de destino desejado (pode ser qualquer endereço — o Mailhog aceita tudo).
+#### Opção B — Secret Kubernetes + `webhook_url_file` (produção)
+
+Arquivo: `manifests/values-alertmanager-discord-secret.yaml`
+
+A URL fica armazenada em um Secret no cluster — nunca aparece em YAML versionado nem em `helm get values`.
+
+**1. Criar o Secret com a URL do webhook:**
+
+```sh
+kubectl create secret generic alertmanager-discord-webhook \
+  --from-literal=webhook_url="https://discord.com/api/webhooks/SEU_ID/SEU_TOKEN" \
+  -n monitoring
+```
+
+O arquivo `values-alertmanager-discord-secret.yaml` já está configurado com `alertmanagerSpec.secrets` e `webhook_url_file` — não precisa editar nada.
+
+**2. Confirmar que o Secret foi montado no pod (após o helm upgrade do Passo 3):**
+
+```sh
+kubectl exec -n monitoring \
+  statefulset/alertmanager-kind-prometheus-kube-prome-alertmanager -- \
+  cat /etc/alertmanager/secrets/alertmanager-discord-webhook/webhook_url
+```
+
+No Passo 3, use: `-f manifests/values-alertmanager-discord-secret.yaml`
+
+---
+
+### Passo 3 — Aplicar via helm upgrade
+
+> ⚠️ O `--reuse-values` pode falhar se o chart foi atualizado desde a instalação (variáveis novas sem default). O comando abaixo exporta os valores atuais do release e aplica junto com o arquivo de Discord — é a forma segura.
+
+Substitua o `-f` final pelo arquivo da opção que você escolheu no Passo 2.
 
 **PowerShell:**
 
 ```powershell
+helm get values kind-prometheus -n monitoring -o yaml |
+  Out-File -Encoding utf8 "$env:TEMP\kind-prometheus-values.yaml"
+
+# Opção A (URL direto):
 helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack `
   --namespace monitoring `
-  --reuse-values `
-  -f manifests/values-alertmanager-email.yaml
+  -f "$env:TEMP\kind-prometheus-values.yaml" `
+  -f manifests/values-alertmanager-discord.yaml
+
+# Opção B (Secret):
+helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack `
+  --namespace monitoring `
+  -f "$env:TEMP\kind-prometheus-values.yaml" `
+  -f manifests/values-alertmanager-discord-secret.yaml
 ```
 
 **bash / zsh:**
 
 ```bash
+helm get values kind-prometheus -n monitoring -o yaml > /tmp/kind-prometheus-values.yaml
+
+# Opção A (URL direto):
 helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
-  --reuse-values \
-  -f manifests/values-alertmanager-email.yaml
-```
+  -f /tmp/kind-prometheus-values.yaml \
+  -f manifests/values-alertmanager-discord.yaml
 
-> `--reuse-values` mantém todos os `--set` que foram usados na instalação original (NodePorts, etc.) e aplica apenas as novas configs do arquivo.
+# Opção B (Secret):
+helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  -f /tmp/kind-prometheus-values.yaml \
+  -f manifests/values-alertmanager-discord-secret.yaml
+```
 
 Aguardar o Alertmanager reiniciar com a nova config:
 
@@ -445,58 +655,46 @@ Aguardar o Alertmanager reiniciar com a nova config:
 kubectl rollout status statefulset/alertmanager-kind-prometheus-kube-prome-alertmanager -n monitoring
 ```
 
-### Passo 3 — Disparar um alerta e verificar o e-mail
+### Passo 4 — Confirmar que a config foi aplicada
 
-```sh
-# Sobe o stress test para gerar carga e disparar as regras dos Four Golden Signals
-kubectl apply -f ../modulo-02-deploy-app/manifests/04-stress-test-fortio.yaml
-```
+Acesse **http://localhost:9093 → Status** e verifique o campo **Config**. O receiver `discord` deve aparecer com o bloco `discord_configs`.
 
-Após ~5 minutos (tempo do `for:` nas regras), os alertas passam de `PENDING` para `FIRING` e o Alertmanager envia o e-mail. Verifique no Mailhog: **http://localhost:8025**
-
-### Usar Gmail em vez do Mailhog (produção)
-
-1. Gere uma **App Password** do Gmail em: https://myaccount.google.com/apppasswords  
-   _(requer 2FA ativado na conta Google)_
-
-2. Crie um Secret Kubernetes com a senha:
+### Passo 5 — Disparar um alerta para testar
 
 **PowerShell e bash:**
 
 ```sh
-kubectl create secret generic alertmanager-smtp \
-  --from-literal=password='SUA_APP_PASSWORD' \
-  -n monitoring
+# Gerar carga no Super Mario para acionar os Four Golden Signals
+kubectl apply -f ../modulo-02-deploy-app/manifests/04-stress-test-fortio.yaml
 ```
 
-3. No arquivo `manifests/values-alertmanager-email.yaml`, comente o bloco do Mailhog e descomente o bloco do Gmail:
+Após ~3–5 minutos (tempo do `for:` nas regras), os alertas passam de `PENDING` para `FIRING`. O canal do Discord vai receber uma mensagem com os detalhes do alerta.
 
-```yaml
-global:
-  smtp_smarthost: 'smtp.gmail.com:587'
-  smtp_from: '<seu-email>@gmail.com'
-  smtp_auth_username: '<seu-email>@gmail.com'
-  smtp_auth_password: '<sua-app-password>'
-  smtp_require_tls: true
+Para parar o stress test:
+
+```sh
+kubectl delete -f ../modulo-02-deploy-app/manifests/04-stress-test-fortio.yaml
 ```
 
-4. Repita o `helm upgrade` do Passo 2.
-
-> ⚠️ Nunca coloque a senha em texto simples em arquivos versionados. O bloco acima é apenas para referência — em produção, use `smtp_auth_password_file` apontando para um Secret montado como volume, ou o campo `alertmanager.config.global.smtp_auth_password` via Secret do Helm.
+Quando a carga parar e o alerta se resolver, o Discord recebe uma mensagem **✅ Resolved**.
 
 ### Como funciona o roteamento
 
 ```
 PrometheusRule (FIRING)
     │
-    ▼ HTTP POST /api/v2/alerts
-Alertmanager
-    ├── alertname = Watchdog ou InfoInhibitor  →  receiver: null  (descartado)
-    ├── severity = critical                    →  receiver: email-receiver (imediato, 30m)
-    └── qualquer outro                         →  receiver: email-receiver (group_wait: 30s)
-                                                        │
-                                                        ▼ SMTP → mailhog:1025
-                                               Caixa de entrada: http://localhost:8025
+    ▼ HTTP POST
+Prometheus → Alertmanager
+    │
+    ▼ Avalia as rotas em ordem
+    ├── alertname =~ "Watchdog|InfoInhibitor"  →  receiver: null  (descartado)
+    └── qualquer outro                         →  receiver: discord
+                                                       │
+                                                       ▼ HTTPS POST
+                                               discord.com/api/webhooks/...
+                                                       │
+                                                       ▼
+                                                Canal do Discord
 ```
 
 ---
@@ -538,14 +736,14 @@ Prometheus avalia a regra
 kubectl get prometheusrule -n monitoring
 
 # Ver o estado de cada regra diretamente no Prometheus
-# http://localhost:9090 → Status → Rules
+# http://localhost:9090 → Status → Rule Health
 ```
 
 **PowerShell:**
 
 ```powershell
 # Consultar a API do Alertmanager — alertas ativos
-Invoke-RestMethod "http://localhost:9093/api/v2/alerts" |
+(Invoke-RestMethod "http://localhost:9093/api/v2/alerts") |
   Select-Object -ExpandProperty labels |
   Format-Table alertname, namespace, severity
 ```
