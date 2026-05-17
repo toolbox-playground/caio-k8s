@@ -1,3 +1,9 @@
+## 0.17.0 (2026-05-17)
+
+### Feat
+
+- **opentelemetry**: add module 04 for OpenTelemetry instrumentation
+
 ## 0.16.3 (2026-01-29)
 
 ### Fix
