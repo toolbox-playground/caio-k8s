@@ -560,7 +560,9 @@ Você tem duas opções. Use a **Opção A** para testar localmente e a **Opçã
 
 Arquivo: `manifests/values-alertmanager-discord.yaml`
 
-Abra o arquivo e substitua o placeholder `COLE_AQUI_A_URL_DO_WEBHOOK` pela URL copiada:
+Abra o arquivo e faça **duas** substituições:
+
+**1. URL do webhook** — substitua `COLE_AQUI_A_URL_DO_WEBHOOK` pela URL copiada:
 
 ```yaml
     receivers:
@@ -570,7 +572,21 @@ Abra o arquivo e substitua o placeholder `COLE_AQUI_A_URL_DO_WEBHOOK` pela URL c
           - webhook_url: "https://discord.com/api/webhooks/SEU_ID/SEU_TOKEN"
 ```
 
-> ⚠️ Nunca versione a URL real em repositórios públicos.
+**2. `externalUrl`** — os dois valores já estão preenchidos com `localhost`. Se estiver rodando em um cluster real (não Kind), substitua pelas URLs públicas do Prometheus e do Alertmanager:
+
+```yaml
+prometheus:
+  prometheusSpec:
+    externalUrl: http://SEU-PROMETHEUS-REAL:9090   # <- altere aqui
+
+alertmanager:
+  alertmanagerSpec:
+    externalUrl: http://SEU-ALERTMANAGER-REAL:9093  # <- altere aqui
+```
+
+> O `externalUrl` controla o link "Source" que aparece nas mensagens do Discord. Com `localhost`, o link funciona apenas na sua máquina local.
+
+> ⚠️ Nunca versione a URL real do webhook em repositórios públicos.
 
 No Passo 3, use: `-f manifests/values-alertmanager-discord.yaml`
 

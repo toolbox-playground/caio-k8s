@@ -2,7 +2,17 @@
 # Configura o Alertmanager para enviar alertas ao Discord via URL direta.
 # Use este arquivo para ambientes locais e de estudo.
 # Para produção, use values-alertmanager-discord-secret.yaml
+
+# Corrige o link "Source" nos alertas do Discord.
+# Sem isso, o link aponta para o DNS interno do cluster (inacessível fora do Kind).
+prometheus:
+  prometheusSpec:
+    externalUrl: http://localhost:9090
+
 alertmanager:
+  alertmanagerSpec:
+    externalUrl: http://localhost:9093
+
   config:
     global:
       resolve_timeout: 5m
