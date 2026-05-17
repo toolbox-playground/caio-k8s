@@ -8,11 +8,13 @@
 4. [Os Four Golden Signals](#-os-four-golden-signals)
 5. [Arquitetura do Stack](#-arquitetura-do-stack)
 6. [Componentes em Detalhe](#-componentes-em-detalhe)
-7. [Estrutura do Módulo](#-estrutura-do-módulo)
-8. [Início Rápido](#-início-rápido)
-9. [Alertas dos Four Golden Signals](#-alertas-dos-four-golden-signals)
-10. [Questões de Fixação](#-questões-de-fixação)
-11. [Recursos Adicionais](#-recursos-adicionais)
+7. [Como Usar Cada Componente](#-como-usar-cada-componente)
+8. [Estrutura do Módulo](#-estrutura-do-módulo)
+9. [Início Rápido](#-início-rápido)
+10. [Alertas dos Four Golden Signals](#-alertas-dos-four-golden-signals)
+11. [Receber Alertas por E-mail](#-receber-alertas-por-e-mail)
+12. [Questões de Fixação](#-questões-de-fixação)
+13. [Recursos Adicionais](#-recursos-adicionais)
 
 ---
 
@@ -256,6 +258,24 @@ Definidos pelo livro **Site Reliability Engineering do Google**, os Four Golden 
 - **Resolved:** condição voltou ao normal
 - **Silence:** supressão temporária de alertas (durante manutenção, por exemplo)
 - **Inhibition:** alerta A suprime alerta B (ex: node down suprime todos os alertas dos pods daquele node)
+- **group_wait / group_interval / repeat_interval:** controles de frequência de notificação — evitam flood de e-mails
+
+**Configuração de e-mail neste módulo:**
+O arquivo `manifests/values-alertmanager-email.yaml` configura o roteamento de alertas para e-mail. Para testes locais, usa o **Mailhog** como SMTP fake. Para produção, basta substituir pelo Gmail ou outro SMTP. Veja a seção [Receber Alertas por E-mail](#-receber-alertas-por-e-mail).
+
+---
+
+### Mailhog
+**O que é:** Servidor SMTP falso para desenvolvimento e testes — aceita qualquer e-mail e os exibe numa interface web, sem precisar de conta real nem configuração de relay.
+
+**Como funciona:**
+- Roda como Deployment no namespace `monitoring`
+- Expõe a porta `1025` para SMTP (Alertmanager aponta aqui)
+- Expõe a porta `8025` como interface web (você lê os e-mails aqui)
+- Qualquer e-mail enviado para qualquer destinatário aparece na caixa de entrada
+
+**Quando usar:**
+> Sempre que quiser testar a pipeline de alertas sem precisar configurar Gmail, SendGrid ou qualquer SMTP real. Em produção, você apenas substitui o `smtp_smarthost` e as credenciais.
 
 ---
 
@@ -296,17 +316,148 @@ Definidos pelo livro **Site Reliability Engineering do Google**, os Four Golden 
 
 ---
 
+## �️ Como Usar Cada Componente
+
+### Prometheus — http://localhost:9090
+
+| O que fazer | Caminho na UI |
+|---|---|
+| Ver quais endpoints estão sendo coletados | **Status → Targets** |
+| Confirmar que os alertas foram carregados | **Status → Rules** |
+| Ver alertas ativos (Pending/Firing) | **Alerts** |
+| Executar queries PromQL | **Graph** |
+
+Queries úteis para o Super Mario:
+```promql
+# Pods rodando
+kube_pod_info{namespace="games"}
+
+# CPU dos pods (média 2 min)
+sum(rate(container_cpu_usage_seconds_total{namespace="games"}[2m])) by (pod)
+
+# Réplicas do HPA
+kube_horizontalpodautoscaler_status_current_replicas{namespace="games"}
+```
+
+---
+
+### Grafana — http://localhost:3000
+
+**Login:** usuário `admin` / senha: veja o QUICK-START.md
+
+| O que fazer | Caminho na UI |
+|---|---|
+| Ver dashboards prontos do cluster | **Dashboards → Browse → Kubernetes** |
+| Importar dashboard da comunidade | **Dashboards → New → Import → ID `15661`** |
+| Consultar métricas via PromQL | **Explore → selecione Prometheus** |
+| Consultar logs por label | **Explore → selecione Loki** |
+| Configurar datasources | **Connections → Data Sources** |
+
+Query LogQL para ver logs do Super Mario:
+```logql
+{kubernetes_namespace_name="games", kubernetes_container_name="super-mario"}
+```
+
+> ⚠️ Ajuste o intervalo de tempo para **"Last 1 hour"** antes de rodar a query — o Loki rejeita queries sem range de tempo explícito.
+
+---
+
+### Loki — acesso interno ao cluster
+
+O Loki não é exposto externamente. Acesso via:
+- **Grafana Explore** (caminho normal)
+- **Port-forward** para diagnóstico direto:
+
+```sh
+kubectl port-forward svc/loki-gateway -n monitoring 3100:80
+```
+
+Diagnóstico via API (depois do port-forward):
+
+**PowerShell:**
+```powershell
+# Namespaces indexados
+$start = [DateTimeOffset]::UtcNow.AddHours(-1).ToUnixTimeSeconds()
+Invoke-RestMethod "http://localhost:3100/loki/api/v1/label/kubernetes_namespace_name/values?start=$start"
+
+# Containers indexados
+Invoke-RestMethod "http://localhost:3100/loki/api/v1/label/kubernetes_container_name/values?start=$start"
+```
+
+**bash / zsh:**
+```bash
+start=$(date -d '1 hour ago' +%s)
+curl -sG "http://localhost:3100/loki/api/v1/label/kubernetes_namespace_name/values?start=$start"
+```
+
+Labels indexados pelo Fluent Bit neste módulo:
+
+| Label Loki | O que representa |
+|---|---|
+| `kubernetes_namespace_name` | Namespace do pod (ex: `games`) |
+| `kubernetes_pod_name` | Nome do pod |
+| `kubernetes_container_name` | Nome do container |
+| `job` | Sempre `fluent-bit` (label estático) |
+| Labels do pod | Labels definidos no `metadata.labels` do pod (ex: `app=super-mario`) |
+
+---
+
+### Alertmanager — http://localhost:9093
+
+| O que fazer | Caminho na UI |
+|---|---|
+| Ver alertas FIRING agora | **Alerts** |
+| Criar silêncio (suprimir alerta) | **Silences → New Silence** |
+| Verificar a config carregada | **Status** |
+
+Consultar alertas via API:
+
+**PowerShell:**
+```powershell
+Invoke-RestMethod "http://localhost:9093/api/v2/alerts" |
+  Select-Object -ExpandProperty labels |
+  Format-Table alertname, namespace, severity
+```
+
+**bash / zsh:**
+```bash
+curl -s http://localhost:9093/api/v2/alerts | jq '.[].labels | {alertname, namespace, severity}'
+```
+
+---
+
+### Mailhog — http://localhost:8025
+
+Caixa de entrada fake para receber os e-mails de alerta durante o desenvolvimento.
+
+```sh
+# Subir o Mailhog (se ainda não estiver rodando)
+kubectl apply -f manifests/mailhog.yaml
+
+# Ver se está Running
+kubectl get pods -n monitoring -l app=mailhog
+```
+
+> Se a porta 8025 não estiver no `cluster-config.yaml`, use port-forward:
+> ```sh
+> kubectl port-forward svc/mailhog -n monitoring 8025:8025
+> ```
+
+---
+
 ## 📁 Estrutura do Módulo
 
 ```
 modulo-03-monitoring/
-├── README.md                          ← Este arquivo
-├── QUICK-START.md                     ← Passo a passo completo
+├── README.md                               ← Este arquivo
+├── QUICK-START.md                          ← Passo a passo completo com explicações
 └── manifests/
-    ├── README.md                      ← Documentação dos manifestos
-    ├── cluster-config.yaml            ← Kind com todos os port mappings
-    ├── 03-four-golden-signals.yaml    ← PrometheusRule com alertas
-    └── values-fluent-bit.yaml         ← Configuração do Fluent Bit (output → Loki Gateway)
+    ├── README.md                           ← Documentação dos manifestos
+    ├── cluster-config.yaml                 ← Kind com todos os port mappings
+    ├── 03-four-golden-signals.yaml         ← PrometheusRule: alertas dos 4 Golden Signals
+    ├── values-fluent-bit.yaml              ← Helm values do Fluent Bit (output → Loki Gateway)
+    ├── mailhog.yaml                        ← Deployment+Service do Mailhog (SMTP fake local)
+    └── values-alertmanager-email.yaml      ← Helm values para alertas por e-mail
 ```
 
 ---
@@ -346,6 +497,67 @@ Os alertas estão definidos em [`manifests/03-four-golden-signals.yaml`](./manif
 
 ---
 
+## 📧 Receber Alertas por E-mail
+
+O Alertmanager roteia alertas FIRING para e-mail via SMTP. Este módulo inclui dois arquivos para configurar isso:
+
+| Arquivo | Função |
+|---|---|
+| `manifests/mailhog.yaml` | SMTP fake local — aceita qualquer e-mail, exibe em http://localhost:8025 |
+| `manifests/values-alertmanager-email.yaml` | Configura o roteamento de e-mail no Alertmanager via `helm upgrade` |
+
+### Aplicar (teste local com Mailhog)
+
+```sh
+# 1. Subir o Mailhog
+kubectl apply -f manifests/mailhog.yaml
+
+# 2. Atualizar o Alertmanager com a config de e-mail
+# PowerShell:
+helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack `
+  --namespace monitoring `
+  --reuse-values `
+  -f manifests/values-alertmanager-email.yaml
+
+# bash:
+helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --reuse-values \
+  -f manifests/values-alertmanager-email.yaml
+
+# 3. Aguardar o Alertmanager reiniciar
+kubectl rollout status statefulset/alertmanager-kind-prometheus-kube-prome-alertmanager -n monitoring
+
+# 4. Disparar carga para acionar os alertas
+kubectl apply -f ../modulo-02-deploy-app/manifests/04-stress-test-fortio.yaml
+
+# 5. Após ~5 minutos: abrir http://localhost:8025 para ver os e-mails
+```
+
+### Roteamento configurado
+
+```
+Prometheus FIRING
+    │
+    ├── alertname = Watchdog ou InfoInhibitor  →  descartado (sem notificação)
+    ├── severity = critical                    →  e-mail imediato (repeat: 30min)
+    └── qualquer outro                         →  e-mail agrupado (group_wait: 30s)
+                                                       │
+                                               mailhog:1025 (SMTP)
+                                               http://localhost:8025 (UI)
+```
+
+### Para usar Gmail em produção
+
+1. Gere uma **App Password** em https://myaccount.google.com/apppasswords
+2. No arquivo `values-alertmanager-email.yaml`, comente o bloco Mailhog e descomente o bloco Gmail
+3. Substitua os campos `<seu-email>` e `<sua-app-password>`
+4. Repita o `helm upgrade` acima
+
+> ⚠️ Nunca versione a senha em texto simples. Use um Secret Kubernetes ou variável de ambiente injetada pelo CI/CD.
+
+---
+
 ## 🧪 Questões de Fixação
 
 **Fase 1 — Os Três Pilares**
@@ -365,6 +577,12 @@ Os alertas estão definidos em [`manifests/03-four-golden-signals.yaml`](./manif
 7. O Fluent Bit roda como DaemonSet. O que isso significa em termos práticos para um cluster com 5 nodes?
 8. Qual é a diferença entre `Node Exporter` e `kube-state-metrics`? Você precisaria dos dois se tivesse apenas um node?
 9. Se o Alertmanager receber o mesmo alerta 50 vezes em 1 minuto (de 50 pods diferentes), ele dispara 50 notificações? O que evita isso?
+
+**Fase 4 — Logs e E-mail**
+
+10. Por que o label do Loki para o namespace chama `kubernetes_namespace_name` e não só `namespace`? De onde vem esse nome?
+11. Você configurou o Mailhog para receber alertas. Quais mudanças seriam necessárias para trocar para um SMTP real em produção sem reinstalar o Alertmanager?
+12. No `values-alertmanager-email.yaml`, existe uma rota que descarta os alertas `Watchdog` e `InfoInhibitor`. Por que esses alertas existem no Prometheus mas não devem gerar e-mails?
 
 ---
 
