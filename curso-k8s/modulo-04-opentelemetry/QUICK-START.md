@@ -864,6 +864,99 @@ done
 
 ---
 
+## Etapa 9.3: Alertas de Latência p99 no Grafana
+
+### Como funciona o provisionamento
+
+O Grafana tem um sidecar (`grafana-sc-alerts`) que monitora ConfigMaps com o label `grafana_alert: "1"` e os carrega automaticamente como regras de alerta — sem precisar clicar na UI.
+
+O arquivo `manifests/05-grafana-alert-rules-latency.yaml` segue esse padrão: basta aplicar e as regras aparecem na pasta **OTel — Ranking API** do Grafana Alerting.
+
+### Pré-requisito: sidecar de alertas ativo
+
+Verifique se já está habilitado no módulo 03:
+
+```bash
+kubectl get deployment -n monitoring kind-prometheus-grafana \
+  -o jsonpath='{.spec.template.spec.containers[*].name}'
+```
+
+Se `grafana-sc-alerts` aparecer na lista, já está ativo. Caso contrário, atualize o Helm do módulo 03:
+
+```yaml
+# curso-k8s/modulo-03-monitoring/helm-values/values-prometheus-stack.yaml
+grafana:
+  sidecar:
+    alerts:
+      enabled: true
+```
+
+```powershell
+# PowerShell — atualiza o release do módulo 03
+helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack `
+  -n monitoring `
+  -f ..\modulo-03-monitoring\helm-values\values-prometheus-stack.yaml
+```
+
+### Aplicar as regras
+
+```powershell
+kubectl apply -f manifests/05-grafana-alert-rules-latency.yaml
+```
+
+```bash
+kubectl apply -f manifests/05-grafana-alert-rules-latency.yaml
+```
+
+Verificar carregamento (aguarde ~30s):
+
+```
+Grafana → Alerting → Alert Rules → pasta "OTel — Ranking API"
+```
+
+### As 4 regras criadas
+
+| Alerta | Threshold | Severidade | `for` | O que indica |
+|---|---|---|---|---|
+| Latência p99 Alta — /rankings | p99 > 300ms | warning | 3m | Leitura do ranking lenta |
+| Latência p99 Alta — /score | p99 > 300ms | warning | 3m | Submissão de score lenta |
+| Latência p99 Crítica — Ranking API degradada | `max(p99)` > 500ms | critical | 5m | Qualquer endpoint (exceto /health e /slow) degradado |
+| Regressão no /slow — p99 acima do baseline | p99 > 3000ms | warning | 3m | Endpoint lento piorou além do esperado (~1-2s) |
+
+> **Por que thresholds diferentes para /slow?** O `/slow` tem um `time.sleep()` intencional que eleva o p99 para ~1-2s em condições normais. Alertar em 300ms seria ruído constante. O threshold de 3000ms detecta quando algo **além** do sleep acontece (regressão real).
+
+### Testar um alerta manualmente
+
+Simule latência alta no `/rankings` fazendo muitas requisições simultâneas:
+
+```powershell
+# Abre 10 requisições paralelas por 4 minutos
+1..10 | ForEach-Object -Parallel {
+    for ($i = 1; $i -le 50; $i++) {
+        Invoke-RestMethod http://localhost:8082/rankings | Out-Null
+    }
+} -ThrottleLimit 10
+```
+
+Após ~3 minutos, o alerta **"Latência p99 Alta — /rankings"** deve transitar para `Firing` no Grafana Alerting.
+
+### Fluxo de investigação a partir do alerta
+
+```
+1. Grafana → Alerting → Alert Rules → clique no alerta Firing
+2. Copie o timestamp do início do Firing
+3. Abra o dashboard "p99 por Endpoint" → identifique qual rota
+4. Grafana → Explore → Datasource: Tempo
+   Query: { resource.service.name = "ranking-api" && duration > 200ms }
+   → Filtre pelo timestamp do alerta
+5. Abra o trace mais lento → waterfall mostra o span responsável
+6. Grafana → Explore → Datasource: Loki
+   Query: {service_name="ranking-api"} | json | traceID = "<traceID do trace lento>"
+   → Log da requisição com contexto completo
+```
+
+---
+
 ## Etapa 10: Correlacionando Traces → Logs
 
 
