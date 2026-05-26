@@ -159,7 +159,7 @@ flowchart LR
         direction TB
         TEMPO["Tempo :3200\nTraceQL\nex: { status = error }"]
         PROM["Prometheus :9090\nPromQL\nex: rate(api_errors_total[5m])"]
-        LOKI["Loki :3100\nLogQL\nex: {service_name='ranking-api', level='ERROR'}"]
+        LOKI["Loki :3100\nLogQL\nex: {service_name='ranking-api', exporter='OTLP'}"]
     end
 
     GRAFANA["Grafana :3000\nTrace → Logs\nTrace → Metrics"]
