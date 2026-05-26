@@ -503,17 +503,18 @@ http://localhost:9090 → Graph:
 # Total de scores submetidos
 scores_submitted_total
 
-# Taxa de erros da API (por minuto)
+# Taxa de erros da API (por minuto) — requer pelo menos 1 erro gerado
 rate(api_errors_total[1m])
 
-# Requisições HTTP por endpoint
-rate(http_server_duration_count{service_name="ranking-api"}[5m])
+# Requisições HTTP por endpoint (histograma)
+rate(http_server_duration_milliseconds_count{service_name="ranking-api"}[5m])
 
-# Confirmar que o scrape está ativo (deve retornar o target do Collector)
-up{job="otel-collector"}
+# Confirmar que o scrape do Collector está ativo
+up{job="monitoring/otel-collector"}
 ```
 
-> 💡 O sufixo `_total` duplo aparece porque o OTel SDK já nomeia contadores com `_total` e o Prometheus adiciona outro ao exportar. Se as métricas não aparecerem, aguarde ~30s para o Prometheus completar o primeiro scrape e verifique em **http://localhost:9090 → Status → Targets** se o target `otel-collector` está `UP`.
+> 💡 Se as métricas não aparecerem, aguarde ~30s para o Prometheus completar o primeiro scrape e verifique em **http://localhost:9090 → Status → Targets** — o target `monitoring/otel-collector` deve estar `UP`.  
+> `api_errors_total` só aparece após pelo menos um erro ter sido gerado (tente `/score` com payload inválido).
 
 ---
 
