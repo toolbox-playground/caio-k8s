@@ -281,22 +281,6 @@ kubectl get svc -n monitoring | grep tempo
 
 > ⚠️ Se o `Save & Test` do Tempo retornar `i/o timeout`, o pod pode estar em `Pending`. Verifique com `kubectl get pods -n monitoring | grep tempo`.
 
-### Adicionar Tempo
-
-```
-http://localhost:3000
-→ Connections → Data Sources → Add data source → Tempo
-→ URL: http://tempo.monitoring.svc.cluster.local:3200
-→ Save & Test
-```
-
-Ativar correlação Trace → Logs (opcional mas recomendado):
-```
-Em "Trace to logs":
-  Data source: Loki
-  Tags: service.name, pod
-```
-
 ### Adicionar Loki
 
 ```
@@ -307,6 +291,18 @@ http://localhost:3000
 ```
 
 > ✅ O Loki não precisa de autenticação (instalado com `auth_enabled=false`). O `Save & Test` deve retornar sucesso imediato.
+
+### Adicionar Tempo
+
+```
+http://localhost:3000
+→ Connections → Data Sources → Add data source → Tempo
+→ URL: http://tempo.monitoring.svc.cluster.local:3200
+Em "Trace to logs":
+  Data source: Loki
+  Tags: service.name, pod
+→ Save & Test
+```
 
 ---
 
