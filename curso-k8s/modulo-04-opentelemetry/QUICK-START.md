@@ -582,9 +582,17 @@ Com o trace aberto no waterfall:
 1. Clique no span com erro (ex: "submit-score" ou "get-player-score")
 2. No painel lateral direito, localize "Logs for this span"
    → Clique no ícone de log (📋) ao lado do span
-3. O Grafana abre automaticamente o Loki com o filtro:
-   {job="..."} | trace_id = "<id-do-trace>"
+3. O Grafana abre o Loki Explore com:
+   - Seletor: {service_name="ranking-api"}
+   - Time range: ajustado automaticamente para o momento exato do span
 ```
+
+> 💡 A correlação funciona pelo **tempo**, não pelo `trace_id`. O Grafana abre o Loki já posicionado na janela de tempo daquele span, então você vê os logs daquele pod naquele instante exato.
+>
+> Se quiser filtrar pelo `trace_id` específico, copie o ID do trace no Tempo e adicione manualmente na query do Loki:
+> ```
+> {service_name="ranking-api"} | json | traceID = "abc123..."
+> ```
 
 > 💡 Para a correlação funcionar, o datasource Tempo precisa ter "Trace to logs" configurado com:
 > ```
@@ -601,18 +609,24 @@ Se quiser buscar os logs de erro sem passar pelo Tempo:
 http://localhost:3000
 → Explore
 → Datasource: Loki
+→ Ajuste o time range para "Last 6 hours" (canto superior direito)
 
-# Todos os logs de erro da Ranking API
-{service_name="ranking-api"} | json | level = "error"
+# Todos os logs da Ranking API
+{service_name="ranking-api"}
 
-# Logs do endpoint /score com erros de validação
-{service_name="ranking-api"} | json | level = "error" | line_format "{{.message}}"
+# Apenas erros (level é um label — não precisa de | json)
+{service_name="ranking-api", level="ERROR"}
 
-# Logs com trace_id (para correlacionar manualmente)
-{service_name="ranking-api"} | json | trace_id != ""
+# Warnings (jogador não encontrado)
+{service_name="ranking-api", level="WARN"}
+
+# Logs com trace_id injetado pelo OTel (para correlacionar manualmente)
+{service_name="ranking-api"} | json | traceid != ""
 ```
 
-> ⚠️ Se os logs não aparecerem, ajuste o intervalo de tempo para "Last 15 minutes" no canto superior direito do Grafana Explore.
+> ⚠️ Se aparecer "No logs volume available", é só o histograma de volume — clique em **Run query** assim mesmo. Os logs existem mas o histograma requer um time range mais amplo.
+>
+> 💡 O campo `level` já é um **label de stream** no Loki (injetado pelo OTel Collector). Use-o diretamente no seletor `{}` em vez de fazer `| json | level = "error"`.
 
 ---
 
