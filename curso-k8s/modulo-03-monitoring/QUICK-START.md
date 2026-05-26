@@ -1,5 +1,16 @@
 ﻿# 🚀 Módulo 03 — Guia de Início Rápido
 
+> ⚠️ **Todos os comandos deste guia devem ser executados de dentro da pasta `modulo-03-monitoring/`:**
+>
+> **PowerShell:**
+> ```powershell
+> cd curso-k8s/modulo-03-monitoring
+> ```
+> **bash / zsh:**
+> ```bash
+> cd curso-k8s/modulo-03-monitoring
+> ```
+
 ## Pré-condição: Módulo 02 concluído
 
 O Super Mario e o HPA precisam estar rodando. Verifique:

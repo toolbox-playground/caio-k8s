@@ -1,5 +1,16 @@
 # 🚀 Módulo 04 — Guia de Início Rápido
 
+> ⚠️ **Todos os comandos deste guia devem ser executados de dentro da pasta `modulo-04-opentelemetry/`:**
+>
+> **PowerShell:**
+> ```powershell
+> cd curso-k8s/modulo-04-opentelemetry
+> ```
+> **bash / zsh:**
+> ```bash
+> cd curso-k8s/modulo-04-opentelemetry
+> ```
+
 ## Pré-condição: Módulo 03 concluído
 
 Prometheus, Grafana, Loki e Fluent Bit precisam estar rodando:
