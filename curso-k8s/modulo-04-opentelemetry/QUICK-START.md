@@ -267,7 +267,21 @@ kubectl get pods -n monitoring | grep tempo
 
 ---
 
-## Etapa 2: Adicionar Tempo como datasource no Grafana
+## Etapa 2: Adicionar Tempo e Loki como datasources no Grafana
+
+Antes de configurar, verifique o serviço do Tempo para confirmar a porta real:
+
+**PowerShell e bash:**
+
+```sh
+kubectl get svc -n monitoring | grep tempo
+# NAME    TYPE        CLUSTER-IP      PORT(S)
+# tempo   ClusterIP   10.96.x.x       3100/TCP, ...
+```
+
+> ⚠️ Se o `Save & Test` do Tempo retornar `i/o timeout`, o pod pode estar em `Pending` ou a porta diverge da listada acima. Verifique com `kubectl get pods -n monitoring | grep tempo` e ajuste a URL conforme o `PORT(S)` real.
+
+### Adicionar Tempo
 
 ```
 http://localhost:3000
@@ -282,6 +296,17 @@ Em "Trace to logs":
   Data source: Loki
   Tags: service.name, pod
 ```
+
+### Adicionar Loki
+
+```
+http://localhost:3000
+→ Connections → Data Sources → Add data source → Loki
+→ URL: http://loki-gateway.monitoring.svc.cluster.local
+→ Save & Test
+```
+
+> ✅ O Loki não precisa de autenticação (instalado com `auth_enabled=false`). O `Save & Test` deve retornar sucesso imediato.
 
 ---
 
