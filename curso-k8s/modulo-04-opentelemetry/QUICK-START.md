@@ -198,6 +198,28 @@ kubectl wait --for=condition=ready pod \
 
 > ✅ Com a stack de monitoring no ar, volte ao início deste guia e siga a partir da **Etapa 1**.
 
+### Passo 10 — Recuperar a senha admin do Grafana
+
+O Grafana é instalado com senha gerada automaticamente e armazenada em um Secret do Kubernetes.
+
+**PowerShell:**
+
+```powershell
+kubectl --namespace monitoring get secret kind-prometheus-grafana `
+  -o jsonpath="{.data.admin-password}" |
+  ForEach-Object { [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_)) }
+```
+
+**bash / zsh:**
+
+```bash
+kubectl --namespace monitoring get secret kind-prometheus-grafana \
+  -o jsonpath="{.data.admin-password}" | base64 --decode
+```
+
+> 💡 Login padrão: usuário `admin`, senha retornada pelo comando acima.  
+> Acesse o Grafana em **http://localhost:3000**
+
 ---
 
 ## Etapa 1: Instalar o Grafana Tempo
