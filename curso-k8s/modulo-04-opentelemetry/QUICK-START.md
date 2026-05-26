@@ -317,9 +317,16 @@ kubectl create namespace otel
 
 kubectl apply -f manifests/k8s/03-otel-collector.yaml
 
+# PodMonitor: instrui o Prometheus a fazer scrape das métricas do Collector
+kubectl apply -f manifests/k8s/04-podmonitor-otel-collector.yaml
+
 # Verificar
 kubectl get pods -n otel
 # otel-collector-xxxx   1/1   Running   0
+
+kubectl get podmonitor -n monitoring
+# NAME             AGE
+# otel-collector   10s
 ```
 
 ---
@@ -500,8 +507,13 @@ scores_submitted_total
 rate(api_errors_total[1m])
 
 # Requisições HTTP por endpoint
-rate(http_server_duration_count{job="ranking-api"}[5m])
+rate(http_server_duration_count{service_name="ranking-api"}[5m])
+
+# Confirmar que o scrape está ativo (deve retornar o target do Collector)
+up{job="otel-collector"}
 ```
+
+> 💡 O sufixo `_total` duplo aparece porque o OTel SDK já nomeia contadores com `_total` e o Prometheus adiciona outro ao exportar. Se as métricas não aparecerem, aguarde ~30s para o Prometheus completar o primeiro scrape e verifique em **http://localhost:9090 → Status → Targets** se o target `otel-collector` está `UP`.
 
 ---
 

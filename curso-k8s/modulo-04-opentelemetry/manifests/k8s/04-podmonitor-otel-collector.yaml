@@ -1,0 +1,42 @@
+# ============================================================
+# PodMonitor — OTel Collector
+# ============================================================
+# Instrui o Prometheus Operator a fazer scrape das métricas
+# da aplicação exportadas pelo OTel Collector na porta 8889.
+#
+# Por que PodMonitor e não ServiceMonitor?
+# O Collector está em namespace diferente (otel) do Prometheus
+# (monitoring). O PodMonitor com namespaceSelector é a forma
+# mais direta de cruzar namespaces sem criar um Service extra.
+#
+# O label "release: kind-prometheus" é obrigatório — o Prometheus
+# Operator só descobre PodMonitors que o satisfaçam:
+#   kubectl get prometheus -n monitoring \
+#     -o jsonpath='{.items[*].spec.podMonitorSelector}'
+#
+# Aplicar: kubectl apply -f 04-podmonitor-otel-collector.yaml
+# ============================================================
+
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: otel-collector
+  namespace: monitoring
+  labels:
+    release: kind-prometheus   # obrigatório para o Prometheus Operator descobrir
+spec:
+  # Procura pods no namespace otel
+  namespaceSelector:
+    matchNames:
+      - otel
+
+  # Seleciona os pods do Collector pelo label
+  selector:
+    matchLabels:
+      app: otel-collector
+
+  # Scrape da porta que expõe as métricas das aplicações
+  podMetricsEndpoints:
+    - port: metrics-app   # containerPort: 8889 — métricas das apps
+      path: /metrics
+      interval: 15s

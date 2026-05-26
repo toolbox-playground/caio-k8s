@@ -74,10 +74,10 @@ data:
           insecure: true
 
       # Métricas → Prometheus (Collector expõe endpoint /metrics)
-      # O Prometheus faz scrape neste endpoint
+      # O Prometheus faz scrape neste endpoint via PodMonitor
+      # (04-podmonitor-otel-collector.yaml)
       prometheus:
         endpoint: 0.0.0.0:8889
-        namespace: otelcol
         resource_to_telemetry_conversion:
           enabled: true  # inclui resource attributes como labels Prometheus
 
