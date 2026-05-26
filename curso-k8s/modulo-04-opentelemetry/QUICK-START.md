@@ -665,7 +665,130 @@ up{job="monitoring/otel-collector"}
 
 ---
 
+## Etapa 9.1: Dashboard de Latência p99
+
+### O que é um percentil?
+
+Imagine 100 requisições ao endpoint `/slow`, ordenadas da mais rápida para a mais lenta:
+
+```
+Requisição  1 →   42ms  ← mais rápida
+Requisição  2 →   45ms
+...
+Requisição 50 →   95ms  ← p50 (mediana): 50% das req estão abaixo disso
+...
+Requisição 95 →  180ms  ← p95: 95% estão abaixo
+...
+Requisição 99 →  450ms  ← p99: 99% estão abaixo — o pior caso comum
+Requisição 100 → 2400ms ← outlier extremo (GC pause, cold start, etc.)
+```
+
+| Percentil | O que significa | Quando usar |
+|---|---|---|
+| **p50** | Mediana — experiência do usuário "típico" | Baseline de saúde geral |
+| **p95** | 1 em 20 usuários espera mais que isso | SLOs de API |
+| **p99** | 1 em 100 usuários — captura o pior caso comum | Investigar gargalos reais |
+| **média** | Distorcida por outliers — pode esconder problemas | Evitar para latência |
+
+> **Por que não usar média?** Se 99 requisições demoram 10ms e 1 demora 10.000ms, a média é ~109ms. Isso sugere que "está lento" quando na prática 99% dos usuários estão rápidos. O p99 revela o problema sem distorcer o resto.
+
+### De onde vem o p99?
+
+O OTel SDK instrumenta automaticamente cada requisição e registra a duração em um **histogram**. O histogram divide as durações em "baldes" (`le` = "less than or equal"):
+
+```
+request_duration_ms_bucket{endpoint="/slow", le="100"} 12    ← 12 req terminaram em ≤ 100ms
+request_duration_ms_bucket{endpoint="/slow", le="200"} 34    ← 34 req terminaram em ≤ 200ms
+request_duration_ms_bucket{endpoint="/slow", le="500"} 41    ← 41 req terminaram em ≤ 500ms
+request_duration_ms_bucket{endpoint="/slow", le="+Inf"} 42   ← total: 42 req
+```
+
+O Prometheus calcula o percentil interpolando esses baldes com `histogram_quantile()`:
+
+```promql
+histogram_quantile(0.99,
+  sum(rate(request_duration_ms_bucket{service_name="ranking-api"}[5m])) by (le, endpoint)
+)
+```
+
+- `rate(...[5m])` — taxa de incremento dos baldes nos últimos 5 minutos
+- `sum(...) by (le, endpoint)` — agrupa por balde e endpoint (um p99 por endpoint)
+- `histogram_quantile(0.99, ...)` — interpola onde estaria o 99º percentil
+
+### Importar o dashboard no Grafana
+
+```
+http://localhost:3000
+→ Dashboards → New → Import
+→ Clique em "Upload dashboard JSON file"
+→ Selecione: grafana-dashboards/latencia-p99.json
+→ Configure os datasources:
+    Prometheus → selecione o datasource Prometheus
+    Tempo      → selecione o datasource Tempo
+→ Import
+```
+
+O dashboard tem 5 painéis:
+
+| Painel | O que mostra |
+|---|---|
+| Latência por Percentil (todos) | p50/p95/p99 agregados — visão geral da saúde |
+| Latência p99 por endpoint | Qual endpoint está causando o pico |
+| p99 atual (stat) | Valor instantâneo com cor por threshold |
+| Taxa de erros por endpoint | Correlaciona erros com picos de latência |
+| Throughput por endpoint | Volume — diferencia saturação de cold start |
+
+### Gerar carga e observar o p99
+
+**PowerShell:**
+
+```powershell
+# Gera carga mista: /slow (lento), /rankings (normal), /score com erro (falha)
+for ($i = 1; $i -le 30; $i++) {
+    Invoke-RestMethod http://localhost:8082/slow | Out-Null
+    Invoke-RestMethod http://localhost:8082/rankings | Out-Null
+    try { Invoke-RestMethod -Method Post -Uri http://localhost:8082/score `
+        -ContentType "application/json" `
+        -Body '{"player":"stress","score":-1}' } catch {}
+}
+```
+
+**bash / zsh:**
+
+```bash
+for i in $(seq 1 30); do
+  curl -s http://localhost:8082/slow > /dev/null
+  curl -s http://localhost:8082/rankings > /dev/null
+  curl -s -X POST http://localhost:8082/score \
+    -H "Content-Type: application/json" \
+    -d '{"player":"stress","score":-1}' > /dev/null
+done
+```
+
+### Correlacionar o pico do p99 com um trace
+
+Esta é a feature central do OTel: você vê **onde** a latência está no gráfico e vai direto para o **porquê** no trace.
+
+```
+1. No dashboard, identifique um pico no p99 do endpoint /slow
+2. Anote o timestamp do pico (ex: 14:23:15)
+3. Abra: Grafana → Explore → Datasource: Tempo
+4. Execute a query TraceQL correspondente:
+
+   { resource.service.name = "ranking-api" && span.http.target = "/slow" && duration > 200ms }
+
+5. Filtre os resultados pelo timestamp do pico
+6. Abra o trace mais lento → veja no waterfall qual span interno causou o atraso
+   (ex: "db-read-primary" demorou 400ms naquela requisição específica)
+```
+
+> 💡 **Regra prática:** p99 alto + throughput normal → problema de latência pontual (busque traces lentos).  
+> p99 alto + taxa de erro alta → problema de falha (busque traces com `status = error`).
+
+---
+
 ## Etapa 10: Correlacionando Traces → Logs
+
 
 ### O modelo de dados do Loki
 
