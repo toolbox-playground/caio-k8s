@@ -27,6 +27,13 @@ metadata:
 data:
   config.yaml: |
 
+    # ── Extensions: funcionalidades extras do Collector ──────
+    extensions:
+      # Expõe endpoint de health check na porta 13133
+      # Usado pela readinessProbe do Kubernetes
+      health_check:
+        endpoint: 0.0.0.0:13133
+
     # ── Receivers: como o Collector recebe dados ─────────────
     receivers:
       otlp:
@@ -108,6 +115,8 @@ data:
       telemetry:
         metrics:
           address: 0.0.0.0:8888
+      # Ativar extensões no service
+      extensions: [health_check]
 
 ---
 # ── Deployment: o processo do Collector ──────────────────────
@@ -155,6 +164,8 @@ spec:
           containerPort: 8889   # expõe métricas das aplicações para Prometheus
         - name: metrics-self
           containerPort: 8888   # expõe métricas internas do Collector
+        - name: health-check
+          containerPort: 13133  # health check (usado pela readinessProbe)
 
         volumeMounts:
         - name: config
