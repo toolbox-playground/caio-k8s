@@ -11,6 +11,170 @@ kubectl get pods -n monitoring
 # Todos devem estar Running antes de continuar
 ```
 
+Se já estiver tudo `Running`, pule direto para a **Etapa 1**.  
+Se ainda não subiu o Módulo 03, siga a seção abaixo.
+
+---
+
+## Subindo o Módulo 03 do zero (cluster + monitoring stack completo)
+
+> 🎯 **Cenário:** você pulou os módulos anteriores ou deletou o cluster e quer chegar no estado necessário para este módulo com um único bloco de comandos.
+
+### Passo 1 — Recriar o cluster Kind com as portas do Módulo 03
+
+**PowerShell e bash:**
+
+```sh
+# Deletar cluster anterior se existir (ignorar erro se não existir)
+kind delete cluster --name k8s-essentials
+
+# Recriar com o config do Módulo 03 (expõe portas do Prometheus, Grafana, etc.)
+kind create cluster --config ../modulo-03-monitoring/manifests/cluster-config.yaml
+```
+
+### Passo 2 — Instalar o Metrics Server (necessário para o HPA)
+
+**PowerShell e bash:**
+
+```sh
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+kubectl patch deployment metrics-server -n kube-system \
+  --type=json \
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+```
+
+> ⚠️ O patch é necessário porque o Kind usa certificados TLS autoassinados no kubelet. Sem ele o `kubectl top` falha e o HPA não consegue escalar. Não use em produção.
+
+### Passo 3 — Instalar o Super Mario (Módulo 02)
+
+**PowerShell e bash:**
+
+```sh
+kubectl create namespace games
+
+kubectl apply -f ../modulo-02-deploy-app/manifests/01-deployment-mario.yaml
+kubectl apply -f ../modulo-02-deploy-app/manifests/02-service-mario.yaml
+kubectl apply -f ../modulo-02-deploy-app/manifests/03-hpa.yaml
+```
+
+### Passo 4 — Adicionar repositórios Helm
+
+**PowerShell e bash:**
+
+```sh
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add fluent https://fluent.github.io/helm-charts
+helm repo update
+```
+
+### Passo 5 — Criar o namespace de monitoramento
+
+**PowerShell e bash:**
+
+```sh
+kubectl create namespace monitoring
+```
+
+### Passo 6 — Instalar o kube-prometheus-stack (Prometheus + Grafana + Alertmanager)
+
+**PowerShell:**
+
+```powershell
+helm install kind-prometheus prometheus-community/kube-prometheus-stack `
+  --namespace monitoring `
+  -f ../modulo-03-monitoring/helm-values/values-prometheus-stack.yaml
+```
+
+**bash / zsh:**
+
+```bash
+helm install kind-prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  -f ../modulo-03-monitoring/helm-values/values-prometheus-stack.yaml
+```
+
+### Passo 7 — Instalar o Loki (backend de logs)
+
+**PowerShell:**
+
+```powershell
+helm install loki grafana/loki `
+  --namespace monitoring `
+  -f ../modulo-03-monitoring/helm-values/values-loki.yaml
+```
+
+**bash / zsh:**
+
+```bash
+helm install loki grafana/loki \
+  --namespace monitoring \
+  -f ../modulo-03-monitoring/helm-values/values-loki.yaml
+```
+
+### Passo 8 — Instalar o Fluent Bit (agente de coleta de logs)
+
+**PowerShell:**
+
+```powershell
+helm install fluent-bit fluent/fluent-bit `
+  --namespace monitoring `
+  -f ../modulo-03-monitoring/helm-values/values-fluent-bit.yaml
+```
+
+**bash / zsh:**
+
+```bash
+helm install fluent-bit fluent/fluent-bit \
+  --namespace monitoring \
+  -f ../modulo-03-monitoring/helm-values/values-fluent-bit.yaml
+```
+
+### Passo 9 — Aguardar toda a stack subir
+
+**PowerShell e bash:**
+
+```sh
+kubectl get pods -n monitoring -w
+```
+
+Estado esperado (todos `Running`):
+
+```
+alertmanager-kind-prometheus-kube-prome-alertmanager-0   2/2   Running
+kind-prometheus-grafana-xxxx                             3/3   Running
+kind-prometheus-kube-prome-operator-xxxx                 1/1   Running
+kind-prometheus-kube-state-metrics-xxxx                  1/1   Running
+kind-prometheus-prometheus-node-exporter-xxxx            1/1   Running
+prometheus-kind-prometheus-kube-prome-prometheus-0       2/2   Running
+loki-0                                                   1/1   Running
+loki-gateway-xxxx                                        1/1   Running
+fluent-bit-xxxx                                          1/1   Running
+```
+
+Ou aguardar tudo de uma vez:
+
+**PowerShell:**
+
+```powershell
+kubectl wait --for=condition=ready pod `
+  --selector=app.kubernetes.io/instance=kind-prometheus `
+  --namespace monitoring `
+  --timeout=300s
+```
+
+**bash / zsh:**
+
+```bash
+kubectl wait --for=condition=ready pod \
+  --selector=app.kubernetes.io/instance=kind-prometheus \
+  --namespace monitoring \
+  --timeout=300s
+```
+
+> ✅ Com a stack de monitoring no ar, volte ao início deste guia e siga a partir da **Etapa 1**.
+
 ---
 
 ## Etapa 1: Instalar o Grafana Tempo
