@@ -234,27 +234,18 @@ O Tempo é o backend de traces. Ele recebe spans do OTel Collector e os armazena
 helm repo update
 ```
 
-**PowerShell:**
+**PowerShell e bash:**
 
-```powershell
-helm install tempo grafana/tempo `
-  --namespace monitoring `
-  --set tempo.storage.trace.backend=local `
-  --set tempo.storage.trace.local.path=/var/tempo/traces `
-  --set tempo.receivers.otlp.protocols.grpc.endpoint=0.0.0.0:4317 `
-  --set tempo.receivers.otlp.protocols.http.endpoint=0.0.0.0:4318
-```
-
-**bash / zsh:**
-
-```bash
+```sh
 helm install tempo grafana/tempo \
   --namespace monitoring \
-  --set tempo.storage.trace.backend=local \
-  --set tempo.storage.trace.local.path=/var/tempo/traces \
-  --set tempo.receivers.otlp.protocols.grpc.endpoint=0.0.0.0:4317 \
-  --set tempo.receivers.otlp.protocols.http.endpoint=0.0.0.0:4318
+  -f helm-values/values-tempo.yaml
 ```
+
+> As configurações do Tempo estão em [helm-values/values-tempo.yaml](./helm-values/values-tempo.yaml):
+> - `backend: local` — armazena traces em PVC (suficiente para Kind)
+> - `grpc: 0.0.0.0:4317` — porta que o OTel Collector usa para enviar traces
+> - `http: 0.0.0.0:4318` — porta alternativa OTLP/HTTP
 
 Verificar:
 
@@ -363,10 +354,10 @@ O Collector recebe traces, métricas e logs das aplicações e distribui para Te
 ```sh
 kubectl create namespace otel
 
-kubectl apply -f manifests/k8s/03-otel-collector.yaml
+kubectl apply -f manifests/03-otel-collector.yaml
 
 # PodMonitor: instrui o Prometheus a fazer scrape das métricas do Collector
-kubectl apply -f manifests/k8s/04-podmonitor-otel-collector.yaml
+kubectl apply -f manifests/04-podmonitor-otel-collector.yaml
 
 # Verificar
 kubectl get pods -n otel
@@ -387,7 +378,7 @@ A Ranking API é a aplicação instrumentada com OTel SDK. Precisamos fazer o bu
 
 ```sh
 # Entrar na pasta da aplicação
-cd manifests/app
+cd app
 
 # Build da imagem Docker
 docker build -t ranking-api:latest .
@@ -396,7 +387,7 @@ docker build -t ranking-api:latest .
 kind load docker-image ranking-api:latest --name k8s-essentials
 
 # Voltar para a raiz do módulo
-cd ../..
+cd ..```
 ```
 
 Verificar que a imagem foi carregada:
@@ -414,8 +405,8 @@ docker exec k8s-essentials-control-plane crictl images | grep ranking-api
 **PowerShell e bash:**
 
 ```sh
-kubectl apply -f manifests/k8s/01-deployment-ranking-api.yaml
-kubectl apply -f manifests/k8s/02-service-ranking-api.yaml
+kubectl apply -f manifests/01-deployment-ranking-api.yaml
+kubectl apply -f manifests/02-service-ranking-api.yaml
 
 # Aguardar pods ficarem Ready
 kubectl wait --for=condition=ready pod \
@@ -806,11 +797,11 @@ http://localhost:3000
 
 ```sh
 # Remover a Ranking API
-kubectl delete -f manifests/k8s/01-deployment-ranking-api.yaml
-kubectl delete -f manifests/k8s/02-service-ranking-api.yaml
+kubectl delete -f manifests/01-deployment-ranking-api.yaml
+kubectl delete -f manifests/02-service-ranking-api.yaml
 
 # Remover o OTel Collector
-kubectl delete -f manifests/k8s/03-otel-collector.yaml
+kubectl delete -f manifests/03-otel-collector.yaml
 kubectl delete namespace otel
 
 # Remover o Tempo

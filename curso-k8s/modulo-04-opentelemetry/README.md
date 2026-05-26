@@ -110,6 +110,128 @@ Aplicação → OTLP → Collector → Tempo     (traces)
 
 ## 🏗️ Arquitetura do Stack
 
+### Pipeline MELT — da linha de código ao gráfico no Grafana
+
+**MELT** é o acrônimo dos quatro sinais de observabilidade que o OpenTelemetry padroniza:
+
+| Sinal | O que é | Criado com | Destino |
+|---|---|---|---|
+| **M** — Metrics | Contadores, histogramas, gauges | `meter.create_counter()` / `create_histogram()` | Prometheus |
+| **E** — Events | Eventos pontuais dentro de um span | `span.add_event()` | Tempo (junto com o trace) |
+| **L** — Logs | Linhas de log estruturadas | `logger.info/warning/error()` | Loki |
+| **T** — Traces | Árvore de spans de uma requisição | `tracer.start_as_current_span()` | Tempo |
+
+> **E (Events) na prática:** Span Events são logs acoplados a um span específico — eles viajam junto com o trace, não têm pipeline separado. Úteis para registrar momentos importantes dentro de um span, como "cache invalidado" ou "retry iniciado". Aparecem na linha do tempo do span no Tempo.
+
+---
+
+### Diagrama de fluxo completo
+
+```mermaid
+flowchart LR
+    subgraph CODE["main.py — Instrumentação"]
+        direction TB
+        M["M — Metrics\ncreate_counter()\ncreate_histogram()"]
+        E["E — Events\nspan.add_event()"]
+        L["L — Logs\nlogger.info/warn/error()"]
+        T["T — Traces\nstart_as_current_span()"]
+    end
+
+    subgraph SDK["OTel SDK"]
+        direction TB
+        MR["PeriodicExportingMetricReader\nexport a cada 5s via OTLP"]
+        BSP["BatchSpanProcessor\nEvents viajam dentro do span"]
+        BLP["BatchLogRecordProcessor\nenvia logs em lotes"]
+    end
+
+    subgraph COL["OTel Collector :4317\nnamespace: otel"]
+        direction TB
+        RCV["Receiver: OTLP"]
+        subgraph PIPES["Pipelines"]
+            direction TB
+            PT["traces\nbatch · memory_limiter"]
+            PM["metrics\nbatch · memory_limiter"]
+            PL["logs\nbatch · memory_limiter · resource\n↑ resource injeta loki.resource.labels"]
+        end
+    end
+
+    subgraph BACKENDS["Backends\nnamespace: monitoring"]
+        direction TB
+        TEMPO["Tempo :3200\nTraceQL\nex: { status = error }"]
+        PROM["Prometheus :9090\nPromQL\nex: rate(api_errors_total[5m])"]
+        LOKI["Loki :3100\nLogQL\nex: {service_name='ranking-api', level='ERROR'}"]
+    end
+
+    GRAFANA["Grafana :3000\nTrace → Logs\nTrace → Metrics"]
+
+    M --> MR
+    T --> BSP
+    E --> BSP
+    L --> BLP
+
+    MR -->|OTLP gRPC| RCV
+    BSP -->|OTLP gRPC| RCV
+    BLP -->|OTLP gRPC| RCV
+
+    RCV --> PT & PM & PL
+
+    PT -->|"OTLP gRPC interno"| TEMPO
+    PM -->|"expõe :8889/metrics ← Prometheus scrape"| PROM
+    PL -->|"HTTP Push /loki/api/v1/push"| LOKI
+
+    TEMPO & PROM & LOKI --> GRAFANA
+```
+
+---
+
+### Como cada sinal é extraído no código
+
+```
+main.py
+│
+├── Resource.create({ "service.name": "ranking-api", ... })
+│   └── etiqueta permanente colada em M + E + L + T
+│       Vira labels em todos os backends:
+│       Prometheus: service_name="ranking-api"
+│       Loki:       service_name="ranking-api"  (stream label, indexado)
+│       Tempo:      resource.service.name = "ranking-api"
+│
+├── [T] tracer.start_as_current_span("submit-score")
+│   ├── span.set_attribute("player.name", req.player)   → atributo no Tempo
+│   ├── span.set_status(ERROR, "mensagem")               → span vermelho no waterfall
+│   └── [E] span.add_event("validation-failed")         → evento na linha do tempo do span
+│
+├── [L] logger.error("Score inválido", extra={...})
+│   └── Vira {level="ERROR"} no Loki (stream label)
+│       Body JSON: {"message": "...", "traceID": "<mesmo ID do span acima>"}
+│
+└── [M] api_errors.add(1, {"endpoint": "submit_score", "reason": "negative_score"})
+    └── Vira api_errors_total{endpoint="submit_score", reason="negative_score"} no Prometheus
+```
+
+---
+
+### Correlação entre os sinais no Grafana
+
+O `traceID` é o fio que une os três backends. O OTel SDK injeta o traceID ativo automaticamente:
+
+```
+Uma requisição POST /score com score inválido gera:
+
+[T] Span "submit-score"   → Tempo   → traceID: abc-123
+[L] logger.error(...)     → Loki    → body JSON: { "traceID": "abc-123", "level": "ERROR" }
+[M] api_errors.add(1)     → Prom    → api_errors_total{reason="negative_score"} +1
+[E] span.add_event(...)   → Tempo   → evento na linha do span "submit-score"
+
+Grafana Tempo → clique no span → "Logs for this span"
+  ↓ monta query: {service_name="ranking-api"} com time range do span
+  ↓ abre Loki com o log de erro exato daquela requisição
+```
+
+---
+
+### Visão por namespace no cluster
+
 ```
 ┌───────────────────────────────────────────────────────────────────────┐
 │                          Kind Cluster                                 │
