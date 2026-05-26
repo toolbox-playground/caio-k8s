@@ -789,6 +789,81 @@ Esta é a feature central do OTel: você vê **onde** a latência está no gráf
 
 ---
 
+## Etapa 9.2: Dashboard p99 por Endpoint
+
+O dashboard anterior (`latencia-p99.json`) mostra todos os percentis juntos num gráfico só. Quando você quer **comparar endpoints lado a lado** — qual está mais lento agora, qual piorou na última meia hora — o dashboard `p99-por-endpoint.json` é mais direto.
+
+### Importar
+
+```
+Grafana → Dashboards → New → Import
+→ Upload: grafana-dashboards/p99-por-endpoint.json
+→ Prometheus → selecione o datasource
+→ Import
+```
+
+### O que cada painel mostra
+
+| Painel | Tipo | O que responde |
+|---|---|---|
+| p99 — /rankings | Stat | Está dentro do SLO agora? (threshold: laranja ≥ 100ms, vermelho ≥ 300ms) |
+| p99 — /score | Stat | Submissão de score está lenta? |
+| p99 — /score/{player} | Stat | Consulta de jogador está lenta? |
+| p99 — /slow | Stat | Baseline do endpoint lento (threshold: laranja ≥ 500ms, vermelho ≥ 1500ms) |
+| p99 por Endpoint — Série Temporal | Timeseries | Qual endpoint piorou ao longo do tempo? |
+| p50 / p95 / p99 — /slow | Timeseries | Distribuição do endpoint lento: outliers ou degradação geral? |
+| Ranking de Latência | Table | Todos os endpoints ordenados pelo p99 mais alto |
+
+### Lendo o painel de distribuição
+
+O painel **p50 / p95 / p99 — /slow** é onde você diferencia dois tipos de problema:
+
+```
+Cenário A — outlier pontual:
+  p50: 80ms   p95: 120ms   p99: 2400ms
+  → 99% das requisições são rápidas. 1 em 100 dispara muito.
+    Causa provável: GC pause, lock de banco, cold start.
+
+Cenário B — degradação geral:
+  p50: 800ms  p95: 1200ms  p99: 1800ms
+  → Todas as requisições ficaram lentas. O p50 subiu junto.
+    Causa provável: saturação de CPU, pool de conexões esgotado.
+```
+
+Quando p50 e p99 se afastam muito → outlier. Quando sobem juntos → problema sistêmico.
+
+### Gerar carga para popular o dashboard
+
+**PowerShell:**
+
+```powershell
+for ($i = 1; $i -le 40; $i++) {
+    Invoke-RestMethod http://localhost:8082/rankings | Out-Null
+    Invoke-RestMethod http://localhost:8082/slow | Out-Null
+    Invoke-RestMethod -Method Post -Uri http://localhost:8082/score `
+        -ContentType "application/json" `
+        -Body "{`"player`":`"jogador$i`",`"score`":$($i * 10)}" | Out-Null
+    Invoke-RestMethod "http://localhost:8082/score/jogador$i" | Out-Null
+}
+```
+
+**bash / zsh:**
+
+```bash
+for i in $(seq 1 40); do
+  curl -s http://localhost:8082/rankings > /dev/null
+  curl -s http://localhost:8082/slow > /dev/null
+  curl -s -X POST http://localhost:8082/score \
+    -H "Content-Type: application/json" \
+    -d "{\"player\":\"jogador$i\",\"score\":$((i * 10))}" > /dev/null
+  curl -s "http://localhost:8082/score/jogador$i" > /dev/null
+done
+```
+
+> Esse loop garante dados nos quatro endpoints monitorados pelos stat panels. Aguarde ~15 segundos após o loop para o Prometheus scrape atualizar os valores.
+
+---
+
 ## Etapa 10: Correlacionando Traces → Logs
 
 
