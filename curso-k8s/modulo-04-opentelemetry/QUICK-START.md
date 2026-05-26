@@ -276,17 +276,17 @@ Antes de configurar, verifique o serviço do Tempo para confirmar a porta real:
 ```sh
 kubectl get svc -n monitoring | grep tempo
 # NAME    TYPE        CLUSTER-IP      PORT(S)
-# tempo   ClusterIP   10.96.x.x       3100/TCP, ...
+# tempo   ClusterIP   10.96.x.x       3200/TCP, 4317/TCP, 4318/TCP, ...
 ```
 
-> ⚠️ Se o `Save & Test` do Tempo retornar `i/o timeout`, o pod pode estar em `Pending` ou a porta diverge da listada acima. Verifique com `kubectl get pods -n monitoring | grep tempo` e ajuste a URL conforme o `PORT(S)` real.
+> ⚠️ Se o `Save & Test` do Tempo retornar `i/o timeout`, o pod pode estar em `Pending`. Verifique com `kubectl get pods -n monitoring | grep tempo`.
 
 ### Adicionar Tempo
 
 ```
 http://localhost:3000
 → Connections → Data Sources → Add data source → Tempo
-→ URL: http://tempo.monitoring.svc.cluster.local:3100
+→ URL: http://tempo.monitoring.svc.cluster.local:3200
 → Save & Test
 ```
 
