@@ -40,18 +40,36 @@ spec:
           protocol: TCP
 
         # ── Variáveis de ambiente OpenTelemetry ────────────────
-        # O OTel SDK lê automaticamente as variáveis OTEL_*
+        # O OTel SDK lê automaticamente as variáveis OTEL_* na inicialização.
         env:
         - name: OTEL_SERVICE_NAME
+          # Define o atributo resource `service.name` para TODOS os dados emitidos.
+          # Este valor aparece como:
+          #   TEMPO:      resource.service.name → filtre com { resource.service.name = "ranking-api" }
+          #   PROMETHEUS: label service_name="ranking-api" em todas as métricas
+          #   LOKI:       label de stream service_name="ranking-api" (indexado)
+          # É exatamente este valor que o Grafana usa para correlacionar Trace → Logs
+          # via a configuração "service.name as service_name" no datasource Tempo.
           value: "ranking-api"
 
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          # Endereço DNS interno do OTel Collector dentro do cluster Kubernetes.
+          # Formato: http://<service>.<namespace>.svc.cluster.local:<porta>
+          # O SDK envia traces, métricas e logs para esta porta via gRPC (OTLP).
+          # O Collector então distribui para Tempo, Prometheus e Loki.
           value: "http://otel-collector.otel.svc.cluster.local:4317"
 
         - name: OTEL_RESOURCE_ATTRIBUTES
+          # Atributos adicionais do Resource além de OTEL_SERVICE_NAME.
+          # Formato: chave=valor separados por vírgula.
+          # deployment.environment → label deployment_environment no Prometheus e Loki
+          # service.version        → aparece como atributo no Tempo (resource.service.version)
           value: "deployment.environment=kind-dev,service.version=1.0.0"
 
         - name: DEPLOYMENT_ENV
+          # Lida pelo main.py (Resource.create) como fallback para o Resource.
+          # Redundante com OTEL_RESOURCE_ATTRIBUTES acima, mas permite uso direto
+          # em código Python sem precisar parsear OTEL_RESOURCE_ATTRIBUTES.
           value: "kind-dev"
 
         # ── Recursos ──────────────────────────────────────────

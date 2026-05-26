@@ -58,7 +58,19 @@ data:
         limit_mib: 256
         spike_limit_mib: 64
 
-      # Adiciona labels de resource nos logs (necessário para Loki)
+      # Promove resource attributes do OTel para stream labels indexados do Loki.
+      #
+      # loki.resource.labels define QUAIS atributos do Resource viram labels de stream.
+      # Labels de stream são indexados — buscar por eles é rápido e barato.
+      # Atributos NÃO listados aqui ficam apenas no body do log (não indexados).
+      #
+      # Mapeamento após conversão (ponto → underscore):
+      #   service.name           → service_name="ranking-api"
+      #   deployment.environment → deployment_environment="kind-dev"
+      #   k8s.namespace.name     → k8s_namespace_name="games"
+      #
+      # Resultado no Loki: {service_name="ranking-api", level="ERROR"}
+      # O traceID NÃO está aqui — fica no body como JSON (não indexado).
       resource:
         attributes:
         - action: insert
@@ -74,12 +86,16 @@ data:
           insecure: true
 
       # Métricas → Prometheus (Collector expõe endpoint /metrics)
-      # O Prometheus faz scrape neste endpoint via PodMonitor
-      # (04-podmonitor-otel-collector.yaml)
+      # O Prometheus faz scrape neste endpoint via PodMonitor (04-podmonitor-otel-collector.yaml)
       prometheus:
         endpoint: 0.0.0.0:8889
         resource_to_telemetry_conversion:
-          enabled: true  # inclui resource attributes como labels Prometheus
+          # Com enabled: true, os resource attributes do OTel viram labels Prometheus.
+          # Sem isso, as métricas aparecem sem identificação de origem:
+          #   ANTES: scores_submitted_total{}
+          #   DEPOIS: scores_submitted_total{service_name="ranking-api", deployment_environment="kind-dev"}
+          # A conversão de ponto→underscore (service.name→service_name) é automática.
+          enabled: true
 
       # Logs → Loki (via API HTTP push)
       loki:
@@ -106,6 +122,10 @@ data:
           exporters:  [prometheus]
 
         # Pipeline de logs: OTLP → enriquece com labels → Loki
+        # O processor `resource` está APENAS neste pipeline — ele define quais
+        # atributos do Resource viram stream labels no Loki (via loki.resource.labels).
+        # Traces e métricas não precisam dele porque Tempo e Prometheus têm seus
+        # próprios mecanismos de enriquecimento (resource_to_telemetry_conversion).
         logs:
           receivers:  [otlp]
           processors: [memory_limiter, resource, batch]
