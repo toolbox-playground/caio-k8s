@@ -900,11 +900,9 @@ helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack `
 
 ### Aplicar as regras
 
-```powershell
-kubectl apply -f manifests/05-grafana-alert-rules-latency.yaml
-```
+Powershell e Bash
 
-```bash
+```powershell
 kubectl apply -f manifests/05-grafana-alert-rules-latency.yaml
 ```
 
