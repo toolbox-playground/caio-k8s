@@ -1,3 +1,20 @@
+## 0.18.0 (2026-05-26)
+
+### Feat
+
+- atualiza consulta no Loki para incluir o exportador OTLP
+- corrige formatação das instruções de aplicação das regras de alerta no guia de início rápido
+- atualiza expressões de consulta no dashboard de logs para incluir o exportador OTLP
+- adiciona regras de alerta de latência p99 no Grafana para a Ranking API
+- adiciona dashboard p99 por Endpoint para comparação de latência
+- adiciona dashboard p99 por Endpoint para monitoramento da Ranking API
+- atualiza métricas de latência no guia de início rápido para refletir mudanças no FastAPIInstrumentor
+- atualiza dashboard de latência p99 da Ranking API para o padrão OpenTelemetry
+- adiciona dashboard DevOps para análise da aplicação via logs no Grafana
+- adiciona monitoramento de segurança com OpenTelemetry e dashboard DevSecOps no Grafana
+- adiciona dashboard de latência p99 para a Ranking API no Grafana
+- Implement Ranking API with OpenTelemetry instrumentation
+
 ## 0.17.0 (2026-05-17)
 
 ### Feat
