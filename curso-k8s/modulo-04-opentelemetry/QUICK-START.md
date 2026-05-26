@@ -234,9 +234,17 @@ O Tempo é o backend de traces. Ele recebe spans do OTel Collector e os armazena
 helm repo update
 ```
 
-**PowerShell e bash:**
+**PowerShell:**
 
-```sh
+```powershell
+helm install tempo grafana/tempo `
+  --namespace monitoring `
+  -f helm-values/values-tempo.yaml
+```
+
+**bash / zsh:**
+
+```bash
 helm install tempo grafana/tempo \
   --namespace monitoring \
   -f helm-values/values-tempo.yaml
@@ -407,13 +415,31 @@ docker exec k8s-essentials-control-plane crictl images | grep ranking-api
 ```sh
 kubectl apply -f manifests/01-deployment-ranking-api.yaml
 kubectl apply -f manifests/02-service-ranking-api.yaml
+```
 
-# Aguardar pods ficarem Ready
+Aguardar pods ficarem Ready:
+
+**PowerShell:**
+
+```powershell
+kubectl wait --for=condition=ready pod `
+  --selector=app=ranking-api `
+  --namespace games `
+  --timeout=120s
+```
+
+**bash / zsh:**
+
+```bash
 kubectl wait --for=condition=ready pod \
   --selector=app=ranking-api \
   --namespace games \
   --timeout=120s
+```
 
+**PowerShell e bash:**
+
+```sh
 # Verificar
 kubectl get pods -n games
 ```
