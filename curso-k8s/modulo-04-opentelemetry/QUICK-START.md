@@ -1143,6 +1143,151 @@ Adicione ao `helm-values/values-prometheus-stack.yaml` (ou crie uma PrometheusRu
 
 ---
 
+## Etapa 12: DevOps — Análise da Aplicação via Logs (Loki)
+
+### Métricas vs Logs: quando usar cada um?
+
+O Prometheus responde **"quanto?" e "com qual frequência?"**. O Loki responde **"o que exatamente aconteceu?" e "qual foi o contexto?"**.
+
+| Pergunta | Ferramenta ideal | Por quê |
+|---|---|---|
+| Qual o percentual de erros agora? | Prometheus | Agregado, consulta O(1) |
+| Qual foi a mensagem exata do erro? | Loki | Texto completo do log |
+| A aplicação ainda está viva? | Loki | `count_over_time > 0` por minuto |
+| Qual jogador causou os erros? | Loki | Campos `extra=` preservados no body |
+| Qual a latência por endpoint? | Ambos | Prometheus via histogram; Loki via `unwrap` |
+
+> **Insight DevOps:** Um `count_over_time({service_name="ranking-api"}[5m]) == 0` pode ser o alerta mais valioso de todos — ele detecta **crash silencioso**, quando a aplicação morreu sem lançar exceção.
+
+### LogQL — da query básica ao `unwrap`
+
+LogQL segue sempre a mesma estrutura: `{ stream_labels } | operadores_em_cadeia`
+
+**Nível 1 — Filtro por label indexado** (mais rápido, usa apenas o índice Loki):
+
+```logql
+{service_name="ranking-api", level="ERROR"}
+```
+
+**Nível 2 — Filtro por texto no body** (varre o conteúdo, sem parsear):
+
+```logql
+{service_name="ranking-api"} |= "Score submetido"
+```
+
+**Nível 3 — Parse de campos JSON** (expõe os campos do `extra=` do Python):
+
+```logql
+{service_name="ranking-api"} | json | player != "" | line_format "{{.player}} → score {{.score}}"
+```
+
+**Nível 4 — Métricas de contagem** (transforma stream em série temporal):
+
+```logql
+sum(count_over_time({service_name="ranking-api", level="ERROR"}[$__interval])) by (level)
+```
+
+**Nível 5 — Extração de métricas numéricas com `unwrap`** (o mais poderoso):
+
+```logql
+avg_over_time(
+  {service_name="ranking-api"}
+  | json
+  | duration_ms > 0
+  | unwrap duration_ms [$__interval]
+) by (endpoint)
+```
+
+O `unwrap` extrai o campo `duration_ms` de cada linha de log e calcula a média por janela de tempo. O resultado é uma série temporal de latência — **idêntico ao que o Prometheus faria com um histogram**, mas derivado exclusivamente dos logs.
+
+> **Por que isso importa?** Se você esqueceu de adicionar um histogram no código antes do deploy, não precisa de redeploy ou de nova métrica. Os logs já têm o dado — o `unwrap` apenas o revela.
+
+### Importar o dashboard DevOps
+
+```
+http://localhost:3000
+→ Dashboards → New → Import
+→ Upload dashboard JSON file
+→ Selecione: grafana-dashboards/logs-devops.json
+→ Configure: Loki → datasource Loki
+→ Import
+```
+
+| Painel | Query | O que detecta |
+|---|---|---|
+| Total de Logs (1h) | `count_over_time[1h]` | Crash silencioso (zero logs) |
+| Taxa de ERROR (%) | count ERROR / count total | Saúde geral da aplicação |
+| Latência Média via Logs | `unwrap duration_ms` | Latência sem Prometheus |
+| Volume por Nível (empilhado) | `by (level)` stacked bars | Padrão INFO→WARN→ERROR |
+| Anomalias ERROR+WARN | Somente nível ERROR/WARN | Progressão de degradação |
+| Atividade por Endpoint | `| json \| endpoint != ""` | Queda de tráfego por rota |
+| Latência por Endpoint | `unwrap duration_ms by (endpoint)` | Gargalo por rota |
+| Scores Enviados vs Recordes | String match + campo `new_record` | Engajamento dos jogadores |
+| Top 5 Players Ativos | `topk(5, ...) by (player)` | Automação/abuso |
+| Logs WARN+ERROR ao vivo | Stream com `showLabels: true` | Diagnóstico + traceID |
+| Operações lentas > 150ms | `| json \| duration_ms > 150` | Gargalos sem abrir Tempo |
+
+### Padrões de diagnóstico com os painéis
+
+#### Padrão 1 — Degradação progressiva
+
+```
+"Volume por Nível": WARN começa a subir → 2-3 minutos depois ERROR aparece
+→ Isso é um sintoma: um recurso externo (DB, cache) está lento antes de falhar
+→ Use "Latência por Endpoint (unwrap)" para confirmar qual rota está sofrendo
+```
+
+#### Padrão 2 — Crash silencioso
+
+```
+"Total de Logs (1h)" vai a zero OU
+"Volume por Nível": linha INFO some abruptamente
+→ O pod pode ter crashado sem ERROR (OOMKill, SIGKILL)
+→ Verifique: kubectl get pods -n games
+```
+
+#### Padrão 3 — Investigação de incidente
+
+```
+1. "Anomalias ERROR+WARN" → identifica o timestamp exato do pico
+2. "Atividade por Endpoint" → qual endpoint parou de aparecer?
+3. "Latência por Endpoint (unwrap)" → latência subiu no mesmo momento?
+4. "Logs WARN+ERROR ao vivo" → lê a mensagem + campos extra
+   → traceID visível no body JSON expandido
+   → Grafana: Explore → Tempo → cole o traceID → waterfall completo
+```
+
+### Gerar dados para ver os painéis em ação
+
+**PowerShell:**
+
+```powershell
+# Gera atividade mista para popular todos os painéis
+for ($i = 1; $i -le 20; $i++) {
+    Invoke-RestMethod http://localhost:8082/rankings | Out-Null
+    Invoke-RestMethod -Method Post -Uri http://localhost:8082/score `
+        -ContentType "application/json" `
+        -Body "{`"player`":`"mario`",`"score`":$(Get-Random -Maximum 9999)}" | Out-Null
+    Invoke-RestMethod http://localhost:8082/slow | Out-Null
+    try { Invoke-RestMethod http://localhost:8082/score/jogador_inexistente } catch {}
+}
+```
+
+**bash / zsh:**
+
+```bash
+for i in $(seq 1 20); do
+    curl -s http://localhost:8082/rankings > /dev/null
+    curl -s -X POST http://localhost:8082/score \
+        -H "Content-Type: application/json" \
+        -d "{\"player\":\"mario\",\"score\":$((RANDOM % 9999))}" > /dev/null
+    curl -s http://localhost:8082/slow > /dev/null
+    curl -s http://localhost:8082/score/jogador_inexistente > /dev/null
+done
+```
+
+---
+
 ## Limpar o ambiente
 
 **PowerShell e bash:**
