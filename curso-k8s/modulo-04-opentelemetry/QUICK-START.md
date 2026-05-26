@@ -694,25 +694,27 @@ Requisição 100 → 2400ms ← outlier extremo (GC pause, cold start, etc.)
 
 ### De onde vem o p99?
 
-O OTel SDK instrumenta automaticamente cada requisição e registra a duração em um **histogram**. O histogram divide as durações em "baldes" (`le` = "less than or equal"):
+O **FastAPIInstrumentor** do OTel SDK instrumenta automaticamente cada requisição HTTP e registra a duração em um **histogram**. O histogram divide as durações em "baldes" (`le` = "less than or equal"):
 
 ```
-request_duration_ms_bucket{endpoint="/slow", le="100"} 12    ← 12 req terminaram em ≤ 100ms
-request_duration_ms_bucket{endpoint="/slow", le="200"} 34    ← 34 req terminaram em ≤ 200ms
-request_duration_ms_bucket{endpoint="/slow", le="500"} 41    ← 41 req terminaram em ≤ 500ms
-request_duration_ms_bucket{endpoint="/slow", le="+Inf"} 42   ← total: 42 req
+http_server_duration_milliseconds_bucket{http_target="/slow", le="100"} 12    ← 12 req terminaram em ≤ 100ms
+http_server_duration_milliseconds_bucket{http_target="/slow", le="200"} 34    ← 34 req terminaram em ≤ 200ms
+http_server_duration_milliseconds_bucket{http_target="/slow", le="500"} 41    ← 41 req terminaram em ≤ 500ms
+http_server_duration_milliseconds_bucket{http_target="/slow", le="+Inf"} 42   ← total: 42 req
 ```
+
+> **`http_server_duration_milliseconds` vs métrica custom:** O FastAPIInstrumentor cria esse histogram automaticamente para **toda** requisição HTTP recebida, incluindo as que terminam em erro antes do código da aplicação ser chamado. Métricas custom como `request_duration_ms` dependem de o código da aplicação atingir a chamada `.record()` — o que não acontece se uma exceção for levantada antes.
 
 O Prometheus calcula o percentil interpolando esses baldes com `histogram_quantile()`:
 
 ```promql
 histogram_quantile(0.99,
-  sum(rate(request_duration_ms_bucket{service_name="ranking-api"}[5m])) by (le, endpoint)
+  sum(rate(http_server_duration_milliseconds_bucket{service_name="ranking-api"}[5m])) by (le, http_target)
 )
 ```
 
 - `rate(...[5m])` — taxa de incremento dos baldes nos últimos 5 minutos
-- `sum(...) by (le, endpoint)` — agrupa por balde e endpoint (um p99 por endpoint)
+- `sum(...) by (le, http_target)` — agrupa por balde e rota HTTP (um p99 por rota)
 - `histogram_quantile(0.99, ...)` — interpola onde estaria o 99º percentil
 
 ### Importar o dashboard no Grafana
@@ -732,11 +734,11 @@ O dashboard tem 5 painéis:
 
 | Painel | O que mostra |
 |---|---|
-| Latência por Percentil (todos) | p50/p95/p99 agregados — visão geral da saúde |
-| Latência p99 por endpoint | Qual endpoint está causando o pico |
-| p99 atual (stat) | Valor instantâneo com cor por threshold |
-| Taxa de erros por endpoint | Correlaciona erros com picos de latência |
-| Throughput por endpoint | Volume — diferencia saturação de cold start |
+| Latência por Percentil — geral | p50/p95/p99 agregados — visão geral da saúde |
+| Latência p99 por rota (http_target) | Qual rota está causando o pico de latência |
+| p99 Atual | Valor instantâneo com cor por threshold |
+| Taxa de Erros (HTTP 5xx / 4xx) por Target | Correlaciona erros com picos de latência |
+| Throughput Geral (Requisições / seg) | Volume — diferencia saturação de cold start |
 
 ### Gerar carga e observar o p99
 
