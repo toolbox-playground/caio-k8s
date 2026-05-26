@@ -153,7 +153,7 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
-          "expr": "avg_over_time({service_name=\"ranking-api\"} | json | duration_ms > 0 | unwrap duration_ms [1h])",
+          "expr": "avg(avg_over_time({service_name=\"ranking-api\", exporter=\"OTLP\"} | json | attributes_duration_ms > 0 | unwrap attributes_duration_ms [1h]))",
           "legendFormat": "avg ms",
           "queryType": "instant",
           "refId": "A"
@@ -340,8 +340,8 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
-          "expr": "sum(count_over_time({service_name=\"ranking-api\"} | json | endpoint != \"\" [$__interval])) by (endpoint)",
-          "legendFormat": "{{endpoint}}",
+          "expr": "sum(count_over_time({service_name=\"ranking-api\", exporter=\"OTLP\"} | json | body =~ \"Consultando rankings|Score submetido|Opera\u00e7\u00e3o lenta conclu\u00edda\" [$__interval])) by (body)",
+          "legendFormat": "{{body}}",
           "queryType": "range",
           "refId": "A"
         }
@@ -394,8 +394,8 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
-          "expr": "avg_over_time({service_name=\"ranking-api\"} | json | duration_ms > 0 | unwrap duration_ms [$__interval]) by (endpoint)",
-          "legendFormat": "{{endpoint}}",
+          "expr": "avg by (body) (avg_over_time({service_name=\"ranking-api\", exporter=\"OTLP\"} | json | attributes_duration_ms > 0 | unwrap attributes_duration_ms [$__interval]))",
+          "legendFormat": "{{body}}",
           "queryType": "range",
           "refId": "A"
         }
@@ -461,14 +461,14 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
-          "expr": "sum(count_over_time({service_name=\"ranking-api\"} |= \"Score submetido\" [$__interval]))",
+          "expr": "sum(count_over_time({service_name=\"ranking-api\", exporter=\"OTLP\"} |= \"Score submetido\" [$__interval]))",
           "legendFormat": "Scores enviados",
           "queryType": "range",
           "refId": "A"
         },
         {
           "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
-          "expr": "sum(count_over_time({service_name=\"ranking-api\"} | json | new_record = \"True\" [$__interval]))",
+          "expr": "sum(count_over_time({service_name=\"ranking-api\", exporter=\"OTLP\"} | json | attributes_new_record = \"true\" [$__interval]))",
           "legendFormat": "Novos recordes",
           "queryType": "range",
           "refId": "B"
@@ -514,8 +514,8 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
-          "expr": "topk(5, sum(count_over_time({service_name=\"ranking-api\"} | json | player != \"\" [$__interval])) by (player))",
-          "legendFormat": "{{player}}",
+          "expr": "topk(5, sum(count_over_time({service_name=\"ranking-api\", exporter=\"OTLP\"} | json | attributes_player != \"\" [$__interval])) by (attributes_player))",
+          "legendFormat": "{{attributes_player}}",
           "queryType": "range",
           "refId": "A"
         }
@@ -578,7 +578,7 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
-          "expr": "{service_name=\"ranking-api\"} | json | duration_ms > 150",
+          "expr": "{service_name=\"ranking-api\", exporter=\"OTLP\"} | json | attributes_duration_ms > 150",
           "legendFormat": "",
           "queryType": "range",
           "refId": "A"
