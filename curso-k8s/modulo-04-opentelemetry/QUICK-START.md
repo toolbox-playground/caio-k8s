@@ -1,5 +1,16 @@
 # 🚀 Módulo 04 — Guia de Início Rápido
 
+> ⚠️ **Todos os comandos deste guia devem ser executados de dentro da pasta `modulo-04-opentelemetry/`:**
+>
+> **PowerShell:**
+> ```powershell
+> cd curso-k8s/modulo-04-opentelemetry
+> ```
+> **bash / zsh:**
+> ```bash
+> cd curso-k8s/modulo-04-opentelemetry
+> ```
+
 ## Pré-condição: Módulo 03 concluído
 
 Prometheus, Grafana, Loki e Fluent Bit precisam estar rodando:
@@ -10,6 +21,204 @@ Prometheus, Grafana, Loki e Fluent Bit precisam estar rodando:
 kubectl get pods -n monitoring
 # Todos devem estar Running antes de continuar
 ```
+
+Se já estiver tudo `Running`, pule direto para a **Etapa 1**.  
+Se ainda não subiu o Módulo 03, siga a seção abaixo.
+
+---
+
+## Subindo o Módulo 03 do zero (cluster + monitoring stack completo)
+
+> 🎯 **Cenário:** você pulou os módulos anteriores ou deletou o cluster e quer chegar no estado necessário para este módulo com um único bloco de comandos.
+
+### Passo 1 — Recriar o cluster Kind com as portas do Módulo 03
+
+**PowerShell e bash:**
+
+```sh
+# Deletar cluster anterior se existir (ignorar erro se não existir)
+kind delete cluster --name k8s-essentials
+
+# Recriar com o config do Módulo 03 (expõe portas do Prometheus, Grafana, etc.)
+kind create cluster --config ../modulo-03-monitoring/manifests/cluster-config.yaml
+```
+
+### Passo 2 — Instalar o Metrics Server (necessário para o HPA)
+
+**PowerShell e bash:**
+
+```sh
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+```
+
+**PowerShell:**
+
+```powershell
+kubectl patch deployment metrics-server -n kube-system `
+  --type=json `
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+```
+
+**bash / zsh:**
+
+```bash
+kubectl patch deployment metrics-server -n kube-system \
+  --type=json \
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+```
+
+> ⚠️ O patch é necessário porque o Kind usa certificados TLS autoassinados no kubelet. Sem ele o `kubectl top` falha e o HPA não consegue escalar. Não use em produção.
+
+### Passo 3 — Instalar o Super Mario (Módulo 02)
+
+**PowerShell e bash:**
+
+```sh
+kubectl create namespace games
+
+kubectl apply -f ../modulo-02-deploy-app/manifests/01-deployment-mario.yaml
+kubectl apply -f ../modulo-02-deploy-app/manifests/02-service-mario.yaml
+kubectl apply -f ../modulo-02-deploy-app/manifests/03-hpa.yaml
+```
+
+### Passo 4 — Adicionar repositórios Helm
+
+**PowerShell e bash:**
+
+```sh
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add fluent https://fluent.github.io/helm-charts
+helm repo update
+```
+
+### Passo 5 — Criar o namespace de monitoramento
+
+**PowerShell e bash:**
+
+```sh
+kubectl create namespace monitoring
+```
+
+### Passo 6 — Instalar o kube-prometheus-stack (Prometheus + Grafana + Alertmanager)
+
+**PowerShell:**
+
+```powershell
+helm install kind-prometheus prometheus-community/kube-prometheus-stack `
+  --namespace monitoring `
+  -f ../modulo-03-monitoring/helm-values/values-prometheus-stack.yaml
+```
+
+**bash / zsh:**
+
+```bash
+helm install kind-prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  -f ../modulo-03-monitoring/helm-values/values-prometheus-stack.yaml
+```
+
+### Passo 7 — Instalar o Loki (backend de logs)
+
+**PowerShell:**
+
+```powershell
+helm install loki grafana/loki `
+  --namespace monitoring `
+  -f ../modulo-03-monitoring/helm-values/values-loki.yaml
+```
+
+**bash / zsh:**
+
+```bash
+helm install loki grafana/loki \
+  --namespace monitoring \
+  -f ../modulo-03-monitoring/helm-values/values-loki.yaml
+```
+
+### Passo 8 — Instalar o Fluent Bit (agente de coleta de logs)
+
+**PowerShell:**
+
+```powershell
+helm install fluent-bit fluent/fluent-bit `
+  --namespace monitoring `
+  -f ../modulo-03-monitoring/helm-values/values-fluent-bit.yaml
+```
+
+**bash / zsh:**
+
+```bash
+helm install fluent-bit fluent/fluent-bit \
+  --namespace monitoring \
+  -f ../modulo-03-monitoring/helm-values/values-fluent-bit.yaml
+```
+
+### Passo 9 — Aguardar toda a stack subir
+
+**PowerShell e bash:**
+
+```sh
+kubectl get pods -n monitoring -w
+```
+
+Estado esperado (todos `Running`):
+
+```
+alertmanager-kind-prometheus-kube-prome-alertmanager-0   2/2   Running
+kind-prometheus-grafana-xxxx                             3/3   Running
+kind-prometheus-kube-prome-operator-xxxx                 1/1   Running
+kind-prometheus-kube-state-metrics-xxxx                  1/1   Running
+kind-prometheus-prometheus-node-exporter-xxxx            1/1   Running
+prometheus-kind-prometheus-kube-prome-prometheus-0       2/2   Running
+loki-0                                                   1/1   Running
+loki-gateway-xxxx                                        1/1   Running
+fluent-bit-xxxx                                          1/1   Running
+```
+
+Ou aguardar tudo de uma vez:
+
+**PowerShell:**
+
+```powershell
+kubectl wait --for=condition=ready pod `
+  --selector=app.kubernetes.io/instance=kind-prometheus `
+  --namespace monitoring `
+  --timeout=300s
+```
+
+**bash / zsh:**
+
+```bash
+kubectl wait --for=condition=ready pod \
+  --selector=app.kubernetes.io/instance=kind-prometheus \
+  --namespace monitoring \
+  --timeout=300s
+```
+
+> ✅ Com a stack de monitoring no ar, volte ao início deste guia e siga a partir da **Etapa 1**.
+
+### Passo 10 — Recuperar a senha admin do Grafana
+
+O Grafana é instalado com senha gerada automaticamente e armazenada em um Secret do Kubernetes.
+
+**PowerShell:**
+
+```powershell
+kubectl --namespace monitoring get secret kind-prometheus-grafana `
+  -o jsonpath="{.data.admin-password}" |
+  ForEach-Object { [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_)) }
+```
+
+**bash / zsh:**
+
+```bash
+kubectl --namespace monitoring get secret kind-prometheus-grafana \
+  -o jsonpath="{.data.admin-password}" | base64 --decode
+```
+
+> 💡 Login padrão: usuário `admin`, senha retornada pelo comando acima.  
+> Acesse o Grafana em **http://localhost:3000**
 
 ---
 
@@ -30,10 +239,7 @@ helm repo update
 ```powershell
 helm install tempo grafana/tempo `
   --namespace monitoring `
-  --set tempo.storage.trace.backend=local `
-  --set tempo.storage.trace.local.path=/var/tempo/traces `
-  --set tempo.receivers.otlp.protocols.grpc.endpoint=0.0.0.0:4317 `
-  --set tempo.receivers.otlp.protocols.http.endpoint=0.0.0.0:4318
+  -f helm-values/values-tempo.yaml
 ```
 
 **bash / zsh:**
@@ -41,11 +247,13 @@ helm install tempo grafana/tempo `
 ```bash
 helm install tempo grafana/tempo \
   --namespace monitoring \
-  --set tempo.storage.trace.backend=local \
-  --set tempo.storage.trace.local.path=/var/tempo/traces \
-  --set tempo.receivers.otlp.protocols.grpc.endpoint=0.0.0.0:4317 \
-  --set tempo.receivers.otlp.protocols.http.endpoint=0.0.0.0:4318
+  -f helm-values/values-tempo.yaml
 ```
+
+> As configurações do Tempo estão em [helm-values/values-tempo.yaml](./helm-values/values-tempo.yaml):
+> - `backend: local` — armazena traces em PVC (suficiente para Kind)
+> - `grpc: 0.0.0.0:4317` — porta que o OTel Collector usa para enviar traces
+> - `http: 0.0.0.0:4318` — porta alternativa OTLP/HTTP
 
 Verificar:
 
@@ -58,20 +266,89 @@ kubectl get pods -n monitoring | grep tempo
 
 ---
 
-## Etapa 2: Adicionar Tempo como datasource no Grafana
+## Etapa 2: Adicionar Tempo e Loki como datasources no Grafana
+
+### O que são datasources no Grafana?
+
+O Grafana é uma camada de **visualização** — ele não armazena dados. Os **datasources** dizem ao Grafana onde buscar cada tipo de dado:
+
+| Datasource | O que armazena | Protocolo de consulta |
+|---|---|---|
+| Prometheus | Métricas (séries temporais) | PromQL |
+| Loki | Logs | LogQL |
+| Tempo | Traces distribuídos | TraceQL |
+
+Após esta etapa, o Grafana terá acesso a todos os três sinais de observabilidade da Ranking API.
+
+### Por que configurar a ligação Tempo → Loki?
+
+Esta é a feature de **Trace to logs**: ao visualizar um trace no Tempo e clicar em "Logs for this span", o Grafana abre automaticamente o Loki com o filtro correto e o time range ajustado para aquele span exato.
+
+Para isso funcionar, o Grafana precisa saber:
+1. **Qual datasource Loki** usar para buscar os logs
+2. **Qual atributo do span** usar para montar o seletor de labels no Loki
+
+### Por que `service.name`?
+
+`service.name` é uma **convenção semântica do OpenTelemetry** (OTel Semantic Conventions). Todo dado emitido por uma aplicação instrumentada com OTel carrega um conjunto de metadados chamado **resource** — informações sobre a origem dos dados. `service.name` é o atributo padrão que identifica o serviço.
+
+No deployment da Ranking API, definimos:
+```yaml
+OTEL_SERVICE_NAME: "ranking-api"
+```
+
+Isso faz com que **todos os spans, métricas e logs** da aplicação carreguem o atributo `service.name = "ranking-api"`. Quando o Grafana precisa encontrar os logs de um trace, ele lê esse atributo do span e busca no Loki.
+
+### Por que a sintaxe `service.name as service_name`?
+
+Há uma **incompatibilidade de nomenclatura** entre os dois sistemas:
+
+- **OTel** usa ponto como separador hierárquico: `service.name`, `http.target`, `db.system`
+- **Loki** não aceita ponto em nomes de labels (é reservado para o parser) — usa underscore: `service_name`
+
+O OTel Collector já resolve isso automaticamente ao enviar logs para o Loki: converte `service.name` → `service_name`. Mas o Grafana precisa saber que, ao montar a query no Loki, deve usar `service_name` (com underscore), não `service.name` (com ponto).
+
+A sintaxe `service.name as service_name` é exatamente essa instrução:
+- **Esquerda do `as`**: nome do atributo no span (OTel)
+- **Direita do `as`**: nome do label no Loki
+
+Sem esse mapeamento, o Grafana geraria `{service.name="ranking-api"}`, que o Loki rejeita com `parse error: unexpected .`.
+
+---
+
+Antes de configurar, verifique o serviço do Tempo para confirmar a porta real:
+
+**PowerShell e bash:**
+
+```sh
+kubectl get svc -n monitoring | grep tempo
+# NAME    TYPE        CLUSTER-IP      PORT(S)
+# tempo   ClusterIP   10.96.x.x       3200/TCP, 4317/TCP, 4318/TCP, ...
+```
+
+> ⚠️ Se o `Save & Test` do Tempo retornar `i/o timeout`, o pod pode estar em `Pending`. Verifique com `kubectl get pods -n monitoring | grep tempo`.
+
+### Adicionar Loki
+
+```
+http://localhost:3000
+→ Connections → Data Sources → Add data source → Loki
+→ URL: http://loki-gateway.monitoring.svc.cluster.local
+→ Save & Test
+```
+
+> ✅ O Loki não precisa de autenticação (instalado com `auth_enabled=false`). O `Save & Test` deve retornar sucesso imediato.
+
+### Adicionar Tempo
 
 ```
 http://localhost:3000
 → Connections → Data Sources → Add data source → Tempo
-→ URL: http://tempo.monitoring.svc.cluster.local:3100
-→ Save & Test
-```
-
-Ativar correlação Trace → Logs (opcional mas recomendado):
-```
+→ URL: http://tempo.monitoring.svc.cluster.local:3200
 Em "Trace to logs":
   Data source: Loki
-  Tags: service.name, pod
+  Tags → service.name as service_name
+→ Save & Test
 ```
 
 ---
@@ -85,11 +362,18 @@ O Collector recebe traces, métricas e logs das aplicações e distribui para Te
 ```sh
 kubectl create namespace otel
 
-kubectl apply -f manifests/k8s/03-otel-collector.yaml
+kubectl apply -f manifests/03-otel-collector.yaml
+
+# PodMonitor: instrui o Prometheus a fazer scrape das métricas do Collector
+kubectl apply -f manifests/04-podmonitor-otel-collector.yaml
 
 # Verificar
 kubectl get pods -n otel
 # otel-collector-xxxx   1/1   Running   0
+
+kubectl get podmonitor -n monitoring
+# NAME             AGE
+# otel-collector   10s
 ```
 
 ---
@@ -102,7 +386,7 @@ A Ranking API é a aplicação instrumentada com OTel SDK. Precisamos fazer o bu
 
 ```sh
 # Entrar na pasta da aplicação
-cd manifests/app
+cd app
 
 # Build da imagem Docker
 docker build -t ranking-api:latest .
@@ -111,7 +395,7 @@ docker build -t ranking-api:latest .
 kind load docker-image ranking-api:latest --name k8s-essentials
 
 # Voltar para a raiz do módulo
-cd ../..
+cd ..```
 ```
 
 Verificar que a imagem foi carregada:
@@ -129,15 +413,33 @@ docker exec k8s-essentials-control-plane crictl images | grep ranking-api
 **PowerShell e bash:**
 
 ```sh
-kubectl apply -f manifests/k8s/01-deployment-ranking-api.yaml
-kubectl apply -f manifests/k8s/02-service-ranking-api.yaml
+kubectl apply -f manifests/01-deployment-ranking-api.yaml
+kubectl apply -f manifests/02-service-ranking-api.yaml
+```
 
-# Aguardar pods ficarem Ready
+Aguardar pods ficarem Ready:
+
+**PowerShell:**
+
+```powershell
+kubectl wait --for=condition=ready pod `
+  --selector=app=ranking-api `
+  --namespace games `
+  --timeout=120s
+```
+
+**bash / zsh:**
+
+```bash
 kubectl wait --for=condition=ready pod \
   --selector=app=ranking-api \
   --namespace games \
   --timeout=120s
+```
 
+**PowerShell e bash:**
+
+```sh
 # Verificar
 kubectl get pods -n games
 ```
@@ -229,60 +531,928 @@ echo "20 requisições enviadas. Abra o Grafana Tempo para ver os traces."
 
 ---
 
-## Etapa 8: Ver traces no Grafana Tempo
+## Etapa 8: Explorando traces no Grafana Tempo
+
+### O que são traces e spans?
+
+Um **trace** representa o caminho completo de uma requisição através do sistema, do início ao fim. Ele é composto por **spans** — cada span é uma unidade de trabalho individual dentro daquele trace.
+
+Por exemplo, uma requisição `POST /score` na Ranking API gera este trace:
+
+```
+POST /score ────────────────────────────────────── 35ms  ← span raiz (trace inteiro)
+  ├── validate-score ──── 0.5ms                          ← validação do input
+  ├── db-read ───────────────── 10ms                     ← leitura do score atual
+  └── db-write ────────────────────── 12ms               ← escrita do novo score
+```
+
+O Grafana exibe isso como um **waterfall** (cascata): cada linha é um span, a largura da barra representa a duração, e a cor indica o status (verde = OK, vermelho = ERROR).
+
+Ao clicar em um span, o painel lateral mostra:
+- **Atributos do span**: dados definidos pela aplicação no código (e.g., `player.name`, `db.statement`)
+- **Resource attributes**: metadados da origem (e.g., `service.name`, `deployment.environment`)
+- **Status e mensagem de erro**: quando o span falhou
+
+### O que é TraceQL?
+
+TraceQL é a linguagem de query do Tempo, assim como PromQL é do Prometheus e LogQL é do Loki. A sintaxe básica é `{ condições }`.
+
+Existem dois namespaces de atributos:
+
+**`resource.*`** — atributos do **resource** (metadados da origem dos dados, definidos no `OTEL_SERVICE_NAME` e `OTEL_RESOURCE_ATTRIBUTES`):
+```
+resource.service.name        → nome do serviço ("ranking-api")
+resource.deployment.environment → ambiente ("kind-dev")
+```
+
+**`span.*`** — atributos do **span individual** (definidos no código da aplicação):
+```
+span.http.target       → path da requisição HTTP ("/score", "/rankings")
+span.http.status_code  → código de resposta (200, 400, 404)
+span.db.operation      → operação no banco ("SELECT", "upsert")
+span.db.system         → sistema de banco ("postgresql")
+```
+
+**Campos intrínsecos** (sem prefixo):
+```
+duration   → duração do span (ex: > 100ms)
+status     → ok | error | unset
+name       → nome do span ("submit-score", "db-read")
+```
+
+### Queries úteis (TraceQL)
 
 ```
 http://localhost:3000
 → Explore
 → Datasource: Tempo
 
-Queries úteis (TraceQL):
-
 # Todos os traces da Ranking API
 { resource.service.name = "ranking-api" }
 
-# Traces lentos (> 100ms)
-{ resource.service.name = "ranking-api" && duration > 100ms }
-
-# Apenas erros
+# Traces com erro (spans marcados como ERROR)
 { resource.service.name = "ranking-api" && status = error }
 
-# Traces do endpoint /rankings
+# Traces lentos — útil para identificar gargalos (use o endpoint /slow)
+{ resource.service.name = "ranking-api" && duration > 100ms }
+
+# Traces de um endpoint específico
 { span.http.target = "/rankings" }
 
-# Span de escrita no banco
+# Spans de operação no banco
 { span.db.operation = "upsert" }
 ```
 
+> 💡 Para abrir o waterfall de um trace, clique em qualquer linha da lista de resultados. Para ver os atributos de um span específico, clique na barra daquele span no waterfall.
+
 ---
 
-## Etapa 9: Ver métricas da aplicação no Grafana
+## Etapa 9: Explorando métricas no Prometheus
 
-As métricas customizadas (`scores_submitted_total`, `api_errors_total`) são enviadas pelo OTel Collector para o Prometheus.
+### Como as métricas chegam ao Prometheus
+
+O fluxo de métricas é diferente do de traces e logs:
 
 ```
-http://localhost:9090 → Graph:
+Ranking API ──OTLP/gRPC──► OTel Collector ──expõe :8889/metrics──► Prometheus (scrape a cada 15s)
+```
 
-# Total de scores submetidos
+A Ranking API envia métricas via OTLP para o Collector. O Collector as converte para o formato Prometheus e expõe no endpoint `:8889/metrics`. O Prometheus, por sua vez, faz **scrape** — coleta periódica nesse endpoint.
+
+O **PodMonitor** aplicado na Etapa 3 é o objeto Kubernetes que informa ao Prometheus Operator onde fazer esse scrape: "vá buscar métricas nos pods com label `app: otel-collector` no namespace `otel`, na porta `8889`."
+
+### Por que as métricas têm esses nomes?
+
+As métricas customizadas da Ranking API são definidas no código com nomes simples. Ao passar pelo pipeline OTel → Prometheus, ganham sufixos padrão:
+
+| Tipo OTel | Sufixo adicionado pelo Prometheus | Nome final |
+|---|---|---|
+| `Counter` | `_total` | `scores_submitted_total`, `api_errors_total` |
+| `Histogram` | `_count`, `_sum`, `_bucket` | `http_server_duration_milliseconds_count` |
+| `Gauge` | nenhum | — |
+
+Além dos nomes, cada métrica carrega **labels** que identificam a origem. Elas vêm dos resource attributes do OTel, graças ao `resource_to_telemetry_conversion: enabled: true` configurado no Collector:
+
+```
+service_name="ranking-api"           ← OTEL_SERVICE_NAME
+deployment_environment="kind-dev"    ← OTEL_RESOURCE_ATTRIBUTES
+```
+
+### Queries PromQL explicadas
+
+```
+http://localhost:9090 → Graph
+
+# Total acumulado de scores submetidos desde que o pod iniciou
 scores_submitted_total
 
-# Taxa de erros da API (por minuto)
-rate(api_errors_total[1m])
+# Taxa de erros por segundo nos últimos 5 minutos
+# rate() calcula a variação por segundo de um contador em uma janela de tempo
+rate(api_errors_total[5m])
 
-# Requisições HTTP por endpoint
-rate(http_server_duration_count{job="ranking-api"}[5m])
+# Número de requisições HTTP por segundo, por endpoint
+# http_server_duration é um histograma — _count conta requisições; sem _sum ou _bucket
+rate(http_server_duration_milliseconds_count{service_name="ranking-api"}[5m])
+
+# Confirma que o Prometheus está coletando métricas do OTel Collector
+# up=1 significa target acessível; up=0 significa falha no scrape
+up{job="monitoring/otel-collector"}
+```
+
+> 💡 `api_errors_total` só aparece após pelo menos um erro ser gerado — contadores com valor zero não são emitidos. Gere um erro com `POST /score` usando `score: -999`.
+>
+> ⚠️ Se as métricas não aparecerem, aguarde ~30s para o primeiro scrape e verifique em **http://localhost:9090 → Status → Targets** — o target `monitoring/otel-collector` deve estar `UP`.
+
+---
+
+## Etapa 9.1: Dashboard de Latência p99
+
+### O que é um percentil?
+
+Imagine 100 requisições ao endpoint `/slow`, ordenadas da mais rápida para a mais lenta:
+
+```
+Requisição  1 →   42ms  ← mais rápida
+Requisição  2 →   45ms
+...
+Requisição 50 →   95ms  ← p50 (mediana): 50% das req estão abaixo disso
+...
+Requisição 95 →  180ms  ← p95: 95% estão abaixo
+...
+Requisição 99 →  450ms  ← p99: 99% estão abaixo — o pior caso comum
+Requisição 100 → 2400ms ← outlier extremo (GC pause, cold start, etc.)
+```
+
+| Percentil | O que significa | Quando usar |
+|---|---|---|
+| **p50** | Mediana — experiência do usuário "típico" | Baseline de saúde geral |
+| **p95** | 1 em 20 usuários espera mais que isso | SLOs de API |
+| **p99** | 1 em 100 usuários — captura o pior caso comum | Investigar gargalos reais |
+| **média** | Distorcida por outliers — pode esconder problemas | Evitar para latência |
+
+> **Por que não usar média?** Se 99 requisições demoram 10ms e 1 demora 10.000ms, a média é ~109ms. Isso sugere que "está lento" quando na prática 99% dos usuários estão rápidos. O p99 revela o problema sem distorcer o resto.
+
+### De onde vem o p99?
+
+O **FastAPIInstrumentor** do OTel SDK instrumenta automaticamente cada requisição HTTP e registra a duração em um **histogram**. O histogram divide as durações em "baldes" (`le` = "less than or equal"):
+
+```
+http_server_duration_milliseconds_bucket{http_target="/slow", le="100"} 12    ← 12 req terminaram em ≤ 100ms
+http_server_duration_milliseconds_bucket{http_target="/slow", le="200"} 34    ← 34 req terminaram em ≤ 200ms
+http_server_duration_milliseconds_bucket{http_target="/slow", le="500"} 41    ← 41 req terminaram em ≤ 500ms
+http_server_duration_milliseconds_bucket{http_target="/slow", le="+Inf"} 42   ← total: 42 req
+```
+
+> **`http_server_duration_milliseconds` vs métrica custom:** O FastAPIInstrumentor cria esse histogram automaticamente para **toda** requisição HTTP recebida, incluindo as que terminam em erro antes do código da aplicação ser chamado. Métricas custom como `request_duration_ms` dependem de o código da aplicação atingir a chamada `.record()` — o que não acontece se uma exceção for levantada antes.
+
+O Prometheus calcula o percentil interpolando esses baldes com `histogram_quantile()`:
+
+```promql
+histogram_quantile(0.99,
+  sum(rate(http_server_duration_milliseconds_bucket{service_name="ranking-api"}[5m])) by (le, http_target)
+)
+```
+
+- `rate(...[5m])` — taxa de incremento dos baldes nos últimos 5 minutos
+- `sum(...) by (le, http_target)` — agrupa por balde e rota HTTP (um p99 por rota)
+- `histogram_quantile(0.99, ...)` — interpola onde estaria o 99º percentil
+
+### Importar o dashboard no Grafana
+
+```
+http://localhost:3000
+→ Dashboards → New → Import
+→ Clique em "Upload dashboard JSON file"
+→ Selecione: grafana-dashboards/latencia-p99.json
+→ Configure os datasources:
+    Prometheus → selecione o datasource Prometheus
+    Tempo      → selecione o datasource Tempo
+→ Import
+```
+
+O dashboard tem 5 painéis:
+
+| Painel | O que mostra |
+|---|---|
+| Latência por Percentil — geral | p50/p95/p99 agregados — visão geral da saúde |
+| Latência p99 por rota (http_target) | Qual rota está causando o pico de latência |
+| p99 Atual | Valor instantâneo com cor por threshold |
+| Taxa de Erros (HTTP 5xx / 4xx) por Target | Correlaciona erros com picos de latência |
+| Throughput Geral (Requisições / seg) | Volume — diferencia saturação de cold start |
+
+### Gerar carga e observar o p99
+
+**PowerShell:**
+
+```powershell
+# Gera carga mista: /slow (lento), /rankings (normal), /score com erro (falha)
+for ($i = 1; $i -le 30; $i++) {
+    Invoke-RestMethod http://localhost:8082/slow | Out-Null
+    Invoke-RestMethod http://localhost:8082/rankings | Out-Null
+    try { Invoke-RestMethod -Method Post -Uri http://localhost:8082/score `
+        -ContentType "application/json" `
+        -Body '{"player":"stress","score":-1}' } catch {}
+}
+```
+
+**bash / zsh:**
+
+```bash
+for i in $(seq 1 30); do
+  curl -s http://localhost:8082/slow > /dev/null
+  curl -s http://localhost:8082/rankings > /dev/null
+  curl -s -X POST http://localhost:8082/score \
+    -H "Content-Type: application/json" \
+    -d '{"player":"stress","score":-1}' > /dev/null
+done
+```
+
+### Correlacionar o pico do p99 com um trace
+
+Esta é a feature central do OTel: você vê **onde** a latência está no gráfico e vai direto para o **porquê** no trace.
+
+```
+1. No dashboard, identifique um pico no p99 do endpoint /slow
+2. Anote o timestamp do pico (ex: 14:23:15)
+3. Abra: Grafana → Explore → Datasource: Tempo
+4. Execute a query TraceQL correspondente:
+
+   { resource.service.name = "ranking-api" && span.http.target = "/slow" && duration > 200ms }
+
+5. Filtre os resultados pelo timestamp do pico
+6. Abra o trace mais lento → veja no waterfall qual span interno causou o atraso
+   (ex: "db-read-primary" demorou 400ms naquela requisição específica)
+```
+
+> 💡 **Regra prática:** p99 alto + throughput normal → problema de latência pontual (busque traces lentos).  
+> p99 alto + taxa de erro alta → problema de falha (busque traces com `status = error`).
+
+---
+
+## Etapa 9.2: Dashboard p99 por Endpoint
+
+O dashboard anterior (`latencia-p99.json`) mostra todos os percentis juntos num gráfico só. Quando você quer **comparar endpoints lado a lado** — qual está mais lento agora, qual piorou na última meia hora — o dashboard `p99-por-endpoint.json` é mais direto.
+
+### Importar
+
+```
+Grafana → Dashboards → New → Import
+→ Upload: grafana-dashboards/p99-por-endpoint.json
+→ Prometheus → selecione o datasource
+→ Import
+```
+
+### O que cada painel mostra
+
+| Painel | Tipo | O que responde |
+|---|---|---|
+| p99 — /rankings | Stat | Está dentro do SLO agora? (threshold: laranja ≥ 100ms, vermelho ≥ 300ms) |
+| p99 — /score | Stat | Submissão de score está lenta? |
+| p99 — /score/{player} | Stat | Consulta de jogador está lenta? |
+| p99 — /slow | Stat | Baseline do endpoint lento (threshold: laranja ≥ 500ms, vermelho ≥ 1500ms) |
+| p99 por Endpoint — Série Temporal | Timeseries | Qual endpoint piorou ao longo do tempo? |
+| p50 / p95 / p99 — /slow | Timeseries | Distribuição do endpoint lento: outliers ou degradação geral? |
+| Ranking de Latência | Table | Todos os endpoints ordenados pelo p99 mais alto |
+
+### Lendo o painel de distribuição
+
+O painel **p50 / p95 / p99 — /slow** é onde você diferencia dois tipos de problema:
+
+```
+Cenário A — outlier pontual:
+  p50: 80ms   p95: 120ms   p99: 2400ms
+  → 99% das requisições são rápidas. 1 em 100 dispara muito.
+    Causa provável: GC pause, lock de banco, cold start.
+
+Cenário B — degradação geral:
+  p50: 800ms  p95: 1200ms  p99: 1800ms
+  → Todas as requisições ficaram lentas. O p50 subiu junto.
+    Causa provável: saturação de CPU, pool de conexões esgotado.
+```
+
+Quando p50 e p99 se afastam muito → outlier. Quando sobem juntos → problema sistêmico.
+
+### Gerar carga para popular o dashboard
+
+**PowerShell:**
+
+```powershell
+for ($i = 1; $i -le 40; $i++) {
+    Invoke-RestMethod http://localhost:8082/rankings | Out-Null
+    Invoke-RestMethod http://localhost:8082/slow | Out-Null
+    Invoke-RestMethod -Method Post -Uri http://localhost:8082/score `
+        -ContentType "application/json" `
+        -Body "{`"player`":`"jogador$i`",`"score`":$($i * 10)}" | Out-Null
+    Invoke-RestMethod "http://localhost:8082/score/jogador$i" | Out-Null
+}
+```
+
+**bash / zsh:**
+
+```bash
+for i in $(seq 1 40); do
+  curl -s http://localhost:8082/rankings > /dev/null
+  curl -s http://localhost:8082/slow > /dev/null
+  curl -s -X POST http://localhost:8082/score \
+    -H "Content-Type: application/json" \
+    -d "{\"player\":\"jogador$i\",\"score\":$((i * 10))}" > /dev/null
+  curl -s "http://localhost:8082/score/jogador$i" > /dev/null
+done
+```
+
+> Esse loop garante dados nos quatro endpoints monitorados pelos stat panels. Aguarde ~15 segundos após o loop para o Prometheus scrape atualizar os valores.
+
+---
+
+## Etapa 9.3: Alertas de Latência p99 no Grafana
+
+### Como funciona o provisionamento
+
+O Grafana tem um sidecar (`grafana-sc-alerts`) que monitora ConfigMaps com o label `grafana_alert: "1"` e os carrega automaticamente como regras de alerta — sem precisar clicar na UI.
+
+O arquivo `manifests/05-grafana-alert-rules-latency.yaml` segue esse padrão: basta aplicar e as regras aparecem na pasta **OTel — Ranking API** do Grafana Alerting.
+
+### Pré-requisito: sidecar de alertas ativo
+
+Verifique se já está habilitado no módulo 03:
+
+```bash
+kubectl get deployment -n monitoring kind-prometheus-grafana \
+  -o jsonpath='{.spec.template.spec.containers[*].name}'
+```
+
+Se `grafana-sc-alerts` aparecer na lista, já está ativo. Caso contrário, atualize o Helm do módulo 03:
+
+```yaml
+# curso-k8s/modulo-03-monitoring/helm-values/values-prometheus-stack.yaml
+grafana:
+  sidecar:
+    alerts:
+      enabled: true
+```
+
+```powershell
+# PowerShell — atualiza o release do módulo 03
+helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack `
+  -n monitoring `
+  -f ..\modulo-03-monitoring\helm-values\values-prometheus-stack.yaml
+```
+
+### Aplicar as regras
+
+Powershell e Bash
+
+```powershell
+kubectl apply -f manifests/05-grafana-alert-rules-latency.yaml
+```
+
+Verificar carregamento (aguarde ~30s):
+
+```
+Grafana → Alerting → Alert Rules → pasta "OTel — Ranking API"
+```
+
+### As 4 regras criadas
+
+| Alerta | Threshold | Severidade | `for` | O que indica |
+|---|---|---|---|---|
+| Latência p99 Alta — /rankings | p99 > 300ms | warning | 3m | Leitura do ranking lenta |
+| Latência p99 Alta — /score | p99 > 300ms | warning | 3m | Submissão de score lenta |
+| Latência p99 Crítica — Ranking API degradada | `max(p99)` > 500ms | critical | 5m | Qualquer endpoint (exceto /health e /slow) degradado |
+| Regressão no /slow — p99 acima do baseline | p99 > 3000ms | warning | 3m | Endpoint lento piorou além do esperado (~1-2s) |
+
+> **Por que thresholds diferentes para /slow?** O `/slow` tem um `time.sleep()` intencional que eleva o p99 para ~1-2s em condições normais. Alertar em 300ms seria ruído constante. O threshold de 3000ms detecta quando algo **além** do sleep acontece (regressão real).
+
+### Testar um alerta manualmente
+
+Simule latência alta no `/rankings` fazendo muitas requisições simultâneas:
+
+```powershell
+# Abre 10 requisições paralelas por 4 minutos
+1..10 | ForEach-Object -Parallel {
+    for ($i = 1; $i -le 50; $i++) {
+        Invoke-RestMethod http://localhost:8082/rankings | Out-Null
+    }
+} -ThrottleLimit 10
+```
+
+Após ~3 minutos, o alerta **"Latência p99 Alta — /rankings"** deve transitar para `Firing` no Grafana Alerting.
+
+### Fluxo de investigação a partir do alerta
+
+```
+1. Grafana → Alerting → Alert Rules → clique no alerta Firing
+2. Copie o timestamp do início do Firing
+3. Abra o dashboard "p99 por Endpoint" → identifique qual rota
+4. Grafana → Explore → Datasource: Tempo
+   Query: { resource.service.name = "ranking-api" && duration > 200ms }
+   → Filtre pelo timestamp do alerta
+5. Abra o trace mais lento → waterfall mostra o span responsável
+6. Grafana → Explore → Datasource: Loki
+   Query: {service_name="ranking-api"} | json | traceID = "<traceID do trace lento>"
+   → Log da requisição com contexto completo
 ```
 
 ---
 
-## Etapa 10: Correlacionar Trace → Logs
+## Etapa 10: Correlacionando Traces → Logs
 
-1. No Grafana Explore → Tempo, clique em qualquer trace
-2. Clique em um span com erro
-3. Clique no botão **"Logs for this span"** (ícone de log)
-4. O Grafana abre automaticamente o Loki com o `trace_id` filtrado
 
-Você verá os logs daquele pod exatamente no momento daquele trace.
+### O modelo de dados do Loki
+
+Antes de fazer qualquer query, é importante entender como o Loki organiza os logs. Ele tem dois níveis:
+
+**Stream labels** — indexados, usados para selecionar quais séries de logs buscar:
+```
+{service_name="ranking-api", level="ERROR"}
+```
+Labels são definidos na ingestão e ficam no índice. Buscar por label é barato e rápido.
+
+**Log body** — o conteúdo do log em si, não indexado por padrão:
+```json
+{"message": "Score inválido recebido", "player": "hacker", "score": -999, "traceID": "abc123..."}
+```
+Filtrar pelo body requer varredura (`|=`, `| json`, `| regexp`). Mais custoso, mas permite qualquer filtro.
+
+### De onde vêm os labels no Loki?
+
+Os logs da Ranking API chegam ao Loki pelo caminho: **OTel SDK → OTel Collector → Loki exporter**.
+
+No arquivo `03-otel-collector.yaml`, o processor `resource` define quais resource attributes do OTel serão promovidos a **stream labels** no Loki:
+
+```yaml
+resource:
+  attributes:
+  - action: insert
+    key: loki.resource.labels
+    value: service.name, deployment.environment, k8s.namespace.name
+```
+
+O OTel Loki exporter lê essa instrução e cria os labels (convertendo pontos em underscores):
+
+| Resource attribute (OTel) | Label no Loki |
+|---|---|
+| `service.name = "ranking-api"` | `service_name="ranking-api"` |
+| `deployment.environment = "kind-dev"` | `deployment_environment="kind-dev"` |
+
+O Loki exporter também extrai automaticamente a severidade do log como label `level`:
+
+| Severidade Python | Label Loki |
+|---|---|
+| `logging.INFO` | `level="INFO"` |
+| `logging.WARNING` | `level="WARN"` |
+| `logging.ERROR` | `level="ERROR"` |
+
+O `traceID` **não é um label** — ele fica no corpo do log como campo JSON. Por isso, filtrar por `traceID` requer varredura com `| json`.
+
+### O mecanismo de correlação Trace → Logs
+
+Quando você clica em "Logs for this span" no Tempo, o Grafana faz duas coisas simultaneamente:
+
+1. **Monta o seletor de labels**: lê o atributo `service.name` do span e converte para `{service_name="ranking-api"}` usando o mapeamento configurado na Etapa 2
+2. **Ajusta o time range**: recorta a janela de tempo exatamente no período de duração daquele span
+
+O resultado é: você vê apenas os logs daquele serviço no exato momento em que aquele trace aconteceu — sem precisar saber o `traceID` de antemão.
+
+---
+
+### Passo 1 — Gerar erros reais na API
+
+A API tem dois endpoints que produzem spans com `status = error` e logs estruturados:
+
+**Score negativo** (HTTP 400 — span ERROR + `logger.error` + incrementa `api_errors_total`):
+
+**PowerShell:**
+```powershell
+Invoke-RestMethod -Method Post -Uri http://localhost:8082/score `
+  -ContentType "application/json" `
+  -Body '{"player": "hacker", "score": -999}'
+```
+
+**bash / zsh:**
+```bash
+curl -X POST http://localhost:8082/score \
+  -H "Content-Type: application/json" \
+  -d '{"player": "hacker", "score": -999}'
+```
+
+**Jogador inexistente** (HTTP 404 — span ERROR + `logger.warning` + incrementa `api_errors_total`):
+
+**PowerShell:**
+```powershell
+Invoke-RestMethod http://localhost:8082/score/jogador-que-nao-existe
+```
+
+**bash / zsh:**
+```bash
+curl http://localhost:8082/score/jogador-que-nao-existe
+```
+
+> ⚠️ Ambos os comandos retornam erro HTTP — isso é esperado. O importante é que o span ficou marcado com `status = error` e o log foi enviado ao Loki via OTel Collector.
+
+### Passo 2 — Encontrar o trace com erro no Tempo
+
+```
+http://localhost:3000
+→ Explore
+→ Datasource: Tempo
+→ Query TraceQL:
+
+{ resource.service.name = "ranking-api" && status = error }
+
+→ Run query
+→ Clique em qualquer trace da lista para abrir o waterfall
+→ Spans com erro aparecem em vermelho
+```
+
+### Passo 3 — Pular do trace para os logs
+
+```
+1. No waterfall, clique no span com erro (ex: "submit-score" ou "get-player-score")
+2. No painel lateral, clique no ícone de log ao lado de "Logs for this span"
+3. O Grafana abre o Loki Explore com:
+   - Seletor:    {service_name="ranking-api"}
+   - Time range: recortado para o intervalo exato do span
+```
+
+Você verá os logs gerados por aquela requisição específica, sem nenhum ruído de outros pods ou outros momentos.
+
+> 💡 Se quiser ir além e filtrar pelo `traceID` exato (útil quando há muitas requisições simultâneas), copie o ID do trace no Tempo e adicione manualmente na query do Loki:
+> ```
+> {service_name="ranking-api"} | json | traceID = "cole-o-id-aqui"
+> ```
+> O `traceID` é injetado automaticamente no log pelo OTel SDK — basta expandir qualquer linha de log no Loki para vê-lo.
+
+### Passo 4 — Explorar logs no Loki diretamente
+
+```
+http://localhost:3000
+→ Explore
+→ Datasource: Loki
+→ Ajuste o time range para "Last 6 hours"
+
+# Todos os logs da Ranking API (labels indexados → busca rápida)
+{service_name="ranking-api"}
+
+# Apenas erros — level é stream label, não precisa de | json
+{service_name="ranking-api", level="ERROR"}
+
+# Warnings — gerados pelo endpoint GET /score/{player} com jogador inexistente
+{service_name="ranking-api", level="WARN"}
+
+# Logs com traceID no body — para correlação manual com o Tempo
+{service_name="ranking-api"} | json | traceID != ""
+```
+
+> ⚠️ "No logs volume available" é apenas o histograma de preview do volume — clique em **Run query** assim mesmo. Os logs existem no índice.
+
+---
+
+## Etapa 11: DevSecOps — Segurança com OpenTelemetry
+
+### Por que um DevSecOps usa OTel?
+
+A premissa do DevSecOps é que **segurança é responsabilidade de todos**, e não apenas do time de segurança. Mas segurança sem visibilidade é cega. O OpenTelemetry resolve exatamente isso: transforma os sinais que a aplicação já emite (traces, métricas, logs) em evidências investigáveis.
+
+> **Regra prática:** Se você não consegue detectar um ataque no momento em que ele acontece, você só vai saber que aconteceu quando o estrago já foi feito.
+
+### Mapeamento OWASP Top 10 → Sinais OTel
+
+| OWASP | Categoria | Detectado por | Onde ver |
+|---|---|---|---|
+| **A01** | Broken Access Control | `player_enumeration` em `security_events_total` | Prometheus / Dashboard painel 7 |
+| **A03** | Injection | `potential_injection` em `security_events_total` + `level="WARN"` no Loki | Prometheus + Loki |
+| **A04** | Insecure Design | `suspicious_score_value` em `security_events_total` | Prometheus / Dashboard painel 5 |
+| **A05** | Security Misconfiguration | Métodos HTTP inesperados em `http_server_duration_milliseconds_count` | Prometheus / Dashboard painel 4 |
+| **A07** | Auth Failures | Taxa de submissão alta por player único | Prometheus / Dashboard painel 6 |
+| **A09** | Logging & Monitoring Failures | `level="ERROR"` em Loki + gaps no volume de logs | Loki / Dashboard painéis 7+8 |
+
+### O que foi adicionado ao app (`security_events_total`)
+
+O `main.py` agora emite um counter dedicado para eventos de segurança, separado do `api_errors_total`. A distinção é intencional:
+
+- `api_errors_total` → erros funcionais da aplicação (regra de negócio quebrada)
+- `security_events_total` → comportamentos suspeitos que merecem alerta de segurança
+
+```
+security_events_total{
+  event_type="input_validation_failure"   # score < 0 ou nome > 32 chars
+  event_type="suspicious_score_value"     # score > 999.999 — possível fuzzing
+  event_type="potential_injection"        # ' " ; \ < > % $ no nome do jogador
+  event_type="player_enumeration"         # GET /score/{player} → 404 repetidos
+}
+```
+
+O campo `security.flagged = true` também é adicionado ao span no Tempo quando suspeito. Isso permite filtrar por TraceQL:
+
+```
+{ resource.service.name = "ranking-api" && span.security.flagged = true }
+```
+
+### Importar o dashboard DevSecOps
+
+```
+http://localhost:3000
+→ Dashboards → New → Import
+→ Upload dashboard JSON file
+→ Selecione: grafana-dashboards/devsecops.json
+→ Configure:
+    Prometheus → datasource Prometheus
+    Loki       → datasource Loki
+→ Import
+```
+
+| Painel | O que detecta | OWASP |
+|---|---|---|
+| Eventos de Segurança (1h) | Contador total — qualquer valor > 0 acende amarelo | A03/A04 |
+| Taxa de Erros HTTP (%) | Erros 4xx+5xx como proporção do tráfego | A01/A03 |
+| Logs ERROR 15min | Contagem de erros do Loki | A09 |
+| Erros 4xx/5xx por rota e código | Qual endpoint está sendo atacado | A01/A03 |
+| Métodos HTTP inesperados | DELETE/PUT quando não esperado | A05 |
+| Eventos de segurança por tipo | Injeção (vermelho), fuzzing (laranja), validação (amarelo), enumeração (roxo) | A03/A04/A01 |
+| Falhas de validação por motivo | Contexto detalhado do `api_errors_total` | A03 |
+| Top 5 players por submissão | Player único enviando muito mais que os outros | A07 |
+| Taxa de 404 por rota | Enumeração de IDs de jogadores | A01 |
+| Volume ERROR/WARN (Loki) | Pico brusco = evento anômalo | A09 |
+| Logs ERROR ao vivo | Stream de erros com traceID para correlação | A09 |
+
+### Simulando ataques para gerar dados no dashboard
+
+**PowerShell:**
+
+```powershell
+# A03 Injection — caractere de SQL injection no nome do jogador
+Invoke-RestMethod -Method Post -Uri http://localhost:8082/score `
+    -ContentType "application/json" `
+    -Body '{"player":"mario\"; DROP TABLE rankings; --","score":100}'
+
+# A04 Insecure Design — score absurdo (fuzzing de overflow)
+Invoke-RestMethod -Method Post -Uri http://localhost:8082/score `
+    -ContentType "application/json" `
+    -Body '{"player":"fuzzer","score":9999999}'
+
+# A01 Enumeração — consulta a players que não existem
+for ($i = 1; $i -le 20; $i++) {
+    try { Invoke-RestMethod http://localhost:8082/score/player_$i } catch {}
+}
+
+# A03 Validação — scores negativos em massa
+for ($i = 1; $i -le 10; $i++) {
+    try {
+        Invoke-RestMethod -Method Post -Uri http://localhost:8082/score `
+            -ContentType "application/json" `
+            -Body "{`"player`":`"attacker`",`"score`":-$i}"
+    } catch {}
+}
+```
+
+**bash / zsh:**
+
+```bash
+# A03 Injection — SQL injection no nome
+curl -s -X POST http://localhost:8082/score \
+    -H "Content-Type: application/json" \
+    -d '{"player":"mario\"; DROP TABLE rankings; --","score":100}'
+
+# A04 Fuzzing — score de overflow
+curl -s -X POST http://localhost:8082/score \
+    -H "Content-Type: application/json" \
+    -d '{"player":"fuzzer","score":9999999}'
+
+# A01 Enumeração — 20 players inexistentes
+for i in $(seq 1 20); do
+    curl -s http://localhost:8082/score/player_$i > /dev/null
+done
+
+# A03 Validação — scores negativos em massa
+for i in $(seq 1 10); do
+    curl -s -X POST http://localhost:8082/score \
+        -H "Content-Type: application/json" \
+        -d "{\"player\":\"attacker\",\"score\":-$i}" > /dev/null
+done
+```
+
+> Após rodar os comandos acima, abra o dashboard DevSecOps e observe: o painel "Eventos de Segurança por Tipo" deve mostrar picos coloridos para cada `event_type` disparado.
+
+### Investigando um incidente com Traces + Logs
+
+#### 1. Pico detectado no dashboard → ir para o Tempo
+
+Quando um painel mostra pico em `potential_injection`, identifique o timestamp e execute no Tempo:
+
+```
+{ resource.service.name = "ranking-api" && span.security.flagged = true }
+```
+
+Filtre pelo intervalo de tempo do pico → abra o trace → veja o span `validate-input` → o atributo `security.warning = potential_injection_chars` mostra qual player foi detectado.
+
+#### 2. Ver o log associado ao trace
+
+No Tempo, com o trace aberto → botão **"Logs for this span"** → abre o Loki com o filtro por `traceID` automático. O log mostrará:
+
+```json
+{
+  "level": "WARN",
+  "message": "Possível injeção no nome do jogador",
+  "player": "mario\"; DROP TABLE",
+  "traceID": "a1b2c3..."
+}
+```
+
+#### 3. Query Loki para auditar todos os eventos suspeitos
+
+```logql
+# Todos os logs de segurança (WARN = detecção, ERROR = falha bloqueada)
+{service_name="ranking-api", level=~"WARN|ERROR"}
+
+# Apenas tentativas de injeção
+{service_name="ranking-api", level="WARN"} |= "injeção"
+
+# Enumeração de players — muitos WARN de player não encontrado
+{service_name="ranking-api", level="WARN"} |= "não encontrado"
+    | json
+    | line_format "{{.player}} — {{.time}}"
+```
+
+### Alertas recomendados (Prometheus)
+
+Adicione ao `helm-values/values-prometheus-stack.yaml` (ou crie uma PrometheusRule):
+
+```yaml
+# Qualquer tentativa de injeção → alerta imediato
+- alert: SecurityInjectionAttempt
+  expr: sum(rate(security_events_total{event_type="potential_injection"}[5m])) > 0
+  for: 0m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Tentativa de injeção detectada em {{ $labels.endpoint }}"
+
+# Enumeração de IDs — mais de 10 por minuto
+- alert: PlayerEnumeration
+  expr: sum(rate(security_events_total{event_type="player_enumeration"}[1m])) > 0.17
+  for: 2m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Possível enumeração de players — {{ $value | humanizePercentage }} req/s"
+
+# Taxa de erro HTTP acima de 20%
+- alert: HighHttpErrorRate
+  expr: >
+    sum(rate(http_server_duration_milliseconds_count{service_name="ranking-api",http_status_code=~"4..|5.."}[5m]))
+    / sum(rate(http_server_duration_milliseconds_count{service_name="ranking-api"}[5m])) > 0.20
+  for: 1m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Taxa de erros HTTP acima de 20% na ranking-api"
+```
+
+---
+
+## Etapa 12: DevOps — Análise da Aplicação via Logs (Loki)
+
+### Métricas vs Logs: quando usar cada um?
+
+O Prometheus responde **"quanto?" e "com qual frequência?"**. O Loki responde **"o que exatamente aconteceu?" e "qual foi o contexto?"**.
+
+| Pergunta | Ferramenta ideal | Por quê |
+|---|---|---|
+| Qual o percentual de erros agora? | Prometheus | Agregado, consulta O(1) |
+| Qual foi a mensagem exata do erro? | Loki | Texto completo do log |
+| A aplicação ainda está viva? | Loki | `count_over_time > 0` por minuto |
+| Qual jogador causou os erros? | Loki | Campos `extra=` preservados no body |
+| Qual a latência por endpoint? | Ambos | Prometheus via histogram; Loki via `unwrap` |
+
+> **Insight DevOps:** Um `count_over_time({service_name="ranking-api"}[5m]) == 0` pode ser o alerta mais valioso de todos — ele detecta **crash silencioso**, quando a aplicação morreu sem lançar exceção.
+
+### LogQL — da query básica ao `unwrap`
+
+LogQL segue sempre a mesma estrutura: `{ stream_labels } | operadores_em_cadeia`
+
+**Nível 1 — Filtro por label indexado** (mais rápido, usa apenas o índice Loki):
+
+```logql
+{service_name="ranking-api", level="ERROR"}
+```
+
+**Nível 2 — Filtro por texto no body** (varre o conteúdo, sem parsear):
+
+```logql
+{service_name="ranking-api"} |= "Score submetido"
+```
+
+**Nível 3 — Parse de campos JSON** (expõe os campos do `extra=` do Python):
+
+```logql
+{service_name="ranking-api"} | json | player != "" | line_format "{{.player}} → score {{.score}}"
+```
+
+**Nível 4 — Métricas de contagem** (transforma stream em série temporal):
+
+```logql
+sum(count_over_time({service_name="ranking-api", level="ERROR"}[$__interval])) by (level)
+```
+
+**Nível 5 — Extração de métricas numéricas com `unwrap`** (o mais poderoso):
+
+```logql
+avg_over_time(
+  {service_name="ranking-api"}
+  | json
+  | duration_ms > 0
+  | unwrap duration_ms [$__interval]
+) by (endpoint)
+```
+
+O `unwrap` extrai o campo `duration_ms` de cada linha de log e calcula a média por janela de tempo. O resultado é uma série temporal de latência — **idêntico ao que o Prometheus faria com um histogram**, mas derivado exclusivamente dos logs.
+
+> **Por que isso importa?** Se você esqueceu de adicionar um histogram no código antes do deploy, não precisa de redeploy ou de nova métrica. Os logs já têm o dado — o `unwrap` apenas o revela.
+
+### Importar o dashboard DevOps
+
+```
+http://localhost:3000
+→ Dashboards → New → Import
+→ Upload dashboard JSON file
+→ Selecione: grafana-dashboards/logs-devops.json
+→ Configure: Loki → datasource Loki
+→ Import
+```
+
+| Painel | Query | O que detecta |
+|---|---|---|
+| Total de Logs (1h) | `count_over_time[1h]` | Crash silencioso (zero logs) |
+| Taxa de ERROR (%) | count ERROR / count total | Saúde geral da aplicação |
+| Latência Média via Logs | `unwrap duration_ms` | Latência sem Prometheus |
+| Volume por Nível (empilhado) | `by (level)` stacked bars | Padrão INFO→WARN→ERROR |
+| Anomalias ERROR+WARN | Somente nível ERROR/WARN | Progressão de degradação |
+| Atividade por Endpoint | `| json \| endpoint != ""` | Queda de tráfego por rota |
+| Latência por Endpoint | `unwrap duration_ms by (endpoint)` | Gargalo por rota |
+| Scores Enviados vs Recordes | String match + campo `new_record` | Engajamento dos jogadores |
+| Top 5 Players Ativos | `topk(5, ...) by (player)` | Automação/abuso |
+| Logs WARN+ERROR ao vivo | Stream com `showLabels: true` | Diagnóstico + traceID |
+| Operações lentas > 150ms | `| json \| duration_ms > 150` | Gargalos sem abrir Tempo |
+
+### Padrões de diagnóstico com os painéis
+
+#### Padrão 1 — Degradação progressiva
+
+```
+"Volume por Nível": WARN começa a subir → 2-3 minutos depois ERROR aparece
+→ Isso é um sintoma: um recurso externo (DB, cache) está lento antes de falhar
+→ Use "Latência por Endpoint (unwrap)" para confirmar qual rota está sofrendo
+```
+
+#### Padrão 2 — Crash silencioso
+
+```
+"Total de Logs (1h)" vai a zero OU
+"Volume por Nível": linha INFO some abruptamente
+→ O pod pode ter crashado sem ERROR (OOMKill, SIGKILL)
+→ Verifique: kubectl get pods -n games
+```
+
+#### Padrão 3 — Investigação de incidente
+
+```
+1. "Anomalias ERROR+WARN" → identifica o timestamp exato do pico
+2. "Atividade por Endpoint" → qual endpoint parou de aparecer?
+3. "Latência por Endpoint (unwrap)" → latência subiu no mesmo momento?
+4. "Logs WARN+ERROR ao vivo" → lê a mensagem + campos extra
+   → traceID visível no body JSON expandido
+   → Grafana: Explore → Tempo → cole o traceID → waterfall completo
+```
+
+### Gerar dados para ver os painéis em ação
+
+**PowerShell:**
+
+```powershell
+# Gera atividade mista para popular todos os painéis
+for ($i = 1; $i -le 20; $i++) {
+    Invoke-RestMethod http://localhost:8082/rankings | Out-Null
+    Invoke-RestMethod -Method Post -Uri http://localhost:8082/score `
+        -ContentType "application/json" `
+        -Body "{`"player`":`"mario`",`"score`":$(Get-Random -Maximum 9999)}" | Out-Null
+    Invoke-RestMethod http://localhost:8082/slow | Out-Null
+    try { Invoke-RestMethod http://localhost:8082/score/jogador_inexistente } catch {}
+}
+```
+
+**bash / zsh:**
+
+```bash
+for i in $(seq 1 20); do
+    curl -s http://localhost:8082/rankings > /dev/null
+    curl -s -X POST http://localhost:8082/score \
+        -H "Content-Type: application/json" \
+        -d "{\"player\":\"mario\",\"score\":$((RANDOM % 9999))}" > /dev/null
+    curl -s http://localhost:8082/slow > /dev/null
+    curl -s http://localhost:8082/score/jogador_inexistente > /dev/null
+done
+```
 
 ---
 
@@ -292,11 +1462,11 @@ Você verá os logs daquele pod exatamente no momento daquele trace.
 
 ```sh
 # Remover a Ranking API
-kubectl delete -f manifests/k8s/01-deployment-ranking-api.yaml
-kubectl delete -f manifests/k8s/02-service-ranking-api.yaml
+kubectl delete -f manifests/01-deployment-ranking-api.yaml
+kubectl delete -f manifests/02-service-ranking-api.yaml
 
 # Remover o OTel Collector
-kubectl delete -f manifests/k8s/03-otel-collector.yaml
+kubectl delete -f manifests/03-otel-collector.yaml
 kubectl delete namespace otel
 
 # Remover o Tempo

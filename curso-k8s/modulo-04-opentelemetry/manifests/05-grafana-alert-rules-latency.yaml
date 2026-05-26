@@ -1,0 +1,259 @@
+# ============================================================
+# ConfigMap: Grafana Alert Rules — Latência p99 — Ranking API
+# ============================================================
+# O sidecar grafana-sc-alerts detecta ConfigMaps com o label
+# "grafana_alert: 1" e os provisiona automaticamente como
+# regras de alerta no Grafana (pasta "OTel — Ranking API").
+#
+# Pré-requisito: sidecar de alertas habilitado no Grafana.
+# Se ainda não estiver ativo, adicione ao values-prometheus-stack.yaml
+# do módulo 03 e atualize o release:
+#
+#   grafana:
+#     sidecar:
+#       alerts:
+#         enabled: true
+#
+#   helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack \
+#     -n monitoring -f helm-values/values-prometheus-stack.yaml
+#
+# Aplicar:
+#   kubectl apply -f 05-grafana-alert-rules-latency.yaml
+#
+# Verificar:
+#   Grafana UI → Alerting → Alert Rules → pasta "OTel — Ranking API"
+#
+# Métrica base: http_server_duration_milliseconds_bucket
+#   Origem: FastAPIInstrumentor (auto-instrumentação OTel)
+#   Label de rota: http_target  (ex: "/rankings", "/score")
+#   Label de serviço: service_name="ranking-api"
+#
+# Thresholds escolhidos:
+#   /rankings, /score, /score/{player}  → warning  > 300ms  (APIs rápidas)
+#   qualquer endpoint (exceto /slow)    → critical > 500ms  (degradação severa)
+#   /slow                               → warning  > 3000ms (regressão de baseline)
+# ============================================================
+
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: grafana-alert-rules-latencia-p99
+  namespace: monitoring
+  labels:
+    grafana_alert: "1"
+
+data:
+  latencia-p99.yaml: |
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: "Latência p99 — Ranking API"
+        folder: "OTel — Ranking API"
+        interval: 1m
+        rules:
+
+          # --------------------------------------------------------
+          # ALERTA 1: p99 alto no /rankings (endpoint de leitura)
+          # Threshold: 300ms — leituras do ranking devem ser rápidas
+          # --------------------------------------------------------
+          - uid: otel-p99-rankings
+            title: "Latência p99 Alta — /rankings"
+            condition: B
+            data:
+              - refId: A
+                relativeTimeRange: {from: 300, to: 0}
+                datasourceUid: prometheus
+                model:
+                  datasource: {type: prometheus, uid: prometheus}
+                  expr: >-
+                    histogram_quantile(0.99,
+                      sum(rate(http_server_duration_milliseconds_bucket{
+                        service_name="ranking-api",
+                        http_target="/rankings"
+                      }[5m])) by (le))
+                  instant: true
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  refId: A
+              - refId: B
+                datasourceUid: __expr__
+                model:
+                  type: classic_conditions
+                  datasource: {type: __expr__, uid: __expr__}
+                  conditions:
+                    - type: query
+                      evaluator: {type: gt, params: [300]}
+                      operator: {type: and}
+                      query: {params: [A]}
+                      reducer: {type: last, params: []}
+                  refId: B
+            noDataState: NoData
+            execErrState: Alerting
+            for: 3m
+            labels:
+              severity: warning
+              service: ranking-api
+              endpoint: rankings
+              signal: latency
+            annotations:
+              summary: "p99 do /rankings acima de 300ms"
+              description: >
+                O percentil 99 de latência do endpoint /rankings está acima de 300ms
+                por mais de 3 minutos. Use o dashboard "p99 por Endpoint" para
+                comparar com os demais e abra um trace no Tempo para identificar
+                o span lento (Explore → Tempo → duration > 200ms).
+
+          # --------------------------------------------------------
+          # ALERTA 2: p99 alto no /score (submissão de score)
+          # Threshold: 300ms — escrita simples, deve ser rápida
+          # --------------------------------------------------------
+          - uid: otel-p99-score
+            title: "Latência p99 Alta — /score"
+            condition: B
+            data:
+              - refId: A
+                relativeTimeRange: {from: 300, to: 0}
+                datasourceUid: prometheus
+                model:
+                  datasource: {type: prometheus, uid: prometheus}
+                  expr: >-
+                    histogram_quantile(0.99,
+                      sum(rate(http_server_duration_milliseconds_bucket{
+                        service_name="ranking-api",
+                        http_target="/score"
+                      }[5m])) by (le))
+                  instant: true
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  refId: A
+              - refId: B
+                datasourceUid: __expr__
+                model:
+                  type: classic_conditions
+                  datasource: {type: __expr__, uid: __expr__}
+                  conditions:
+                    - type: query
+                      evaluator: {type: gt, params: [300]}
+                      operator: {type: and}
+                      query: {params: [A]}
+                      reducer: {type: last, params: []}
+                  refId: B
+            noDataState: NoData
+            execErrState: Alerting
+            for: 3m
+            labels:
+              severity: warning
+              service: ranking-api
+              endpoint: score
+              signal: latency
+            annotations:
+              summary: "p99 do /score acima de 300ms"
+              description: >
+                O percentil 99 de latência do endpoint /score está acima de 300ms
+                por mais de 3 minutos. Verifique se há aumento de carga, contenção
+                em lock de estrutura de dados ou pressão de CPU no pod.
+
+          # --------------------------------------------------------
+          # ALERTA 3: p99 crítico — qualquer endpoint rápido
+          # max() agrega todas as rotas (exceto /health e /slow)
+          # e dispara se QUALQUER UMA ultrapassar 500ms.
+          # Threshold: 500ms por 5min → degradação severa da API
+          # --------------------------------------------------------
+          - uid: otel-p99-critico-geral
+            title: "Latência p99 Crítica — Ranking API degradada"
+            condition: B
+            data:
+              - refId: A
+                relativeTimeRange: {from: 300, to: 0}
+                datasourceUid: prometheus
+                model:
+                  datasource: {type: prometheus, uid: prometheus}
+                  expr: >-
+                    max(histogram_quantile(0.99,
+                      sum(rate(http_server_duration_milliseconds_bucket{
+                        service_name="ranking-api",
+                        http_target!~"/health|/slow"
+                      }[5m])) by (le, http_target)))
+                  instant: true
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  refId: A
+              - refId: B
+                datasourceUid: __expr__
+                model:
+                  type: classic_conditions
+                  datasource: {type: __expr__, uid: __expr__}
+                  conditions:
+                    - type: query
+                      evaluator: {type: gt, params: [500]}
+                      operator: {type: and}
+                      query: {params: [A]}
+                      reducer: {type: last, params: []}
+                  refId: B
+            noDataState: NoData
+            execErrState: Alerting
+            for: 5m
+            labels:
+              severity: critical
+              service: ranking-api
+              signal: latency
+            annotations:
+              summary: "p99 crítico — algum endpoint ultrapassou 500ms"
+              description: >
+                O p99 de pelo menos um endpoint da Ranking API (excluindo /health e /slow)
+                ultrapassou 500ms por mais de 5 minutos. Isso indica degradação severa.
+                Acesse o dashboard "p99 por Endpoint" → tabela "Ranking de Latência"
+                para identificar qual rota está afetada e correlacione com traces no Tempo.
+
+          # --------------------------------------------------------
+          # ALERTA 4: regressão de baseline no /slow
+          # O /slow tem sleep intencional (~1-2s). Se o p99 passar
+          # de 3s, algo além do sleep está ocorrendo.
+          # Threshold: 3000ms — regressão de comportamento esperado
+          # --------------------------------------------------------
+          - uid: otel-p99-slow-regressao
+            title: "Regressão no /slow — p99 acima do baseline"
+            condition: B
+            data:
+              - refId: A
+                relativeTimeRange: {from: 300, to: 0}
+                datasourceUid: prometheus
+                model:
+                  datasource: {type: prometheus, uid: prometheus}
+                  expr: >-
+                    histogram_quantile(0.99,
+                      sum(rate(http_server_duration_milliseconds_bucket{
+                        service_name="ranking-api",
+                        http_target="/slow"
+                      }[5m])) by (le))
+                  instant: true
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  refId: A
+              - refId: B
+                datasourceUid: __expr__
+                model:
+                  type: classic_conditions
+                  datasource: {type: __expr__, uid: __expr__}
+                  conditions:
+                    - type: query
+                      evaluator: {type: gt, params: [3000]}
+                      operator: {type: and}
+                      query: {params: [A]}
+                      reducer: {type: last, params: []}
+                  refId: B
+            noDataState: NoData
+            execErrState: Alerting
+            for: 3m
+            labels:
+              severity: warning
+              service: ranking-api
+              endpoint: slow
+              signal: latency
+            annotations:
+              summary: "p99 do /slow acima de 3000ms — regressão detectada"
+              description: >
+                O endpoint /slow está retornando acima de 3s no p99, além do baseline
+                esperado (1-2s com sleep intencional). Pode indicar regressão no código,
+                starvation de threads ou pressão excessiva no pod durante testes de carga.

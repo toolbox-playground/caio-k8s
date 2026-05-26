@@ -1,5 +1,16 @@
 # 🎉 Módulo 02 - Guia de Início Rápido
 
+> ⚠️ **Todos os comandos deste guia devem ser executados de dentro da pasta `modulo-02-deploy-app/`:**
+>
+> **PowerShell:**
+> ```powershell
+> cd curso-k8s/modulo-02-deploy-app
+> ```
+> **bash / zsh:**
+> ```bash
+> cd curso-k8s/modulo-02-deploy-app
+> ```
+
 ## ✨ O que foi criado
 
 Um curso completo sobre **Deploy de Aplicações e Resiliência no Kubernetes** com:
