@@ -269,6 +269,54 @@ kubectl get pods -n monitoring | grep tempo
 
 ## Etapa 2: Adicionar Tempo e Loki como datasources no Grafana
 
+### O que são datasources no Grafana?
+
+O Grafana é uma camada de **visualização** — ele não armazena dados. Os **datasources** dizem ao Grafana onde buscar cada tipo de dado:
+
+| Datasource | O que armazena | Protocolo de consulta |
+|---|---|---|
+| Prometheus | Métricas (séries temporais) | PromQL |
+| Loki | Logs | LogQL |
+| Tempo | Traces distribuídos | TraceQL |
+
+Após esta etapa, o Grafana terá acesso a todos os três sinais de observabilidade da Ranking API.
+
+### Por que configurar a ligação Tempo → Loki?
+
+Esta é a feature de **Trace to logs**: ao visualizar um trace no Tempo e clicar em "Logs for this span", o Grafana abre automaticamente o Loki com o filtro correto e o time range ajustado para aquele span exato.
+
+Para isso funcionar, o Grafana precisa saber:
+1. **Qual datasource Loki** usar para buscar os logs
+2. **Qual atributo do span** usar para montar o seletor de labels no Loki
+
+### Por que `service.name`?
+
+`service.name` é uma **convenção semântica do OpenTelemetry** (OTel Semantic Conventions). Todo dado emitido por uma aplicação instrumentada com OTel carrega um conjunto de metadados chamado **resource** — informações sobre a origem dos dados. `service.name` é o atributo padrão que identifica o serviço.
+
+No deployment da Ranking API, definimos:
+```yaml
+OTEL_SERVICE_NAME: "ranking-api"
+```
+
+Isso faz com que **todos os spans, métricas e logs** da aplicação carreguem o atributo `service.name = "ranking-api"`. Quando o Grafana precisa encontrar os logs de um trace, ele lê esse atributo do span e busca no Loki.
+
+### Por que a sintaxe `service.name as service_name`?
+
+Há uma **incompatibilidade de nomenclatura** entre os dois sistemas:
+
+- **OTel** usa ponto como separador hierárquico: `service.name`, `http.target`, `db.system`
+- **Loki** não aceita ponto em nomes de labels (é reservado para o parser) — usa underscore: `service_name`
+
+O OTel Collector já resolve isso automaticamente ao enviar logs para o Loki: converte `service.name` → `service_name`. Mas o Grafana precisa saber que, ao montar a query no Loki, deve usar `service_name` (com underscore), não `service.name` (com ponto).
+
+A sintaxe `service.name as service_name` é exatamente essa instrução:
+- **Esquerda do `as`**: nome do atributo no span (OTel)
+- **Direita do `as`**: nome do label no Loki
+
+Sem esse mapeamento, o Grafana geraria `{service.name="ranking-api"}`, que o Loki rejeita com `parse error: unexpected .`.
+
+---
+
 Antes de configurar, verifique o serviço do Tempo para confirmar a porta real:
 
 **PowerShell e bash:**
@@ -303,8 +351,6 @@ Em "Trace to logs":
   Tags → service.name as service_name
 → Save & Test
 ```
-
-> 💡 A sintaxe `service.name as service_name` instrui o Grafana a ler o atributo OTel `service.name` do span e usá-lo como a label `service_name` na query do Loki (que não aceita pontos em nomes de labels).
 
 ---
 
@@ -468,67 +514,205 @@ echo "20 requisições enviadas. Abra o Grafana Tempo para ver os traces."
 
 ---
 
-## Etapa 8: Ver traces no Grafana Tempo
+## Etapa 8: Explorando traces no Grafana Tempo
+
+### O que são traces e spans?
+
+Um **trace** representa o caminho completo de uma requisição através do sistema, do início ao fim. Ele é composto por **spans** — cada span é uma unidade de trabalho individual dentro daquele trace.
+
+Por exemplo, uma requisição `POST /score` na Ranking API gera este trace:
+
+```
+POST /score ────────────────────────────────────── 35ms  ← span raiz (trace inteiro)
+  ├── validate-score ──── 0.5ms                          ← validação do input
+  ├── db-read ───────────────── 10ms                     ← leitura do score atual
+  └── db-write ────────────────────── 12ms               ← escrita do novo score
+```
+
+O Grafana exibe isso como um **waterfall** (cascata): cada linha é um span, a largura da barra representa a duração, e a cor indica o status (verde = OK, vermelho = ERROR).
+
+Ao clicar em um span, o painel lateral mostra:
+- **Atributos do span**: dados definidos pela aplicação no código (e.g., `player.name`, `db.statement`)
+- **Resource attributes**: metadados da origem (e.g., `service.name`, `deployment.environment`)
+- **Status e mensagem de erro**: quando o span falhou
+
+### O que é TraceQL?
+
+TraceQL é a linguagem de query do Tempo, assim como PromQL é do Prometheus e LogQL é do Loki. A sintaxe básica é `{ condições }`.
+
+Existem dois namespaces de atributos:
+
+**`resource.*`** — atributos do **resource** (metadados da origem dos dados, definidos no `OTEL_SERVICE_NAME` e `OTEL_RESOURCE_ATTRIBUTES`):
+```
+resource.service.name        → nome do serviço ("ranking-api")
+resource.deployment.environment → ambiente ("kind-dev")
+```
+
+**`span.*`** — atributos do **span individual** (definidos no código da aplicação):
+```
+span.http.target       → path da requisição HTTP ("/score", "/rankings")
+span.http.status_code  → código de resposta (200, 400, 404)
+span.db.operation      → operação no banco ("SELECT", "upsert")
+span.db.system         → sistema de banco ("postgresql")
+```
+
+**Campos intrínsecos** (sem prefixo):
+```
+duration   → duração do span (ex: > 100ms)
+status     → ok | error | unset
+name       → nome do span ("submit-score", "db-read")
+```
+
+### Queries úteis (TraceQL)
 
 ```
 http://localhost:3000
 → Explore
 → Datasource: Tempo
 
-Queries úteis (TraceQL):
-
 # Todos os traces da Ranking API
 { resource.service.name = "ranking-api" }
 
-# Traces lentos (> 100ms)
-{ resource.service.name = "ranking-api" && duration > 100ms }
-
-# Apenas erros
+# Traces com erro (spans marcados como ERROR)
 { resource.service.name = "ranking-api" && status = error }
 
-# Traces do endpoint /rankings
+# Traces lentos — útil para identificar gargalos (use o endpoint /slow)
+{ resource.service.name = "ranking-api" && duration > 100ms }
+
+# Traces de um endpoint específico
 { span.http.target = "/rankings" }
 
-# Span de escrita no banco
+# Spans de operação no banco
 { span.db.operation = "upsert" }
 ```
 
+> 💡 Para abrir o waterfall de um trace, clique em qualquer linha da lista de resultados. Para ver os atributos de um span específico, clique na barra daquele span no waterfall.
+
 ---
 
-## Etapa 9: Ver métricas da aplicação no Grafana
+## Etapa 9: Explorando métricas no Prometheus
 
-As métricas customizadas (`scores_submitted_total`, `api_errors_total`) são enviadas pelo OTel Collector para o Prometheus.
+### Como as métricas chegam ao Prometheus
+
+O fluxo de métricas é diferente do de traces e logs:
 
 ```
-http://localhost:9090 → Graph:
+Ranking API ──OTLP/gRPC──► OTel Collector ──expõe :8889/metrics──► Prometheus (scrape a cada 15s)
+```
 
-# Total de scores submetidos
+A Ranking API envia métricas via OTLP para o Collector. O Collector as converte para o formato Prometheus e expõe no endpoint `:8889/metrics`. O Prometheus, por sua vez, faz **scrape** — coleta periódica nesse endpoint.
+
+O **PodMonitor** aplicado na Etapa 3 é o objeto Kubernetes que informa ao Prometheus Operator onde fazer esse scrape: "vá buscar métricas nos pods com label `app: otel-collector` no namespace `otel`, na porta `8889`."
+
+### Por que as métricas têm esses nomes?
+
+As métricas customizadas da Ranking API são definidas no código com nomes simples. Ao passar pelo pipeline OTel → Prometheus, ganham sufixos padrão:
+
+| Tipo OTel | Sufixo adicionado pelo Prometheus | Nome final |
+|---|---|---|
+| `Counter` | `_total` | `scores_submitted_total`, `api_errors_total` |
+| `Histogram` | `_count`, `_sum`, `_bucket` | `http_server_duration_milliseconds_count` |
+| `Gauge` | nenhum | — |
+
+Além dos nomes, cada métrica carrega **labels** que identificam a origem. Elas vêm dos resource attributes do OTel, graças ao `resource_to_telemetry_conversion: enabled: true` configurado no Collector:
+
+```
+service_name="ranking-api"           ← OTEL_SERVICE_NAME
+deployment_environment="kind-dev"    ← OTEL_RESOURCE_ATTRIBUTES
+```
+
+### Queries PromQL explicadas
+
+```
+http://localhost:9090 → Graph
+
+# Total acumulado de scores submetidos desde que o pod iniciou
 scores_submitted_total
 
-# Taxa de erros da API (por minuto) — requer pelo menos 1 erro gerado
-rate(api_errors_total[1m])
+# Taxa de erros por segundo nos últimos 5 minutos
+# rate() calcula a variação por segundo de um contador em uma janela de tempo
+rate(api_errors_total[5m])
 
-# Requisições HTTP por endpoint (histograma)
+# Número de requisições HTTP por segundo, por endpoint
+# http_server_duration é um histograma — _count conta requisições; sem _sum ou _bucket
 rate(http_server_duration_milliseconds_count{service_name="ranking-api"}[5m])
 
-# Confirmar que o scrape do Collector está ativo
+# Confirma que o Prometheus está coletando métricas do OTel Collector
+# up=1 significa target acessível; up=0 significa falha no scrape
 up{job="monitoring/otel-collector"}
 ```
 
-> 💡 Se as métricas não aparecerem, aguarde ~30s para o Prometheus completar o primeiro scrape e verifique em **http://localhost:9090 → Status → Targets** — o target `monitoring/otel-collector` deve estar `UP`.  
-> `api_errors_total` só aparece após pelo menos um erro ter sido gerado (tente `/score` com payload inválido).
+> 💡 `api_errors_total` só aparece após pelo menos um erro ser gerado — contadores com valor zero não são emitidos. Gere um erro com `POST /score` usando `score: -999`.
+>
+> ⚠️ Se as métricas não aparecerem, aguarde ~30s para o primeiro scrape e verifique em **http://localhost:9090 → Status → Targets** — o target `monitoring/otel-collector` deve estar `UP`.
 
 ---
 
-## Etapa 10: Correlacionar Trace → Logs
+## Etapa 10: Correlacionando Traces → Logs
 
-O objetivo aqui é: a partir de um trace com erro no Tempo, clicar e ir direto para os logs daquele pod naquele instante no Loki — sem saber o `trace_id` de antemão.
+### O modelo de dados do Loki
+
+Antes de fazer qualquer query, é importante entender como o Loki organiza os logs. Ele tem dois níveis:
+
+**Stream labels** — indexados, usados para selecionar quais séries de logs buscar:
+```
+{service_name="ranking-api", level="ERROR"}
+```
+Labels são definidos na ingestão e ficam no índice. Buscar por label é barato e rápido.
+
+**Log body** — o conteúdo do log em si, não indexado por padrão:
+```json
+{"message": "Score inválido recebido", "player": "hacker", "score": -999, "traceID": "abc123..."}
+```
+Filtrar pelo body requer varredura (`|=`, `| json`, `| regexp`). Mais custoso, mas permite qualquer filtro.
+
+### De onde vêm os labels no Loki?
+
+Os logs da Ranking API chegam ao Loki pelo caminho: **OTel SDK → OTel Collector → Loki exporter**.
+
+No arquivo `03-otel-collector.yaml`, o processor `resource` define quais resource attributes do OTel serão promovidos a **stream labels** no Loki:
+
+```yaml
+resource:
+  attributes:
+  - action: insert
+    key: loki.resource.labels
+    value: service.name, deployment.environment, k8s.namespace.name
+```
+
+O OTel Loki exporter lê essa instrução e cria os labels (convertendo pontos em underscores):
+
+| Resource attribute (OTel) | Label no Loki |
+|---|---|
+| `service.name = "ranking-api"` | `service_name="ranking-api"` |
+| `deployment.environment = "kind-dev"` | `deployment_environment="kind-dev"` |
+
+O Loki exporter também extrai automaticamente a severidade do log como label `level`:
+
+| Severidade Python | Label Loki |
+|---|---|
+| `logging.INFO` | `level="INFO"` |
+| `logging.WARNING` | `level="WARN"` |
+| `logging.ERROR` | `level="ERROR"` |
+
+O `traceID` **não é um label** — ele fica no corpo do log como campo JSON. Por isso, filtrar por `traceID` requer varredura com `| json`.
+
+### O mecanismo de correlação Trace → Logs
+
+Quando você clica em "Logs for this span" no Tempo, o Grafana faz duas coisas simultaneamente:
+
+1. **Monta o seletor de labels**: lê o atributo `service.name` do span e converte para `{service_name="ranking-api"}` usando o mapeamento configurado na Etapa 2
+2. **Ajusta o time range**: recorta a janela de tempo exatamente no período de duração daquele span
+
+O resultado é: você vê apenas os logs daquele serviço no exato momento em que aquele trace aconteceu — sem precisar saber o `traceID` de antemão.
+
+---
 
 ### Passo 1 — Gerar erros reais na API
 
-A API tem dois caminhos que produzem spans com `status = error` e logs estruturados:
+A API tem dois endpoints que produzem spans com `status = error` e logs estruturados:
 
-**Score negativo** (HTTP 400 — loga `logger.error`, incrementa `api_errors_total`):
+**Score negativo** (HTTP 400 — span ERROR + `logger.error` + incrementa `api_errors_total`):
 
 **PowerShell:**
 ```powershell
@@ -544,7 +728,7 @@ curl -X POST http://localhost:8082/score \
   -d '{"player": "hacker", "score": -999}'
 ```
 
-**Jogador inexistente** (HTTP 404 — loga `logger.warning`, incrementa `api_errors_total`):
+**Jogador inexistente** (HTTP 404 — span ERROR + `logger.warning` + incrementa `api_errors_total`):
 
 **PowerShell:**
 ```powershell
@@ -564,69 +748,55 @@ curl http://localhost:8082/score/jogador-que-nao-existe
 http://localhost:3000
 → Explore
 → Datasource: Tempo
-→ Cole a query TraceQL:
+→ Query TraceQL:
 
 { resource.service.name = "ranking-api" && status = error }
 
-→ Clique em "Run query"
-→ Clique em qualquer trace listado para abrir o waterfall de spans
+→ Run query
+→ Clique em qualquer trace da lista para abrir o waterfall
+→ Spans com erro aparecem em vermelho
 ```
-
-Você verá spans marcados em vermelho com o atributo `error.type` ou `validation.error`.
 
 ### Passo 3 — Pular do trace para os logs
 
-Com o trace aberto no waterfall:
-
 ```
-1. Clique no span com erro (ex: "submit-score" ou "get-player-score")
-2. No painel lateral direito, localize "Logs for this span"
-   → Clique no ícone de log (📋) ao lado do span
+1. No waterfall, clique no span com erro (ex: "submit-score" ou "get-player-score")
+2. No painel lateral, clique no ícone de log ao lado de "Logs for this span"
 3. O Grafana abre o Loki Explore com:
-   - Seletor: {service_name="ranking-api"}
-   - Time range: ajustado automaticamente para o momento exato do span
+   - Seletor:    {service_name="ranking-api"}
+   - Time range: recortado para o intervalo exato do span
 ```
 
-> 💡 A correlação funciona pelo **tempo**, não pelo `trace_id`. O Grafana abre o Loki já posicionado na janela de tempo daquele span, então você vê os logs daquele pod naquele instante exato.
->
-> Se quiser filtrar pelo `trace_id` específico, copie o ID do trace no Tempo e adicione manualmente na query do Loki:
-> ```
-> {service_name="ranking-api"} | json | traceID = "abc123..."
-> ```
+Você verá os logs gerados por aquela requisição específica, sem nenhum ruído de outros pods ou outros momentos.
 
-> 💡 Para a correlação funcionar, o datasource Tempo precisa ter "Trace to logs" configurado com:
+> 💡 Se quiser ir além e filtrar pelo `traceID` exato (útil quando há muitas requisições simultâneas), copie o ID do trace no Tempo e adicione manualmente na query do Loki:
 > ```
-> Data source: Loki
-> Tags: service.name as service_name
+> {service_name="ranking-api"} | json | traceID = "cole-o-id-aqui"
 > ```
-> (configurado na Etapa 2 deste guia)
+> O `traceID` é injetado automaticamente no log pelo OTel SDK — basta expandir qualquer linha de log no Loki para vê-lo.
 
-### Passo 4 — Verificar os logs no Loki diretamente
-
-Se quiser buscar os logs de erro sem passar pelo Tempo:
+### Passo 4 — Explorar logs no Loki diretamente
 
 ```
 http://localhost:3000
 → Explore
 → Datasource: Loki
-→ Ajuste o time range para "Last 6 hours" (canto superior direito)
+→ Ajuste o time range para "Last 6 hours"
 
-# Todos os logs da Ranking API
+# Todos os logs da Ranking API (labels indexados → busca rápida)
 {service_name="ranking-api"}
 
-# Apenas erros (level é um label — não precisa de | json)
+# Apenas erros — level é stream label, não precisa de | json
 {service_name="ranking-api", level="ERROR"}
 
-# Warnings (jogador não encontrado)
+# Warnings — gerados pelo endpoint GET /score/{player} com jogador inexistente
 {service_name="ranking-api", level="WARN"}
 
-# Logs com trace_id injetado pelo OTel (para correlacionar manualmente)
-{service_name="ranking-api"} | json | traceid != ""
+# Logs com traceID no body — para correlação manual com o Tempo
+{service_name="ranking-api"} | json | traceID != ""
 ```
 
-> ⚠️ Se aparecer "No logs volume available", é só o histograma de volume — clique em **Run query** assim mesmo. Os logs existem mas o histograma requer um time range mais amplo.
->
-> 💡 O campo `level` já é um **label de stream** no Loki (injetado pelo OTel Collector). Use-o diretamente no seletor `{}` em vez de fazer `| json | level = "error"`.
+> ⚠️ "No logs volume available" é apenas o histograma de preview do volume — clique em **Run query** assim mesmo. Os logs existem no índice.
 
 ---
 
