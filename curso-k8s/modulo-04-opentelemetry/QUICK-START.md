@@ -520,12 +520,97 @@ up{job="monitoring/otel-collector"}
 
 ## Etapa 10: Correlacionar Trace → Logs
 
-1. No Grafana Explore → Tempo, clique em qualquer trace
-2. Clique em um span com erro
-3. Clique no botão **"Logs for this span"** (ícone de log)
-4. O Grafana abre automaticamente o Loki com o `trace_id` filtrado
+O objetivo aqui é: a partir de um trace com erro no Tempo, clicar e ir direto para os logs daquele pod naquele instante no Loki — sem saber o `trace_id` de antemão.
 
-Você verá os logs daquele pod exatamente no momento daquele trace.
+### Passo 1 — Gerar erros reais na API
+
+A API tem dois caminhos que produzem spans com `status = error` e logs estruturados:
+
+**Score negativo** (HTTP 400 — loga `logger.error`, incrementa `api_errors_total`):
+
+**PowerShell:**
+```powershell
+Invoke-RestMethod -Method Post -Uri http://localhost:8082/score `
+  -ContentType "application/json" `
+  -Body '{"player": "hacker", "score": -999}'
+```
+
+**bash / zsh:**
+```bash
+curl -X POST http://localhost:8082/score \
+  -H "Content-Type: application/json" \
+  -d '{"player": "hacker", "score": -999}'
+```
+
+**Jogador inexistente** (HTTP 404 — loga `logger.warning`, incrementa `api_errors_total`):
+
+**PowerShell:**
+```powershell
+Invoke-RestMethod http://localhost:8082/score/jogador-que-nao-existe
+```
+
+**bash / zsh:**
+```bash
+curl http://localhost:8082/score/jogador-que-nao-existe
+```
+
+> ⚠️ Ambos os comandos retornam erro HTTP — isso é esperado. O importante é que o span ficou marcado com `status = error` e o log foi enviado ao Loki via OTel Collector.
+
+### Passo 2 — Encontrar o trace com erro no Tempo
+
+```
+http://localhost:3000
+→ Explore
+→ Datasource: Tempo
+→ Cole a query TraceQL:
+
+{ resource.service.name = "ranking-api" && status = error }
+
+→ Clique em "Run query"
+→ Clique em qualquer trace listado para abrir o waterfall de spans
+```
+
+Você verá spans marcados em vermelho com o atributo `error.type` ou `validation.error`.
+
+### Passo 3 — Pular do trace para os logs
+
+Com o trace aberto no waterfall:
+
+```
+1. Clique no span com erro (ex: "submit-score" ou "get-player-score")
+2. No painel lateral direito, localize "Logs for this span"
+   → Clique no ícone de log (📋) ao lado do span
+3. O Grafana abre automaticamente o Loki com o filtro:
+   {job="..."} | trace_id = "<id-do-trace>"
+```
+
+> 💡 Para a correlação funcionar, o datasource Tempo precisa ter "Trace to logs" configurado com:
+> ```
+> Data source: Loki
+> Tags: service.name
+> ```
+> (configurado na Etapa 2 deste guia)
+
+### Passo 4 — Verificar os logs no Loki diretamente
+
+Se quiser buscar os logs de erro sem passar pelo Tempo:
+
+```
+http://localhost:3000
+→ Explore
+→ Datasource: Loki
+
+# Todos os logs de erro da Ranking API
+{service_name="ranking-api"} | json | level = "error"
+
+# Logs do endpoint /score com erros de validação
+{service_name="ranking-api"} | json | level = "error" | line_format "{{.message}}"
+
+# Logs com trace_id (para correlacionar manualmente)
+{service_name="ranking-api"} | json | trace_id != ""
+```
+
+> ⚠️ Se os logs não aparecerem, ajuste o intervalo de tempo para "Last 15 minutes" no canto superior direito do Grafana Explore.
 
 ---
 
