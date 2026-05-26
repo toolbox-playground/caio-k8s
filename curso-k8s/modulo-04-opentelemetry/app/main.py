@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import random
 import logging
@@ -110,6 +111,31 @@ api_errors = meter.create_counter(
     "api_errors_total",
     description="Total de erros da API por endpoint e motivo",
 )
+
+# Counter de segurança — separado do api_errors para alertas e dashboards dedicados.
+# Classifica ocorrências pelo campo event_type, mapeado ao OWASP Top 10:
+#
+#   input_validation_failure  → A03 Injection / A04 Insecure Design
+#     └─ score negativo ou nome de jogador acima do limite
+#   suspicious_score_value    → A04 Insecure Design
+#     └─ score > 999.999: possível fuzzing de limites numéricos (overflow/wraparound)
+#   potential_injection       → A03 Injection
+#     └─ caracteres típicos de SQL/XSS/path injection no nome do jogador
+#   player_enumeration        → A01 Broken Access Control
+#     └─ consultas repetidas a players inexistentes = bruteforce de IDs
+#
+# Nome no Prometheus: security_events_total{event_type="...", endpoint="..."}
+# Query de alerta:    sum(rate(security_events_total[5m])) by (event_type) > 0.1
+# Dashboard:          grafana-dashboards/devsecops.json
+security_events = meter.create_counter(
+    "security_events_total",
+    description="Eventos de segurança classificados por tipo — mapeados para OWASP Top 10",
+)
+
+# Padrão de detecção básica de injeção — compilado uma vez no startup.
+# Detecta: aspas simples/duplas, ponto-e-vírgula, barra invertida, < > % $ & | crase
+# NÃO substitui validação server-side — serve para sinalizar e auditar tentativas.
+_INJECTION_CHARS = re.compile(r"['\";<>\\%$&|`]")
 
 # Histogram: captura distribuição de valores (p50, p95, p99).
 # No Prometheus gera 3 séries: _bucket (distribuição), _count (total), _sum (soma)
@@ -264,6 +290,9 @@ def submit_score(req: ScoreRequest):
                 # Prometheus: api_errors_total{endpoint="submit_score", reason="negative_score"}
                 # Query: rate(api_errors_total{reason="negative_score"}[5m])
                 api_errors.add(1, {"endpoint": "submit_score", "reason": "negative_score"})
+                # Evento de segurança — OWASP A03/A04: falha de validação de input
+                # Prometheus: security_events_total{event_type="input_validation_failure", endpoint="submit_score"}
+                security_events.add(1, {"event_type": "input_validation_failure", "endpoint": "submit_score"})
 
                 # Marca o span como ERROR → aparece VERMELHO no waterfall do Tempo.
                 # Filtrado por: { status = error } no TraceQL
@@ -281,8 +310,31 @@ def submit_score(req: ScoreRequest):
             if len(req.player) > 32:
                 val_span.set_attribute("validation.error", "player_name_too_long")
                 api_errors.add(1, {"endpoint": "submit_score", "reason": "name_too_long"})
+                security_events.add(1, {"event_type": "input_validation_failure", "endpoint": "submit_score"})
                 span.set_status(trace.StatusCode.ERROR, "Nome muito longo")
                 raise HTTPException(status_code=400, detail="Nome do jogador: máximo 32 caracteres")
+
+            # ── Detecções de segurança ──────────────────────────────────
+            # OWASP A04: score > 999.999 — possível fuzzing de limites numéricos
+            if req.score > 999_999:
+                val_span.set_attribute("security.warning", "suspicious_score_value")
+                span.set_attribute("security.flagged", True)
+                security_events.add(1, {"event_type": "suspicious_score_value", "endpoint": "submit_score"})
+                logger.warning(
+                    "Score suspeito — possível fuzzing ou overflow",
+                    extra={"player": req.player, "score": req.score},
+                )
+
+            # OWASP A03: caracteres típicos de SQL/XSS/path injection no nome do jogador
+            # A request não é bloqueada — apenas sinalizada para auditoria.
+            if _INJECTION_CHARS.search(req.player):
+                val_span.set_attribute("security.warning", "potential_injection_chars")
+                span.set_attribute("security.flagged", True)
+                security_events.add(1, {"event_type": "potential_injection", "endpoint": "submit_score"})
+                logger.warning(
+                    "Possível injeção no nome do jogador",
+                    extra={"player": req.player[:50]},
+                )
 
         # Span filho: persistência
         with tracer.start_as_current_span("db-write") as db_span:
@@ -341,6 +393,10 @@ def get_player_score(player: str):
         if player not in rankings:
             # Prometheus: api_errors_total{endpoint="get_player_score", reason="not_found"}
             api_errors.add(1, {"endpoint": "get_player_score", "reason": "not_found"})
+            # OWASP A01: consultas repetidas a players inexistentes = enumeração de IDs
+            # Um pico nesta métrica indica possível bruteforce de nomes de jogadores.
+            # Prometheus: security_events_total{event_type="player_enumeration", endpoint="get_player_score"}
+            security_events.add(1, {"event_type": "player_enumeration", "endpoint": "get_player_score"})
 
             # Marca o span como ERROR → aparece vermelho no Tempo; { status = error } no TraceQL
             span.set_status(trace.StatusCode.ERROR, "Player not found")

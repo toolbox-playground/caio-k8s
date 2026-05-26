@@ -940,6 +940,209 @@ http://localhost:3000
 
 ---
 
+## Etapa 11: DevSecOps — Segurança com OpenTelemetry
+
+### Por que um DevSecOps usa OTel?
+
+A premissa do DevSecOps é que **segurança é responsabilidade de todos**, e não apenas do time de segurança. Mas segurança sem visibilidade é cega. O OpenTelemetry resolve exatamente isso: transforma os sinais que a aplicação já emite (traces, métricas, logs) em evidências investigáveis.
+
+> **Regra prática:** Se você não consegue detectar um ataque no momento em que ele acontece, você só vai saber que aconteceu quando o estrago já foi feito.
+
+### Mapeamento OWASP Top 10 → Sinais OTel
+
+| OWASP | Categoria | Detectado por | Onde ver |
+|---|---|---|---|
+| **A01** | Broken Access Control | `player_enumeration` em `security_events_total` | Prometheus / Dashboard painel 7 |
+| **A03** | Injection | `potential_injection` em `security_events_total` + `level="WARN"` no Loki | Prometheus + Loki |
+| **A04** | Insecure Design | `suspicious_score_value` em `security_events_total` | Prometheus / Dashboard painel 5 |
+| **A05** | Security Misconfiguration | Métodos HTTP inesperados em `http_server_duration_milliseconds_count` | Prometheus / Dashboard painel 4 |
+| **A07** | Auth Failures | Taxa de submissão alta por player único | Prometheus / Dashboard painel 6 |
+| **A09** | Logging & Monitoring Failures | `level="ERROR"` em Loki + gaps no volume de logs | Loki / Dashboard painéis 7+8 |
+
+### O que foi adicionado ao app (`security_events_total`)
+
+O `main.py` agora emite um counter dedicado para eventos de segurança, separado do `api_errors_total`. A distinção é intencional:
+
+- `api_errors_total` → erros funcionais da aplicação (regra de negócio quebrada)
+- `security_events_total` → comportamentos suspeitos que merecem alerta de segurança
+
+```
+security_events_total{
+  event_type="input_validation_failure"   # score < 0 ou nome > 32 chars
+  event_type="suspicious_score_value"     # score > 999.999 — possível fuzzing
+  event_type="potential_injection"        # ' " ; \ < > % $ no nome do jogador
+  event_type="player_enumeration"         # GET /score/{player} → 404 repetidos
+}
+```
+
+O campo `security.flagged = true` também é adicionado ao span no Tempo quando suspeito. Isso permite filtrar por TraceQL:
+
+```
+{ resource.service.name = "ranking-api" && span.security.flagged = true }
+```
+
+### Importar o dashboard DevSecOps
+
+```
+http://localhost:3000
+→ Dashboards → New → Import
+→ Upload dashboard JSON file
+→ Selecione: grafana-dashboards/devsecops.json
+→ Configure:
+    Prometheus → datasource Prometheus
+    Loki       → datasource Loki
+→ Import
+```
+
+| Painel | O que detecta | OWASP |
+|---|---|---|
+| Eventos de Segurança (1h) | Contador total — qualquer valor > 0 acende amarelo | A03/A04 |
+| Taxa de Erros HTTP (%) | Erros 4xx+5xx como proporção do tráfego | A01/A03 |
+| Logs ERROR 15min | Contagem de erros do Loki | A09 |
+| Erros 4xx/5xx por rota e código | Qual endpoint está sendo atacado | A01/A03 |
+| Métodos HTTP inesperados | DELETE/PUT quando não esperado | A05 |
+| Eventos de segurança por tipo | Injeção (vermelho), fuzzing (laranja), validação (amarelo), enumeração (roxo) | A03/A04/A01 |
+| Falhas de validação por motivo | Contexto detalhado do `api_errors_total` | A03 |
+| Top 5 players por submissão | Player único enviando muito mais que os outros | A07 |
+| Taxa de 404 por rota | Enumeração de IDs de jogadores | A01 |
+| Volume ERROR/WARN (Loki) | Pico brusco = evento anômalo | A09 |
+| Logs ERROR ao vivo | Stream de erros com traceID para correlação | A09 |
+
+### Simulando ataques para gerar dados no dashboard
+
+**PowerShell:**
+
+```powershell
+# A03 Injection — caractere de SQL injection no nome do jogador
+Invoke-RestMethod -Method Post -Uri http://localhost:8082/score `
+    -ContentType "application/json" `
+    -Body '{"player":"mario\"; DROP TABLE rankings; --","score":100}'
+
+# A04 Insecure Design — score absurdo (fuzzing de overflow)
+Invoke-RestMethod -Method Post -Uri http://localhost:8082/score `
+    -ContentType "application/json" `
+    -Body '{"player":"fuzzer","score":9999999}'
+
+# A01 Enumeração — consulta a players que não existem
+for ($i = 1; $i -le 20; $i++) {
+    try { Invoke-RestMethod http://localhost:8082/score/player_$i } catch {}
+}
+
+# A03 Validação — scores negativos em massa
+for ($i = 1; $i -le 10; $i++) {
+    try {
+        Invoke-RestMethod -Method Post -Uri http://localhost:8082/score `
+            -ContentType "application/json" `
+            -Body "{`"player`":`"attacker`",`"score`":-$i}"
+    } catch {}
+}
+```
+
+**bash / zsh:**
+
+```bash
+# A03 Injection — SQL injection no nome
+curl -s -X POST http://localhost:8082/score \
+    -H "Content-Type: application/json" \
+    -d '{"player":"mario\"; DROP TABLE rankings; --","score":100}'
+
+# A04 Fuzzing — score de overflow
+curl -s -X POST http://localhost:8082/score \
+    -H "Content-Type: application/json" \
+    -d '{"player":"fuzzer","score":9999999}'
+
+# A01 Enumeração — 20 players inexistentes
+for i in $(seq 1 20); do
+    curl -s http://localhost:8082/score/player_$i > /dev/null
+done
+
+# A03 Validação — scores negativos em massa
+for i in $(seq 1 10); do
+    curl -s -X POST http://localhost:8082/score \
+        -H "Content-Type: application/json" \
+        -d "{\"player\":\"attacker\",\"score\":-$i}" > /dev/null
+done
+```
+
+> Após rodar os comandos acima, abra o dashboard DevSecOps e observe: o painel "Eventos de Segurança por Tipo" deve mostrar picos coloridos para cada `event_type` disparado.
+
+### Investigando um incidente com Traces + Logs
+
+#### 1. Pico detectado no dashboard → ir para o Tempo
+
+Quando um painel mostra pico em `potential_injection`, identifique o timestamp e execute no Tempo:
+
+```
+{ resource.service.name = "ranking-api" && span.security.flagged = true }
+```
+
+Filtre pelo intervalo de tempo do pico → abra o trace → veja o span `validate-input` → o atributo `security.warning = potential_injection_chars` mostra qual player foi detectado.
+
+#### 2. Ver o log associado ao trace
+
+No Tempo, com o trace aberto → botão **"Logs for this span"** → abre o Loki com o filtro por `traceID` automático. O log mostrará:
+
+```json
+{
+  "level": "WARN",
+  "message": "Possível injeção no nome do jogador",
+  "player": "mario\"; DROP TABLE",
+  "traceID": "a1b2c3..."
+}
+```
+
+#### 3. Query Loki para auditar todos os eventos suspeitos
+
+```logql
+# Todos os logs de segurança (WARN = detecção, ERROR = falha bloqueada)
+{service_name="ranking-api", level=~"WARN|ERROR"}
+
+# Apenas tentativas de injeção
+{service_name="ranking-api", level="WARN"} |= "injeção"
+
+# Enumeração de players — muitos WARN de player não encontrado
+{service_name="ranking-api", level="WARN"} |= "não encontrado"
+    | json
+    | line_format "{{.player}} — {{.time}}"
+```
+
+### Alertas recomendados (Prometheus)
+
+Adicione ao `helm-values/values-prometheus-stack.yaml` (ou crie uma PrometheusRule):
+
+```yaml
+# Qualquer tentativa de injeção → alerta imediato
+- alert: SecurityInjectionAttempt
+  expr: sum(rate(security_events_total{event_type="potential_injection"}[5m])) > 0
+  for: 0m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Tentativa de injeção detectada em {{ $labels.endpoint }}"
+
+# Enumeração de IDs — mais de 10 por minuto
+- alert: PlayerEnumeration
+  expr: sum(rate(security_events_total{event_type="player_enumeration"}[1m])) > 0.17
+  for: 2m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Possível enumeração de players — {{ $value | humanizePercentage }} req/s"
+
+# Taxa de erro HTTP acima de 20%
+- alert: HighHttpErrorRate
+  expr: >
+    sum(rate(http_server_duration_milliseconds_count{service_name="ranking-api",http_status_code=~"4..|5.."}[5m]))
+    / sum(rate(http_server_duration_milliseconds_count{service_name="ranking-api"}[5m])) > 0.20
+  for: 1m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Taxa de erros HTTP acima de 20% na ranking-api"
+```
+
+---
+
 ## Limpar o ambiente
 
 **PowerShell e bash:**
