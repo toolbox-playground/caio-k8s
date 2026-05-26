@@ -300,9 +300,11 @@ http://localhost:3000
 → URL: http://tempo.monitoring.svc.cluster.local:3200
 Em "Trace to logs":
   Data source: Loki
-  Tags: service.name, pod
+  Tags → service.name as service_name
 → Save & Test
 ```
+
+> 💡 A sintaxe `service.name as service_name` instrui o Grafana a ler o atributo OTel `service.name` do span e usá-lo como a label `service_name` na query do Loki (que não aceita pontos em nomes de labels).
 
 ---
 
@@ -587,7 +589,7 @@ Com o trace aberto no waterfall:
 > 💡 Para a correlação funcionar, o datasource Tempo precisa ter "Trace to logs" configurado com:
 > ```
 > Data source: Loki
-> Tags: service.name
+> Tags: service.name as service_name
 > ```
 > (configurado na Etapa 2 deste guia)
 
