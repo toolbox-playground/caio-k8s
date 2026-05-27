@@ -7,15 +7,6 @@ import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-# ============================================================
-# OpenTelemetry — Setup
-# ============================================================
-# As variáveis de ambiente abaixo controlam a configuração:
-#   OTEL_SERVICE_NAME              → nome do serviço no Tempo/Grafana
-#   OTEL_EXPORTER_OTLP_ENDPOINT   → endereço do OTel Collector
-#   OTEL_RESOURCE_ATTRIBUTES       → atributos extras (ambiente, versão)
-# ============================================================
-
 from opentelemetry import trace, metrics
 from opentelemetry.sdk.resources import Resource, SERVICE_NAME
 from opentelemetry.sdk.trace import TracerProvider
@@ -51,6 +42,17 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 #
 # Os valores vêm das env vars definidas em 01-deployment-ranking-api.yaml.
 # O OTel Collector não altera esses valores — apenas os repassa para cada backend.
+
+
+# ============================================================
+# OpenTelemetry — Setup
+# ============================================================
+# As variáveis de ambiente abaixo controlam a configuração:
+#   OTEL_SERVICE_NAME              → nome do serviço no Tempo/Grafana
+#   OTEL_EXPORTER_OTLP_ENDPOINT   → endereço do OTel Collector
+#   OTEL_RESOURCE_ATTRIBUTES       → atributos extras (ambiente, versão)
+# ============================================================
+
 resource = Resource.create({
     SERVICE_NAME: os.getenv("OTEL_SERVICE_NAME", "ranking-api"),
     "service.version": "1.0.0",
