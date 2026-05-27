@@ -19,13 +19,14 @@
 #              Habilite autenticação (basic auth ou OAuth).
 #              Configure storage persistente (S3, GCS, etc).
 
+# Serviço exposto via NodePort para acesso local
+# containerPort 34040 → hostPort 4040 (definido no cluster-config.yaml)
+# Acesse em: http://localhost:4040
+service:
+  type: NodePort
+  nodePort: 34040
+
 pyroscope:
-  # ── Serviço exposto via NodePort para acesso local ────────
-  # containerPort 34040 → hostPort 4040 (definido no cluster-config.yaml)
-  # Acesse em: http://localhost:4040
-  service:
-    type: NodePort
-    nodePort: 34040
 
   # ── Configuração de retenção e storage ───────────────────
   # Para Kind (desenvolvimento): armazenamento em memória/disco local.

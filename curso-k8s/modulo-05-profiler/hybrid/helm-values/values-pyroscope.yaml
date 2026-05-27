@@ -8,10 +8,11 @@
 #     --create-namespace \
 #     -f helm-values/values-pyroscope.yaml
 
+service:
+  type: NodePort
+  nodePort: 34040
+
 pyroscope:
-  service:
-    type: NodePort
-    nodePort: 34040
 
   resources:
     requests:

@@ -19,14 +19,11 @@
 #              Habilite autenticação (basic auth ou OAuth).
 #              Configure storage persistente (S3, GCS, etc).
 
-pyroscope:
-  # ── Serviço exposto via NodePort para acesso local ────────
-  # containerPort 34040 → hostPort 4040 (definido no cluster-config.yaml)
-  # Acesse em: http://localhost:4040
-  service:
-    type: NodePort
-    nodePort: 34040
+service:
+  type: NodePort
+  nodePort: 34040
 
+pyroscope:
   # ── Configuração de retenção e storage ───────────────────
   # Para Kind (desenvolvimento): armazenamento em memória/disco local.
   # O Pyroscope usa o diretório /data dentro do pod.

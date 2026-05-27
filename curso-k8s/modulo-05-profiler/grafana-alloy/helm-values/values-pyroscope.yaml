@@ -10,13 +10,13 @@
 #     --create-namespace \
 #     -f helm-values/values-pyroscope.yaml
 
-pyroscope:
-  service:
-    type: NodePort
-    # containerPort 34040 → hostPort 4040 (definido no manifests/cluster-config.yaml)
-    # Acesse em: http://localhost:4040
-    nodePort: 34040
+service:
+  type: NodePort
+  # containerPort 34040 → hostPort 4040 (definido no manifests/cluster-config.yaml)
+  # Acesse em: http://localhost:4040
+  nodePort: 34040
 
+pyroscope:
   resources:
     requests:
       cpu: 100m
