@@ -41,7 +41,7 @@ pyroscope:
   extraArgs:
     # Retém profiles por 1 hora em dev (economiza disco no Kind)
     # Em produção, use valores como "72h" ou "168h"
-    - --storage.tsdb.retention.time=1h
+    storage.tsdb.retention.time: 1h
 
   # ── Recursos para Kind (nó único com recursos limitados) ─
   resources:

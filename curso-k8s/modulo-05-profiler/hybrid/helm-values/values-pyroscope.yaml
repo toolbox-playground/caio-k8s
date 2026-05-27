@@ -14,7 +14,7 @@ pyroscope:
     nodePort: 34040
 
   extraArgs:
-    - --storage.tsdb.retention.time=1h
+    storage.tsdb.retention.time: 1h
 
   resources:
     requests:
