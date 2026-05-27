@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fortio-ranking-api
+  namespace: games
+  labels:
+    app: stress-test
+    tool: fortio
+spec:
+  containers:
+  - name: fortio
+    image: fortio/fortio:latest
+    args:
+    - load
+    - -c
+    - "10"
+    - -qps
+    - "20"
+    - -t
+    - "10m"
+    - -loglevel
+    - "Warning"
+    # Alterna entre os dois endpoints para gerar perfis variados
+    # (use um de cada vez ou adapte conforme o cenário)
+    - http://ranking-api.games.svc.cluster.local:8000/rankings
+  restartPolicy: Never
+  activeDeadlineSeconds: 660
