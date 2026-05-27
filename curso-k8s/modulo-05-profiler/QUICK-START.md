@@ -303,9 +303,25 @@ kubectl get pods -n games -l app=ranking-api
 ```
 
 ```sh
-# Verificar que o pod está se comunicando com o Pyroscope
+# O SDK pyroscope-io roda em background silenciosamente — não loga ao iniciar.
+# Se houver erro de conexão com o Pyroscope, você verá algo como:
+#   "Failed to push profile" ou "connection refused"
+# Se o log estiver limpo (sem erros), o SDK está funcionando.
 kubectl logs -n games -l app=ranking-api --tail=20
-# Procure por: "pyroscope" nas primeiras linhas do log
+```
+
+```powershell
+# Confirmação alternativa: verificar se o serviço já aparece no Pyroscope
+# Aguarde ~30s e acesse http://localhost:4040 — "ranking-api" deve aparecer na lista
+# Ou consulte via API (PowerShell):
+kubectl run -it --rm pyroscope-check --image=curlimages/curl --restart=Never -- `
+  curl -s "http://pyroscope.monitoring.svc.cluster.local:4040/api/apps" | Select-String "ranking"
+```
+
+```bash
+# bash / zsh:
+kubectl run -it --rm pyroscope-check --image=curlimages/curl --restart=Never -- \
+  curl -s "http://pyroscope.monitoring.svc.cluster.local:4040/api/apps" | grep ranking
 ```
 
 ```sh
@@ -332,7 +348,7 @@ Ou dispare manualmente via port-forward:
 
 ```sh
 # Em um terminal separado — manter aberto
-kubectl port-forward -n games svc/ranking-api 8000:8000
+kubectl port-forward -n games svc/ranking-api 8000:80
 ```
 
 ```sh
@@ -354,8 +370,8 @@ for i in 1..50; do curl -s http://localhost:8000/rankings > $null; Start-Sleep -
 1. Acesse **http://localhost:3000**
 2. Menu lateral → **Explore**
 3. Selecione datasource: **Grafana Pyroscope**
-4. Em **Label filters**, selecione `service_name = ranking-api`
-5. Em **Profile type**, selecione `process_cpu:cpu:nanoseconds:cpu:nanoseconds`
+4. Em **Group by**, selecione `service_name = ranking-api`
+5. Em **Profile type**, selecione `process_cpu:cpu`
 6. Ajuste o intervalo de tempo para os últimos 15 minutos
 7. Clique em **"Run query"**
 

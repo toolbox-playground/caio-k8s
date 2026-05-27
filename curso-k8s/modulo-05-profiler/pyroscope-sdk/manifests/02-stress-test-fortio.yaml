@@ -22,6 +22,6 @@ spec:
     - "Warning"
     # Alterna entre os dois endpoints para gerar perfis variados
     # (use um de cada vez ou adapte conforme o cenário)
-    - http://ranking-api.games.svc.cluster.local:8000/rankings
+    - http://ranking-api.games.svc.cluster.local:80/rankings
   restartPolicy: Never
   activeDeadlineSeconds: 660
