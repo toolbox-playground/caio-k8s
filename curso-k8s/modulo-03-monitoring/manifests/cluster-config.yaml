@@ -50,5 +50,11 @@ nodes:
       hostPort: 9100
       protocol: TCP
 
+    # ---- Módulo 05: Grafana Pyroscope ----
+    # Acesse em: http://localhost:4040
+    - containerPort: 34040
+      hostPort: 4040
+      protocol: TCP
+
   # ========== WORKER NODE ==========
   - role: worker
