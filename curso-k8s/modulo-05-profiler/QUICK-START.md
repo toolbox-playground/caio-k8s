@@ -322,7 +322,8 @@ Profiles ficam interessantes com dados reais. Use o Fortio para simular tráfego
 **PowerShell e bash:**
 
 ```sh
-kubectl apply -f ../modulo-02-deploy-app/manifests/04-stress-test-fortio.yaml
+# Stress test na ranking-api (endpoints /rankings e /score)
+kubectl apply -f pyroscope-sdk/manifests/02-stress-test-fortio.yaml
 ```
 
 Ou dispare manualmente via port-forward:
@@ -331,7 +332,7 @@ Ou dispare manualmente via port-forward:
 
 ```sh
 # Em um terminal separado — manter aberto
-kubectl port-forward -n games svc/ranking-api 8000:80
+kubectl port-forward -n games svc/ranking-api 8000:8000
 ```
 
 ```sh
