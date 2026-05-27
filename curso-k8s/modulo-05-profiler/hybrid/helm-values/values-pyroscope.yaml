@@ -13,9 +13,6 @@ pyroscope:
     type: NodePort
     nodePort: 34040
 
-  extraArgs:
-    storage.tsdb.retention.time: 1h
-
   resources:
     requests:
       cpu: 100m

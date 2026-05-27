@@ -17,10 +17,6 @@ pyroscope:
     # Acesse em: http://localhost:4040
     nodePort: 34040
 
-  extraArgs:
-    # Retém profiles por 1 hora em dev (economiza disco no Kind)
-    storage.tsdb.retention.time: 1h
-
   resources:
     requests:
       cpu: 100m
