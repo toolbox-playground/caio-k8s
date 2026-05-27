@@ -1,0 +1,58 @@
+# values-pyroscope.yaml
+# Helm values para o Grafana Pyroscope no Kind (desenvolvimento local).
+#
+# Referência do chart: grafana/pyroscope
+# Helm repo:  helm repo add grafana https://grafana.github.io/helm-charts
+#
+# Instalar:
+#   helm install pyroscope grafana/pyroscope \
+#     --namespace monitoring \
+#     --create-namespace \
+#     -f helm-values/values-pyroscope.yaml
+#
+# Atualizar:
+#   helm upgrade pyroscope grafana/pyroscope \
+#     --namespace monitoring \
+#     -f helm-values/values-pyroscope.yaml
+#
+# Em produção: remova o NodePort, use Ingress ou LoadBalancer.
+#              Habilite autenticação (basic auth ou OAuth).
+#              Configure storage persistente (S3, GCS, etc).
+
+pyroscope:
+  # ── Serviço exposto via NodePort para acesso local ────────
+  # containerPort 34040 → hostPort 4040 (definido no cluster-config.yaml)
+  # Acesse em: http://localhost:4040
+  service:
+    type: NodePort
+    nodePort: 34040
+
+  # ── Configuração de retenção e storage ───────────────────
+  # Para Kind (desenvolvimento): armazenamento em memória/disco local.
+  # O Pyroscope usa o diretório /data dentro do pod.
+  # Dados são perdidos se o pod reiniciar — aceitável em dev.
+  #
+  # Para produção, configure:
+  #   storage:
+  #     backend: s3
+  #     s3:
+  #       bucket: meu-bucket-pyroscope
+  #       region: us-east-1
+  extraArgs:
+    # Retém profiles por 1 hora em dev (economiza disco no Kind)
+    # Em produção, use valores como "72h" ou "168h"
+    - --storage.tsdb.retention.time=1h
+
+  # ── Recursos para Kind (nó único com recursos limitados) ─
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # ── Persistência desabilitada para Kind ──────────────────
+  # Habilitar em produção com um StorageClass adequado
+  persistence:
+    enabled: false

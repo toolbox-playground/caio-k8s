@@ -1,0 +1,60 @@
+# ============================================================
+# Kind Cluster: k8s-essentials (Módulo 05 — com Pyroscope)
+# ============================================================
+# Este arquivo é uma extensão do cluster do Módulo 04.
+# Adiciona mapeamento de porta para o Grafana Pyroscope (4040).
+#
+# ⚠️  Se o cluster já existir, delete e recrie:
+#     kind delete cluster --name k8s-essentials
+#     kind create cluster --config manifests/cluster-config.yaml
+# ============================================================
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+
+name: k8s-essentials
+
+nodes:
+  # ========== CONTROL PLANE ==========
+  - role: control-plane
+    extraPortMappings:
+
+    # ---- Módulo 02: Super Mario App ----
+    - containerPort: 30000
+      hostPort: 8081
+      protocol: TCP
+
+    # ---- Módulo 03: Prometheus ----
+    # Acesse em: http://localhost:9090
+    - containerPort: 30090
+      hostPort: 9090
+      protocol: TCP
+
+    # ---- Módulo 03: Grafana ----
+    # Acesse em: http://localhost:3000
+    # Login padrão: admin / prom-operator
+    - containerPort: 31000
+      hostPort: 3000
+      protocol: TCP
+
+    # ---- Módulo 03: Alertmanager ----
+    # Acesse em: http://localhost:9093
+    - containerPort: 32000
+      hostPort: 9093
+      protocol: TCP
+
+    # ---- Módulo 03: Node Exporter ----
+    # Acesse em: http://localhost:9100/metrics
+    - containerPort: 32001
+      hostPort: 9100
+      protocol: TCP
+
+    # ---- Módulo 05: Grafana Pyroscope ----
+    # Acesse em: http://localhost:4040
+    # UI de profiling — explorar flame graphs diretamente
+    - containerPort: 34040
+      hostPort: 4040
+      protocol: TCP
+
+  # ========== WORKER NODE ==========
+  - role: worker

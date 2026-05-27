@@ -1,0 +1,112 @@
+# ============================================================
+# Deployment: Ranking API v2 — com Pyroscope SDK
+# ============================================================
+# Versão atualizada da Ranking API do Módulo 04.
+# Adiciona profiling contínuo via pyroscope-io SDK.
+#
+# Diferenças em relação ao Módulo 04:
+#   - image: ranking-api:v2-profiler   (nova imagem com pyroscope-io)
+#   - PYROSCOPE_SERVER_ADDRESS         (endpoint do Pyroscope)
+#   - PYROSCOPE_APPLICATION_NAME       (identifica o serviço no Grafana)
+#   - PYROSCOPE_TAGS                   (labels para filtrar no Grafana)
+#
+# Aplicar:
+#   kubectl apply -f manifests/01-deployment-ranking-api-v2.yaml
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: ranking-api
+  namespace: games
+  labels:
+    app: ranking-api
+    module: "05-profiler"
+    version: "2.0.0"
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: ranking-api
+
+  template:
+    metadata:
+      labels:
+        app: ranking-api
+        version: "2.0.0"
+      annotations:
+        # Anotação usada pelo Prometheus para scrape de métricas via OTel Collector
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+
+    spec:
+      containers:
+      - name: ranking-api
+        # Nova imagem com pyroscope-io instalado
+        # Build: docker build -t ranking-api:v2-profiler ./app
+        # Load:  kind load docker-image ranking-api:v2-profiler --name k8s-essentials
+        image: ranking-api:v2-profiler
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+
+        env:
+        # ── Variáveis OpenTelemetry (mantidas do Módulo 04) ────
+        - name: OTEL_SERVICE_NAME
+          value: "ranking-api"
+
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector.otel.svc.cluster.local:4317"
+
+        - name: DEPLOYMENT_ENV
+          value: "kind-dev"
+
+        # ── Variáveis Pyroscope ────────────────────────────────
+        - name: PYROSCOPE_SERVER_ADDRESS
+          # Endereço DNS interno do Pyroscope dentro do cluster.
+          # O SDK Python usa esta URL para fazer push dos profiles.
+          # Formato: http://<service>.<namespace>.svc.cluster.local:<porta>
+          value: "http://pyroscope.monitoring.svc.cluster.local:4040"
+
+        - name: PYROSCOPE_APPLICATION_NAME
+          # Identificador do serviço no Pyroscope e Grafana.
+          # DEVE ser igual ao OTEL_SERVICE_NAME para que a correlação
+          # Trace → Profile funcione automaticamente no Grafana.
+          # No Grafana Pyroscope, este valor aparece como label "service_name".
+          value: "ranking-api"
+
+        - name: PYROSCOPE_TAGS
+          # Tags extras enviadas com cada profile.
+          # Formato: "chave=valor,chave2=valor2"
+          # Visíveis como labels no Grafana Pyroscope para filtragem.
+          # Use "version" para comparar perfis entre deploys.
+          value: "environment=kind-dev,version=2.0.0"
+
+        # ── Probes ────────────────────────────────────────────
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+
+        # ── Recursos ──────────────────────────────────────────
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
