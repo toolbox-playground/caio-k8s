@@ -1,6 +1,6 @@
 # 🚀 Módulo 05 — Escolha sua Abordagem
 
-Este módulo oferece **duas formas** de fazer profiling contínuo com Grafana Pyroscope.  
+Este módulo oferece **três formas** de fazer profiling contínuo com Grafana Pyroscope.  
 Cada uma tem seu próprio guia completo. Escolha abaixo:
 
 ---
@@ -47,13 +47,36 @@ cd curso-k8s/modulo-05-profiler/grafana-alloy
 
 ## Comparação rápida
 
-| | SDK | Alloy (eBPF) |
-|---|---|---|
-| Muda o código? | Sim | **Não** |
-| Perfil por endpoint? | **Sim** (tag_wrapper) | Não |
-| Qualquer linguagem/processo? | Não | **Sim** |
-| Trace → Profile precisa? | **Sim** | Parcial |
-| `privileged: true` no K8s? | Não | Sim |
+| | SDK | Alloy (eBPF) | **Híbrido** |
+|---|---|---|---|
+| Muda o código? | Sim | **Não** | Sim (só sua app) |
+| Perfil por endpoint? | **Sim** (tag_wrapper) | Não | **Sim** |
+| Qualquer linguagem/processo? | Não | **Sim** | **Sim** |
+| Trace → Profile precisa? | **Sim** | Parcial | **Sim** |
+| `privileged: true` no K8s? | Não | Sim | Sim |
+| Syscalls/kernel visíveis? | Não | **Sim** | **Sim** |
+| Recomendado para produção? | Ambientes simples | Infra sem acesso ao código | **Sim** |
+
+---
+
+## Abordagem 3 — Híbrido (SDK + Alloy)
+
+📁 **Pasta:** [hybrid/](hybrid/)  
+📄 **Guia:** [hybrid/QUICK-START.md](hybrid/QUICK-START.md)
+
+**O que faz:** combina o SDK na `ranking-api` (granularidade Python + tag_wrapper)  
+com o Alloy eBPF perfilando toda a infra do cluster (syscalls, runtime C, outros pods).
+
+**Por que usar:**
+- O SDK mostra "qual função Python gastou CPU"
+- O eBPF mostra "qual syscall essa função disparou no kernel" — ex: `futex_wait`
+- Você pode ver p99=380ms no trace, 40ms no flame graph Python, e 340ms em `futex_wait` no eBPF
+- No Grafana: filtre por `profiler=sdk` (frames Python) ou `profiler=ebpf` (kernel)
+
+```sh
+cd curso-k8s/modulo-05-profiler/hybrid
+# siga o QUICK-START.md dentro desta pasta
+```
 
 ---
 
@@ -177,6 +200,15 @@ helm repo update
 ### Instalar o Pyroscope
 
 **PowerShell e bash:**
+
+```sh
+helm install pyroscope grafana/pyroscope `
+  --namespace monitoring `
+  --create-namespace `
+  -f helm-values/values-pyroscope.yaml
+```
+
+**Bash:**
 
 ```sh
 helm install pyroscope grafana/pyroscope \

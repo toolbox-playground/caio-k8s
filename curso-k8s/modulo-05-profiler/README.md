@@ -99,10 +99,37 @@ Se a função `A` aparece em 6 de 10 amostras → ela ocupa ~60% do tempo.
 ## ⏱️ Continuous Profiling vs Profiling Pontual
 
 ### Profiling Pontual (tradicional)
+
 ```bash
 python -m cProfile -o profile.out meu_script.py
 snakeviz profile.out
 ```
+
+#### O que é cada comando
+
+**`python -m cProfile -o profile.out meu_script.py`**  
+`cProfile` é o profiler nativo do Python (stdlib). O `-m` significa "rode como módulo". Ele instrumenta **cada chamada de função** durante a execução do script e registra:
+- Quantas vezes cada função foi chamada (`ncalls`)
+- Tempo total gasto nela (`tottime`)
+- Tempo incluindo funções filhas (`cumtime`)
+
+`-o profile.out` salva o resultado num arquivo binário em vez de imprimir no terminal.
+
+**`snakeviz profile.out`**  
+`snakeviz` é uma biblioteca de visualização que abre o `.profile.out` num browser como um **icicle chart** (variante do flame graph). É basicamente o equivalente visual do `cProfile`.
+
+#### Por que não se usa em produção
+
+```
+cProfile instrumenta CADA chamada de função (tracing completo)
+→ overhead de 20-50% de CPU
+→ muda o comportamento do sistema (timing diferente)
+→ não tem histórico — você captura só aquela execução
+→ precisa reproduzir o problema (às vezes impossível)
+```
+
+É ótimo para desenvolvimento local ("este script está lento, por quê?"),  
+mas inviável para deixar rodando continuamente em produção.
 
 **Problemas:**
 - Você precisa **reproduzir** o problema (às vezes impossível em produção)
@@ -145,6 +172,20 @@ snakeviz profile.out
 - **Baixo overhead** — <1% de CPU/memória extra
 - **Sem reprodução** — o problema já estava sendo gravado quando aconteceu
 - **Correlação temporal** — "o que estava consumindo CPU durante o incidente das 14h23?"
+
+### Comparação direta
+
+| | `cProfile` + snakeviz | Pyroscope |
+|---|---|---|
+| Como funciona | Instrumenta toda chamada | Sampling a cada ~10ms |
+| Overhead | 20–50% | <1% |
+| Onde usar | Dev local | Produção |
+| Histórico | Não — uma execução | Sim — contínuo |
+| Reproduzir o problema | Obrigatório | Não — já estava gravando |
+| Visualização | snakeviz (browser) | Grafana flame graph |
+
+> `cProfile` responde "meu script é lento, onde?" no laptop.  
+> Pyroscope responde "meu serviço ficou lento ontem às 14h23 em produção, onde?" sem precisar reproduzir nada.
 
 ---
 
@@ -357,6 +398,17 @@ modulo-05-profiler/
     │   └── values-pyroscope.yaml  ← Pyroscope Server (NodePort 4040)
     └── manifests/
         └── cluster-config.yaml   ← Kind com porta 34040→4040
+
+└── hybrid/                        ← Abordagem 3: SDK + eBPF juntos (recomendado para produção)
+    ├── README.md                  ← por que combinar, diagrama de camadas
+    ├── QUICK-START.md             ← guia passo a passo
+    ├── app/                       ← ranking-api v2 (igual ao pyroscope-sdk)
+    ├── helm-values/
+    │   ├── values-alloy.yaml      ← Alloy com label "profiler=ebpf"
+    │   └── values-pyroscope.yaml  ← Pyroscope Server (NodePort 4040)
+    └── manifests/
+        ├── cluster-config.yaml   ← Kind com porta 34040→4040
+        └── 01-deployment-ranking-api-v2.yaml ← ranking-api com PYROSCOPE_TAGS=profiler=sdk
 ```
 
 ### Qual abordagem escolher?
@@ -367,6 +419,7 @@ modulo-05-profiler/
 | App de terceiro / legado / sem acesso ao código | [grafana-alloy/](grafana-alloy/README.md) |
 | Quero profiling de todo o cluster sem tocar em nada | [grafana-alloy/](grafana-alloy/README.md) |
 | Preciso de Trace → Profile com correlação precisa | [pyroscope-sdk/](pyroscope-sdk/README.md) |
+| Máxima cobertura: app granular + infra + kernel | [hybrid/](hybrid/README.md) |
 
 ---
 
@@ -378,6 +431,7 @@ Escolha a abordagem e siga o guia correspondente:
 |---|---|---|
 | **Pyroscope SDK** | [pyroscope-sdk/QUICK-START.md](pyroscope-sdk/QUICK-START.md) | Modifica a app, ganho máximo de granularidade |
 | **Grafana Alloy** | [grafana-alloy/QUICK-START.md](grafana-alloy/QUICK-START.md) | Zero mudanças, perfilação de qualquer processo |
+| **Híbrido** | [hybrid/QUICK-START.md](hybrid/QUICK-START.md) | SDK para sua app + eBPF para a infra toda |
 
 ---
 

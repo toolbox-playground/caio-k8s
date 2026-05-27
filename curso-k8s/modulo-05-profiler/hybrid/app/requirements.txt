@@ -1,0 +1,26 @@
+# ── Web framework ────────────────────────────────────────────
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+
+# ── OpenTelemetry API + SDK (core) ───────────────────────────
+opentelemetry-api==1.29.0
+opentelemetry-sdk==1.29.0
+
+# ── Exportador OTLP via gRPC ─────────────────────────────────
+opentelemetry-exporter-otlp-proto-grpc==1.29.0
+
+# ── Instrumentação automática para FastAPI ───────────────────
+opentelemetry-instrumentation-fastapi==0.50b0
+
+# ── Semantic conventions ─────────────────────────────────────
+opentelemetry-semantic-conventions==0.50b0
+
+# ── Grafana Pyroscope — Continuous Profiling ─────────────────
+# SDK Python para profiling contínuo.
+# Amostra o call stack via py-spy (C extension) e envia para
+# o Pyroscope Server via HTTP a cada 15 segundos.
+#
+# Overhead: <1% CPU, <5MB memória extra.
+# Requer: Python 3.8+ em Linux (funciona no container alpine/slim).
+pyroscope-io==0.8.7

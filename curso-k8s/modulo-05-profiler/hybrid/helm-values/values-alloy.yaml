@@ -1,0 +1,110 @@
+# values-alloy.yaml — Modo Híbrido
+# Grafana Alloy como DaemonSet para profiling eBPF de toda a infra.
+#
+# Diferença em relação ao grafana-alloy/values-alloy.yaml:
+#   - Adiciona label "profiler=ebpf" em todos os targets.
+#     Isso permite diferenciar no Grafana:
+#       {service_name="ranking-api", profiler="sdk"}  → veio do pyroscope-io SDK
+#       {service_name="ranking-api", profiler="ebpf"} → veio do Alloy eBPF
+#
+# Instalar:
+#   helm install alloy grafana/alloy \
+#     --namespace monitoring \
+#     --create-namespace \
+#     -f helm-values/values-alloy.yaml
+
+controller:
+  type: daemonset
+
+alloy:
+  securityContext:
+    privileged: true
+    runAsUser: 0
+
+  configMap:
+    content: |
+
+      // ══════════════════════════════════════════════════════
+      // 1. DESCOBERTA DE PODS
+      // ══════════════════════════════════════════════════════
+      discovery.kubernetes "pods" {
+        role = "pod"
+      }
+
+      // ══════════════════════════════════════════════════════
+      // 2. RELABELING
+      // ══════════════════════════════════════════════════════
+      //
+      // Diferença do modo híbrido: adicionamos o label "profiler=ebpf"
+      // em TODOS os targets, incluindo a ranking-api.
+      //
+      // No Grafana Pyroscope você diferencia os dois profiles da ranking-api:
+      //   {service_name="ranking-api", profiler="sdk"}   → SDK Python (granular, tag_wrapper)
+      //   {service_name="ranking-api", profiler="ebpf"}  → eBPF (syscalls, runtime C)
+      //
+      // Cada um responde uma pergunta diferente:
+      //   SDK:  "qual função Python consome mais CPU?"
+      //   eBPF: "qual syscall essa função dispara no kernel?"
+      discovery.relabel "pods" {
+        targets = discovery.kubernetes.pods.targets
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app"]
+          target_label  = "service_name"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_node_name"]
+          target_label  = "node"
+        }
+
+        // Label que identifica a origem do profile no Grafana.
+        // Todos os profiles do Alloy receberão profiler="ebpf".
+        // Os profiles do SDK receberão profiler="sdk" (definido no deployment
+        // via PYROSCOPE_TAGS=profiler=sdk).
+        rule {
+          target_label = "profiler"
+          replacement  = "ebpf"
+        }
+      }
+
+      // ══════════════════════════════════════════════════════
+      // 3. PROFILING VIA eBPF (toda a infra do cluster)
+      // ══════════════════════════════════════════════════════
+      pyroscope.ebpf "default" {
+        forward_to = [pyroscope.write.pyroscope_server.receiver]
+        targets    = discovery.relabel.pods.output
+        demangle   = "full"
+      }
+
+      // ══════════════════════════════════════════════════════
+      // 4. ENVIAR PARA O PYROSCOPE SERVER
+      // ══════════════════════════════════════════════════════
+      pyroscope.write "pyroscope_server" {
+        endpoint {
+          url = "http://pyroscope.monitoring.svc.cluster.local:4040"
+        }
+      }
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
