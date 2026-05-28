@@ -42,7 +42,7 @@ data:
       # Alterar este uid quebra a correlação Trace → Profile.
       - name: grafana-pyroscope-datasource
         type: grafana-pyroscope-datasource
-        uid: dfndbfp01e7swd
+        uid: pyroscope
         url: http://pyroscope.monitoring.svc.cluster.local:4040
         access: proxy
         basicAuth: false
@@ -75,7 +75,7 @@ data:
 
       - name: tempo
         type: tempo
-        uid: dfn6rrm6edkowe
+        uid: tempo
         url: http://tempo.monitoring.svc.cluster.local:3200
         access: proxy
         basicAuth: false
@@ -85,7 +85,7 @@ data:
 
           # ── Trace to Logs (Loki) — herdado do módulo 04 ────
           tracesToLogsV2:
-            datasourceUid: afnfjb2o4l1q8f   # UID do datasource Loki (provisionado pelo helm)
+            datasourceUid: loki   # UID do datasource Loki
             customQuery: false
             tags:
               - key: service.name
@@ -130,7 +130,7 @@ data:
           #   definido em tags[] abaixo. Ex: service_name="ranking-api"
           #   $$__tags é o escape do loader de provisionamento — armazena como $__tags.
           tracesToProfiles:
-            datasourceUid: dfndbfp01e7swd   # UID do datasource Pyroscope
+            datasourceUid: pyroscope   # UID do datasource Pyroscope
             # profileTypeId identifica o tipo de profile no Pyroscope.
             # Formato: <app_type>:<profile_type>:<unit>:<aggregation>:<unit>
             # process_cpu:cpu:nanoseconds:cpu:nanoseconds = CPU time em nanosegundos

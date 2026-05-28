@@ -15,7 +15,7 @@
 #
 # ATENÇÃO:
 #   Se o datasource "tempo" já existir como configuração manual no Grafana,
-#   este arquivo o sobrescreve. O UID (dfn6rrm6edkowe) garante que é o
+#   este arquivo o sobrescreve. O UID (tempo) garante que é o
 #   mesmo datasource atualizado, não um duplicado.
 #
 # Aplicar:
@@ -55,7 +55,7 @@ data:
         type: tempo
         # uid fixo para que outros datasources (Pyroscope, módulo 05)
         # referenciem este datasource de forma estável.
-        uid: dfn6rrm6edkowe
+        uid: tempo
         url: http://tempo.monitoring.svc.cluster.local:3200
         access: proxy
         basicAuth: false
@@ -75,7 +75,7 @@ data:
           # Pré-requisito na aplicação: enviar logs com traceId no campo
           # trace_id (feito pelo OTel Logging SDK no main.py).
           tracesToLogsV2:
-            datasourceUid: afnfjb2o4l1q8f   # UID do datasource Loki (provisionado pelo helm)
+            datasourceUid: loki   # UID do datasource Loki
             customQuery: false
             tags:
               # Mapeamento: atributo do span → label de stream do Loki.

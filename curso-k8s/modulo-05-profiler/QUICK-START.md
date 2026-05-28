@@ -302,7 +302,7 @@ kubectl logs -n monitoring \
 
 O ConfigMap abaixo tenta provisionar um datasource Loki adicional com **Logs → Traces** configurado (campo `derivedFields`). O Helm do `kube-prometheus-stack` já provisiona um datasource Loki chamado `loki` — se ambos usarem o mesmo nome, o ConfigMap será ignorado.
 
-> **Nota:** O botão **"Logs for this span"** no Tempo usa o UID do datasource Loki já provisionado pelo Helm (`afnfjb2o4l1q8f`). Esse UID já está configurado corretamente no arquivo `manifests/02-grafana-datasource-tempo-pyroscope.yaml` — o passo 0.12 não é necessário para o fluxo Trace → Logs funcionar.
+> **Nota:** O botão **"Logs for this span"** no Tempo funciona porque o datasource Loki usa `uid: loki` — o mesmo valor referenciado em `tracesToLogsV2.datasourceUid: loki` no arquivo `manifests/02-grafana-datasource-tempo-pyroscope.yaml`. O passo 0.12 garante que esse UID esteja registrado no Grafana antes de aplicar o Tempo.
 
 **PowerShell e bash:**
 

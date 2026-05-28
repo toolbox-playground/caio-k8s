@@ -4,7 +4,7 @@
 # Provisiona o datasource Loki no Grafana via sidecar do
 # kube-prometheus-stack.
 #
-# O UID (efn6ru21pagowd) é referenciado pelo datasource Tempo em
+# O UID (loki) é referenciado pelo datasource Tempo em
 # tracesToLogsV2.datasourceUid — alterar quebra o botão
 # "Logs for this span" no Grafana Explore → Tempo.
 #
@@ -37,12 +37,12 @@ data:
       # (infra) e pelo OTel Collector (aplicações).
       #
       # uid fixo referenciado pelo datasource Tempo:
-      #   tracesToLogsV2.datasourceUid: efn6ru21pagowd
+      #   tracesToLogsV2.datasourceUid: loki
       # Manter este UID garante que o botão "Logs for this span"
       # no Tempo funcione sem reconfiguração manual.
       - name: loki
         type: loki
-        uid: efn6ru21pagowd
+        uid: loki
         url: http://loki.monitoring.svc.cluster.local:3100
         access: proxy
         basicAuth: false
@@ -60,5 +60,5 @@ data:
               # Exemplo de log: {"trace_id": "abc123...", "message": "..."}
               matcherRegex: '"trace_id":"(\w+)"'
               url: '$${__value.raw}'
-              datasourceUid: dfn6rrm6edkowe   # UID do datasource Tempo
+              datasourceUid: tempo   # UID do datasource Tempo
               urlDisplayLabel: "Abrir trace no Tempo"
