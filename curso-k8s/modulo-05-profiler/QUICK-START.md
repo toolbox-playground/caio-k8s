@@ -370,7 +370,7 @@ for i in 1..50; do curl -s http://localhost:8000/rankings > $null; Start-Sleep -
 1. Acesse **http://localhost:3000**
 2. Menu lateral → **Explore**
 3. Selecione datasource: **Grafana Pyroscope**
-4. Em **Profile type**, selecione `process_cpu:cpu:nanoseconds:cpu:nanoseconds`
+4. Em **Profile type**, e cole dentro e dê enter `process_cpu:cpu:nanoseconds:cpu:nanoseconds`
 5. Em **Labels**, digite: `{service_name="ranking-api"}`
 6. Ajuste o intervalo de tempo para os últimos 15 minutos
 7. Clique em **"Run query"**

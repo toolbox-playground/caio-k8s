@@ -23,6 +23,7 @@ from pydantic import BaseModel
 # a correlação Trace → Profile funcione no Grafana Tempo.
 # ============================================================
 import pyroscope
+from pyroscope.otel import PyroscopeSpanProcessor
 
 pyroscope.configure(
     # Nome do serviço — chave de correlação com o Tempo (traces)
@@ -70,6 +71,10 @@ tracer_provider = TracerProvider(resource=resource)
 tracer_provider.add_span_processor(
     BatchSpanProcessor(OTLPSpanExporter(endpoint=OTEL_ENDPOINT, insecure=True))
 )
+# ── Span Profiles bridge (Pyroscope ↔ Tempo) ─────────────────
+# Injeta o atributo pyroscope.profile.id em cada span.
+# Com isso, o Grafana Tempo exibe "Profiles for this span" + flame graph inline.
+tracer_provider.add_span_processor(PyroscopeSpanProcessor())
 trace.set_tracer_provider(tracer_provider)
 tracer = trace.get_tracer(__name__)
 
