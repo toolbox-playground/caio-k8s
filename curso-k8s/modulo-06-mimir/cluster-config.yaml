@@ -1,0 +1,73 @@
+# ============================================================
+# Kind Cluster: k8s-essentials (Módulo 06 — com Mimir)
+# ============================================================
+# Extensão do cluster do Módulo 05.
+# Adiciona mapeamentos de porta para Mimir (9009) e MinIO console (9001).
+#
+# ⚠️  Se o cluster já existir com outra config, delete e recrie:
+#     kind delete cluster --name k8s-essentials
+#     kind create cluster --config cluster-config.yaml
+# ============================================================
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+
+name: k8s-essentials
+
+nodes:
+  # ========== CONTROL PLANE ==========
+  - role: control-plane
+    extraPortMappings:
+
+    # ---- Módulo 02: Super Mario App ----
+    - containerPort: 30000
+      hostPort: 8081
+      protocol: TCP
+
+    # ---- Módulo 03: Prometheus ----
+    # Acesse em: http://localhost:9090
+    - containerPort: 30090
+      hostPort: 9090
+      protocol: TCP
+
+    # ---- Módulo 03: Grafana ----
+    # Acesse em: http://localhost:3000
+    - containerPort: 31000
+      hostPort: 3000
+      protocol: TCP
+
+    # ---- Módulo 03: Alertmanager ----
+    # Acesse em: http://localhost:9093
+    - containerPort: 32000
+      hostPort: 9093
+      protocol: TCP
+
+    # ---- Módulo 03: Node Exporter ----
+    # Acesse em: http://localhost:9100/metrics
+    - containerPort: 32001
+      hostPort: 9100
+      protocol: TCP
+
+    # ---- Módulo 05: Grafana Pyroscope ----
+    # Acesse em: http://localhost:4040
+    - containerPort: 34040
+      hostPort: 4040
+      protocol: TCP
+
+    # ---- Módulo 06: Grafana Mimir ----
+    # API Mimir — remote_write endpoint e query API
+    # Acesse em: http://localhost:9009/ready
+    - containerPort: 39009
+      hostPort: 9009
+      protocol: TCP
+
+    # ---- Módulo 06: MinIO Console ----
+    # Console web do MinIO — visualize os buckets onde Mimir grava
+    # Acesse em: http://localhost:9001
+    # Login: mimir / mimir-supersecret
+    - containerPort: 39001
+      hostPort: 9001
+      protocol: TCP
+
+  # ========== WORKER NODE ==========
+  - role: worker

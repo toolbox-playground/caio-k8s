@@ -1,0 +1,82 @@
+# Versão da API: autoscaling/v2 (versão atual do HPA)
+apiVersion: autoscaling/v2
+
+# Tipo de recurso: HPA (Horizontal Pod Autoscaler)
+# Escala automaticamente o número de pods baseado em métricas
+kind: HorizontalPodAutoscaler
+
+# ========== METADADOS ==========
+metadata:
+  # Nome do HPA
+  name: super-mario-hpa
+  
+  # Namespace: Mesmo do Deployment
+  namespace: games
+
+# ========== ESPECIFICAÇÃO DO HPA ==========
+spec:
+  # Alvo do escalonamento: Qual recurso será escalado
+  scaleTargetRef:
+    apiVersion: apps/v1   # Versão da API do recurso alvo
+    kind: Deployment      # Tipo de recurso (Deployment)
+    name: super-mario     # Nome do Deployment
+  
+  # Número mínimo de réplicas: Nunca escala abaixo deste valor
+  minReplicas: 2
+  
+  # Número máximo de réplicas: Nunca escala acima deste valor
+  maxReplicas: 10
+  
+  # ========== MÉTRICAS ==========
+  # Define quais métricas acionam o escalonamento
+  metrics:
+  # Métrica 1: Uso de CPU
+  - type: Resource        # Tipo: Recurso do Kubernetes (cpu/memory)
+    resource:
+      name: cpu           # Nome do recurso a monitorar
+      target:
+        type: Utilization           # Tipo: Porcentagem de utilização
+        averageUtilization: 50      # Meta: 50% de CPU média
+        # Quando > 50%: Escala para cima (scale up)
+        # Quando < 50%: Escala para baixo (scale down)
+  
+  # ========== COMPORTAMENTO DE ESCALONAMENTO ==========
+  # Controla a velocidade e estabilidade do escalonamento
+  behavior:
+    # Configuração de Scale Down (reduzir pods)
+    scaleDown:
+      # Janela de estabilização: Aguarda 60s antes de reduzir
+      # Evita oscilações (flapping) de escala
+      stabilizationWindowSeconds: 60
+      
+      # Políticas de redução
+      policies:
+      # Política 1: Percentual
+      - type: Percent          # Tipo: Porcentagem de pods
+        value: 50              # Reduz até 50% dos pods
+        periodSeconds: 15      # A cada 15 segundos
+        # Exemplo: 10 pods → pode reduzir 5 pods (50%) a cada 15s
+    
+    # Configuração de Scale Up (aumentar pods)
+    scaleUp:
+      # Janela de estabilização: 0s = escala imediatamente
+      # Importante: Resposta rápida a picos de carga
+      stabilizationWindowSeconds: 0
+      
+      # Políticas de aumento
+      policies:
+      # Política 1: Percentual
+      - type: Percent          # Tipo: Porcentagem
+        value: 100             # Duplica número de pods (100%)
+        periodSeconds: 15      # A cada 15 segundos
+        # Exemplo: 2 pods → escala para 4 pods (100% de aumento)
+      
+      # Política 2: Pods absolutos
+      - type: Pods             # Tipo: Número fixo de pods
+        value: 2               # Adiciona 2 pods
+        periodSeconds: 15      # A cada 15 segundos
+      
+      # Política de seleção: Escolhe qual política usar
+      # Max: Usa a política que escala MAIS (mais agressiva)
+      # Min: Usa a política que escala MENOS (mais conservadora)
+      selectPolicy: Max

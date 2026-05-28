@@ -1,0 +1,47 @@
+# Probe do Blackbox Exporter para medir latência HTTP do Super Mario
+#
+# O CRD Probe é gerenciado pelo Prometheus Operator (instalado com kube-prometheus-stack).
+# Ele instrui o Prometheus a chamar o Blackbox Exporter periodicamente passando o target
+# como parâmetro — o exporter faz a requisição HTTP e devolve as métricas de latência.
+#
+# Fluxo:
+#   Prometheus → GET /probe?target=<url>&module=http_2xx → Blackbox Exporter → Super Mario
+#                                                          ↓
+#                                              probe_duration_seconds{job="blackbox-mario"}
+#
+# Pré-requisito: Blackbox Exporter instalado via Helm (veja QUICK-START.md)
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: super-mario-http
+  namespace: monitoring
+  labels:
+    # Label obrigatório: o Prometheus só descobre Probes que casam com o probeSelector.
+    # kubectl get prometheus -n monitoring -o jsonpath='{.items[*].spec.probeSelector}'
+    # retorna matchLabels: {release: kind-prometheus} → este label é necessário.
+    release: kind-prometheus
+spec:
+  # Nome do job que aparecerá nas métricas: job="blackbox-mario"
+  jobName: blackbox-mario
+
+  # Intervalo de sondagem e timeout
+  interval: 15s
+  scrapeTimeout: 10s
+
+  # Endereço do Blackbox Exporter dentro do cluster
+  # Formato: <release>-prometheus-blackbox-exporter.<namespace>.svc.cluster.local:<porta>
+  prober:
+    url: blackbox-exporter-prometheus-blackbox-exporter.monitoring.svc.cluster.local:9115
+    path: /probe
+
+  # Módulo: http_2xx valida que a resposta HTTP é 2xx e mede tempo de resposta
+  module: http_2xx
+
+  # Alvo da sondagem: Service do Super Mario no namespace games
+  targets:
+    staticConfig:
+      static:
+        - http://super-mario-service.games.svc.cluster.local:8080
+      labels:
+        app: super-mario
+        namespace: games

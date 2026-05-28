@@ -1,0 +1,62 @@
+# values-loki.yaml
+# Values do Loki 3.x em modo SingleBinary para o cluster Kind local.
+#
+# Em produção: use deploymentMode=SimpleScalable ou Distributed,
+# storage.type=s3 (ou gcs/azure), replication_factor=3.
+
+deploymentMode: SingleBinary
+
+loki:
+  # Desativa multi-tenancy — nenhum header X-Scope-OrgID necessário.
+  # Em produção com múltiplos times, habilite e configure os tenants.
+  auth_enabled: false
+
+  commonConfig:
+    # 1 réplica = sem redundância. Suficiente para ambiente local.
+    # Em produção: 3 para quórum de escrita.
+    replication_factor: 1
+
+  storage:
+    # Armazena logs em disco local do pod (PVC).
+    # Em produção: s3, gcs ou azure.
+    type: filesystem
+
+  # Injeta um schema_config padrão (TSDB v13).
+  # Necessário no chart 3.x — sem isso a instalação falha pedindo schema explícito.
+  useTestSchema: true
+
+# SingleBinary: todos os componentes (ingester, querier, etc.) num único processo.
+singleBinary:
+  replicas: 1
+
+# Microserviços do modo distribuído — desativados no SingleBinary.
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+
+# Caches Memcached — desativados para não criar StatefulSets extras no Kind.
+# Em produção com alto volume de queries, habilite para reduzir latência.
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
+# Loki Canary: pod que testa o pipeline de logs continuamente.
+lokiCanary:
+  enabled: false
+
+# Helm tests do chart — dependem do canary. Desativar junto.
+test:
+  enabled: false
+
+# MinIO embutido — desnecessário com storage.type=filesystem.
+minio:
+  enabled: false
+
+# Grafana embutido no chart do Loki — desativado para evitar conflito
+# com o Grafana já instalado pelo kube-prometheus-stack.
+grafana:
+  enabled: false

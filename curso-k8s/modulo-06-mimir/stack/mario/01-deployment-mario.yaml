@@ -1,0 +1,95 @@
+# Versão da API: apps/v1 para Deployments (estável)
+apiVersion: apps/v1
+
+# Tipo de recurso: Deployment (gerencia ReplicaSets e Pods)
+kind: Deployment
+
+# ========== METADADOS ==========
+metadata:
+  # Nome do deployment: Identificador único no namespace
+  name: super-mario
+  
+  # Namespace: Isolamento lógico de recursos
+  namespace: games
+  
+  # Labels: Metadados chave-valor para organização
+  labels:
+    app: super-mario
+
+# ========== ESPECIFICAÇÃO DO DEPLOYMENT ==========
+spec:
+  # Número de réplicas: Quantos pods idênticos manter rodando
+  replicas: 2
+  
+  # Seletor: Identifica quais pods este deployment gerencia
+  # IMPORTANTE: Deve corresponder aos labels do template
+  selector:
+    matchLabels:
+      app: super-mario
+  
+  # Template: Modelo para criação dos pods
+  template:
+    # Metadados do pod
+    metadata:
+      # Labels do pod: Devem corresponder ao selector acima
+      labels:
+        app: super-mario
+    
+    # Especificação do pod
+    spec:
+      # Lista de containers no pod
+      containers:
+      # Container principal: super-mario
+      - name: super-mario
+        
+        # Imagem Docker: Jogo Super Mario web
+        image: pengbai/docker-supermario:latest
+        
+        # Política de pull: Usa imagem local se existir
+        imagePullPolicy: IfNotPresent
+        
+        # Portas expostas pelo container
+        ports:
+        - containerPort: 8080  # Porta que a aplicação escuta
+          name: http           # Nome descritivo da porta
+          protocol: TCP        # Protocolo de rede
+        
+        # ========== RECURSOS ==========
+        # Requests: Recursos garantidos (usado pelo scheduler)
+        # Limits: Máximo permitido (pod é limitado/killed se exceder)
+        resources:
+          requests:
+            cpu: 100m      # 100 milicores (0.1 CPU)
+            memory: 256Mi  # 256 Mebibytes de RAM
+          limits:
+            cpu: 500m      # 500 milicores (0.5 CPU máximo)
+            memory: 512Mi  # 512 MiB máximo
+        
+        # ========== LIVENESS PROBE ==========
+        # Verifica se o container está vivo (funcionando)
+        # Se falhar: Kubernetes reinicia o container
+        livenessProbe:
+          # Método: HTTP GET request
+          httpGet:
+            path: /           # Endpoint a verificar
+            port: 8080        # Porta do health check
+            scheme: HTTP      # Protocolo (HTTP ou HTTPS)
+          initialDelaySeconds: 30  # Aguarda 30s antes do primeiro check
+          periodSeconds: 10        # Verifica a cada 10s
+          timeoutSeconds: 5        # Timeout de 5s por request
+          successThreshold: 1      # 1 sucesso = considerado vivo
+          failureThreshold: 3      # 3 falhas = reinicia container
+        
+        # ========== READINESS PROBE ==========
+        # Verifica se o container está pronto para receber tráfego
+        # Se falhar: Pod removido do Service (não recebe requests)
+        readinessProbe:
+          httpGet:
+            path: /           # Endpoint de health check
+            port: 8080        # Porta da aplicação
+            scheme: HTTP      # Protocolo
+          initialDelaySeconds: 15  # Aguarda 15s antes do primeiro check
+          periodSeconds: 5         # Verifica a cada 5s
+          timeoutSeconds: 3        # Timeout de 3s
+          successThreshold: 1      # 1 sucesso = pronto
+          failureThreshold: 3      # 3 falhas = não pronto
