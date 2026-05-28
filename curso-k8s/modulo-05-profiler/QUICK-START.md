@@ -203,7 +203,7 @@ helm upgrade --install fluent-bit fluent/fluent-bit \
 
 ---
 
-### Passo 0.8 — Instalar o Blackbox Exporter + alertas (Módulo 03)
+### Passo 0.8 — Instalar o Blackbox Exporter
 
 O Blackbox Exporter monitora a latência sintética do Super Mario a cada 15 segundos.
 
@@ -224,6 +224,7 @@ helm upgrade --install blackbox-exporter \
   --namespace monitoring
 
 ```
+#### Alertas (Módulo 03)
 
 **PowerShell e bash:**
 
