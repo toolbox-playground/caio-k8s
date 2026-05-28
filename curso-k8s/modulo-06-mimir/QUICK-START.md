@@ -156,13 +156,23 @@ kubectl get pods -n monitoring -l app=mimir
 ### 2.4 — Health check
 
 ```bash
+# Linux / macOS
 curl http://localhost:9009/ready
+# Esperado: ready
+```
+```pwsh
+# Windows (PowerShell)
+Invoke-RestMethod http://localhost:9009/ready
 # Esperado: ready
 ```
 
 ```bash
+# Linux / macOS
 curl http://localhost:9009/api/v1/status/config | head -5
-# Retorna a configuração ativa do Mimir
+```
+```pwsh
+# Windows (PowerShell)
+Invoke-RestMethod http://localhost:9009/api/v1/status/config
 ```
 
 ---
@@ -212,6 +222,8 @@ prometheus_remote_storage_failed_samples_total{remote_name="0"}
 ### 4.2 — Querier o Mimir diretamente
 
 ```bash
+# Linux / macOS
+
 # Listar séries ativas no Mimir
 curl 'http://localhost:9009/prometheus/api/v1/label/__name__/values' | \
   python -m json.tool | head -20
@@ -219,6 +231,16 @@ curl 'http://localhost:9009/prometheus/api/v1/label/__name__/values' | \
 # Verificar o uptime dos pods (mesmos dados que o Prometheus)
 curl 'http://localhost:9009/prometheus/api/v1/query?query=up' | \
   python -m json.tool
+```
+```pwsh
+# Windows (PowerShell)
+
+# Listar séries ativas no Mimir
+(Invoke-RestMethod "http://localhost:9009/prometheus/api/v1/label/__name__/values").data |
+  Select-Object -First 20
+
+# Verificar o uptime dos pods
+Invoke-RestMethod "http://localhost:9009/prometheus/api/v1/query?query=up"
 ```
 
 ### 4.3 — Comparar no Grafana
@@ -338,11 +360,19 @@ kubectl logs -n monitoring statefulset/minio -c minio-provisioning
 ```bash
 # Verifique se o pod do Mimir está Running
 kubectl get pod -n monitoring mimir-0
+```
 
-# Verifique os logs do Prometheus (erros de remote_write aparecem aqui)
+```bash
+# Linux / macOS — erros de remote_write aparecem aqui
 kubectl logs -n monitoring \
   statefulset/prometheus-kind-prometheus-kube-pro-prometheus \
   --tail=20 | grep -i remote
+```
+```pwsh
+# Windows (PowerShell)
+kubectl logs -n monitoring `
+  statefulset/prometheus-kind-prometheus-kube-pro-prometheus `
+  --tail=20 | Select-String "remote"
 ```
 
 ### Grafana não mostra o datasource Mimir
@@ -361,7 +391,11 @@ O Mimir só tem dados a partir do momento em que o remote_write foi configurado.
 Se você acabou de instalar, aguarde pelo menos 1-2 minutos de scrape do Prometheus.
 
 ```bash
-# Verificar se o Mimir está recebendo dados
+# Linux / macOS
 curl 'http://localhost:9009/prometheus/api/v1/query?query=scrape_samples_scraped' | \
   python -m json.tool | grep value
+```
+```pwsh
+# Windows (PowerShell)
+(Invoke-RestMethod "http://localhost:9009/prometheus/api/v1/query?query=scrape_samples_scraped").data.result
 ```

@@ -56,8 +56,17 @@ helm upgrade --install argocd argo/argo-cd \
 ### 1.3 — Obter a senha inicial do admin
 
 ```bash
+# Linux / macOS
 kubectl -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath="{.data.password}" | base64 -d
+# Copie esta senha — será usada no login
+```
+```pwsh
+# Windows (PowerShell)
+kubectl -n argocd get secret argocd-initial-admin-secret `
+  -o jsonpath="{.data.password}" | ForEach-Object {
+    [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_))
+  }
 # Copie esta senha — será usada no login
 ```
 
@@ -119,13 +128,23 @@ Login: `gitops` / `gitops-secret`
 ### 2.3 — Criar o repositório no Gitea
 
 ```bash
-# Criar repositório via API do Gitea
+# Linux / macOS
 curl -X POST http://localhost:33000/api/v1/user/repos \
   -H "Content-Type: application/json" \
   -u gitops:gitops-secret \
   -d '{"name":"caio-k8s","private":false,"auto_init":false}'
 
 # Esperado: {"id":1,"name":"caio-k8s",...}
+```
+```pwsh
+# Windows (PowerShell)
+$creds = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("gitops:gitops-secret"))
+Invoke-RestMethod http://localhost:33000/api/v1/user/repos `
+  -Method Post `
+  -ContentType "application/json" `
+  -Headers @{ Authorization = "Basic $creds" } `
+  -Body '{"name":"caio-k8s","private":false,"auto_init":false}'
+# Esperado: id, name: caio-k8s, ...
 ```
 
 ### 2.4 — Fazer push dos arquivos do curso para o Gitea
@@ -200,9 +219,13 @@ Em seguida, o ArgoCD detecta os arquivos `01-mario-app.yaml`...`07-mimir-app.yam
 no repositório e cria cada Application filho automaticamente.
 
 ```bash
-# Via CLI
+# Linux / macOS
 watch argocd app list
 # Aguarde todas as Applications aparecerem
+```
+```pwsh
+# Windows (PowerShell) — equivalente ao watch (Ctrl+C para parar)
+while ($true) { Clear-Host; argocd app list; Start-Sleep 5 }
 ```
 
 ### 4.3 — Sincronizar tudo
@@ -244,18 +267,19 @@ argocd app list
 ### 5.3 — Verificar os serviços externos
 
 ```bash
-# Mario
-curl http://localhost:8081         # Jogo
-
-# Grafana
-# http://localhost:3000            # admin / prom-operator
-
-# ArgoCD
-# http://localhost:8080
-
-# Mimir
-curl http://localhost:9009/ready   # "ready"
+# Linux / macOS
+curl http://localhost:8081         # Mario — responde com HTML
+curl http://localhost:9009/ready   # Mimir — "ready"
 ```
+```pwsh
+# Windows (PowerShell)
+Invoke-RestMethod http://localhost:8081        # Mario — retorna HTML
+Invoke-RestMethod http://localhost:9009/ready  # Mimir — "ready"
+```
+
+Ou abra no browser:
+- Grafana: http://localhost:3000 (admin / prom-operator)
+- ArgoCD: http://localhost:8080
 
 ---
 
