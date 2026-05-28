@@ -300,9 +300,9 @@ kubectl logs -n monitoring \
 
 ### Passo 0.12 — Provisionar datasource Loki no Grafana
 
-O ConfigMap abaixo provisiona o Loki no Grafana com **Logs → Traces** configurado: ao clicar em um traceId nos logs da `ranking-api`, o Grafana abre o trace correspondente no Tempo.
+O ConfigMap abaixo tenta provisionar um datasource Loki adicional com **Logs → Traces** configurado (campo `derivedFields`). O Helm do `kube-prometheus-stack` já provisiona um datasource Loki chamado `loki` — se ambos usarem o mesmo nome, o ConfigMap será ignorado.
 
-> O UID `efn6ru21pagowd` é referenciado pelo datasource Tempo em `tracesToLogsV2` — o botão **"Logs for this span"** só funciona se este ConfigMap estiver aplicado.
+> **Nota:** O botão **"Logs for this span"** no Tempo usa o UID do datasource Loki já provisionado pelo Helm (`afnfjb2o4l1q8f`). Esse UID já está configurado corretamente no arquivo `manifests/02-grafana-datasource-tempo-pyroscope.yaml` — o passo 0.12 não é necessário para o fluxo Trace → Logs funcionar.
 
 **PowerShell e bash:**
 
@@ -616,12 +616,14 @@ Grafana → Explore → Datasource: Grafana Pyroscope
 {service_name="ranking-api", profiler="sdk"}
 ```
 
-**Profile eBPF (syscalls do kernel):**
+**Profile eBPF (processos do node):**
 ```
-{service_name="ranking-api", profiler="ebpf"}
+{service_name="ebpf/monitoring/alloy", profiler="ebpf"}
 ```
 
 > Use o botão **Split** do Explore para abrir os dois flame graphs lado a lado.
+
+> ⚠️ **Limitação do eBPF para Python em kind/WSL2:** o Alloy eBPF perfilará com sucesso processos Go e nativos (como o próprio Alloy, Prometheus, etc.), mas **não consegue fazer Python frame unwinding** em ambientes aninhados como kind-no-Docker-no-WSL2. A métrica `agent_num_exe_id_loaded_to_ebpf` mostrará apenas os executáveis Go. Para profiling de call stack Python, use sempre a query `profiler="sdk"`. Veja a seção [Troubleshooting](#ebpf-não-mostra-call-stack-python) para mais detalhes.
 
 ### 6.2 — O que cada flame graph mostra
 
@@ -674,7 +676,7 @@ O Alloy perfila automaticamente todos os pods do cluster. Explore no Pyroscope:
 
 | Serviço | URL | Credenciais |
 |---|---|---|
-| Grafana | http://localhost:3000 | admin / (ver Passo 0.13) |
+| Grafana | http://localhost:3000 | admin / (ver Passo 0.14) |
 | Prometheus | http://localhost:9090 | — |
 | AlertManager | http://localhost:9093 | — |
 | Pyroscope | http://localhost:4040 | — |
@@ -707,8 +709,9 @@ kubectl exec -n games `
 # Deve mostrar:
 # PYROSCOPE_SERVER_ADDRESS=http://pyroscope.monitoring.svc.cluster.local:4040
 # PYROSCOPE_APPLICATION_NAME=ranking-api
-# PYROSCOPE_TAGS=...,profiler=sdk
 ```
+
+> ⚠️ **Nota:** a variável de ambiente `PYROSCOPE_TAGS` **não é lida pelo SDK Python** (`pyroscope-io`). As tags (incluindo `profiler=sdk`) são configuradas diretamente no código em `pyroscope.configure(tags={...})` — veja `app/main.py`.
 
 **bash / zsh:**
 
@@ -725,6 +728,28 @@ kubectl describe pod -n monitoring -l app.kubernetes.io/name=alloy | grep -A10 "
 ```
 
 > Em Kind no Windows/macOS, o kernel Linux é exposto via VM pelo Docker Desktop — o eBPF geralmente funciona. Se falhar com `permission denied`, confirme que o pod tem `privileged: true` no `values-alloy.yaml`.
+
+### eBPF não mostra call stack Python
+
+**Sintoma:** a query `{service_name="ranking-api", profiler="ebpf"}` não retorna dados. A métrica `agent_num_exe_id_loaded_to_ebpf` mostra um número baixo (ex: 6) que corresponde apenas a executáveis Go.
+
+**Causa:** O profiling eBPF de Python (frame unwinding via `py_perf`) exige acesso aos frame pointers do CPython no nível do kernel. Em ambientes com múltiplas camadas de virtualização — WSL2 → Docker → kind → container — o eBPF não consegue carregar os símbolos do interpretador Python (`libpython3.x`) nos mapas eBPF.
+
+```sh
+# Confirmar a causa: verificar métricas de Python unwinding no Alloy
+kubectl port-forward -n monitoring svc/alloy 12345:12345 &
+curl http://localhost:12345/metrics | grep -E 'UnwindPython|exe_id_loaded|ebpf_active'
+# Se UnwindPython* não aparecer: Python unwinding nunca foi tentado
+# Se agent_num_exe_id_loaded_to_ebpf for baixo: apenas executáveis Go carregados
+```
+
+**Solução:** Use `profiler="sdk"` para profiling de call stack Python. O eBPF continua útil para perfilar processos Go e nativos do cluster (Prometheus, Loki, OTel Collector).
+
+```sh
+# Profiles Go/nativos que SÃO visíveis via eBPF:
+# {service_name="ebpf/monitoring/alloy"} → Alloy (Go)
+# {service_name="ebpf/monitoring/prometheus"} → Prometheus (Go)
+```
 
 ### fluent-bit falha no install
 
