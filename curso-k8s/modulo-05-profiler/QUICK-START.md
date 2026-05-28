@@ -207,13 +207,27 @@ helm upgrade --install fluent-bit fluent/fluent-bit \
 
 O Blackbox Exporter monitora a latência sintética do Super Mario a cada 15 segundos.
 
-**PowerShell e bash:**
+**PowerShell:**
+
+```powershell
+helm upgrade --install blackbox-exporter `
+  prometheus-community/prometheus-blackbox-exporter `
+  --namespace monitoring
+
+```
+
+**Bash:**
 
 ```sh
 helm upgrade --install blackbox-exporter \
   prometheus-community/prometheus-blackbox-exporter \
   --namespace monitoring
 
+```
+
+**PowerShell e bash:**
+
+```sh
 kubectl apply -f stack/monitoring/manifests/01-four-golden-signals.yaml
 kubectl apply -f stack/monitoring/manifests/02-blackbox-probe.yaml
 kubectl apply -f stack/monitoring/manifests/03-grafana-alert-rules.yaml
