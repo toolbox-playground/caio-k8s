@@ -569,7 +569,18 @@ kubectl logs -n monitoring -l app.kubernetes.io/name=alloy --tail=30
 
 ## Fase 5 — Gerar carga
 
-**PowerShell e bash:**
+**PowerShell:**
+
+```sh
+kubectl run fortio `
+  --image=fortio/fortio `
+  --restart=Never `
+  -n games `
+  -- load -c 5 -qps 10 -t 300s `
+  http://ranking-api.games.svc.cluster.local:8000/rankings
+```
+
+**Bash:**
 
 ```sh
 kubectl run fortio \
