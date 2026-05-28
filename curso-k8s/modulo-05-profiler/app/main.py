@@ -8,73 +8,34 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 # ============================================================
-# Pyroscope — Continuous Profiling + Span Profiles
+# Pyroscope — Continuous Profiling
 # ============================================================
-# São dois pacotes com funções distintas. Ambos são necessários.
+# O SDK pyroscope-io amostra o call stack Python a cada ~10ms
+# e envia os dados comprimidos para o Pyroscope Server a cada 15s.
 #
-# ┌─────────────────────────────────────────────────────────┐
-# │ 1. pyroscope-io  (pip install pyroscope-io)             │
-# │    Profiling contínuo, independente de traces.          │
-# │                                                         │
-# │    • Amostra o call stack Python a cada ~10ms           │
-# │    • Agrega as amostras em um flame graph (pprof)       │
-# │    • Envia o profile ao Pyroscope Server a cada 15s     │
-# │    • Overhead: <1% CPU, <5MB RAM                        │
-# │    • Implementação em Rust — Python 3.10+, sem gcc      │
-# └─────────────────────────────────────────────────────────┘
+# Overhead típico: <1% de CPU, <5MB de memória extra.
 #
-# ┌─────────────────────────────────────────────────────────┐
-# │ 2. pyroscope-otel  (pip install pyroscope-otel)         │
-# │    Bridge entre OTel e Pyroscope (Span Profiles).       │
-# │                                                         │
-# │    • Registra um SpanProcessor no TracerProvider        │
-# │    • Quando um span abre, gera um profile_id único      │
-# │    • Injeta pyroscope.profile.id como atributo do span  │
-# │    • Associa esse profile_id ao profile de CPU gravado  │
-# │    • Resultado: Tempo consegue apontar para o Pyroscope │
-# └─────────────────────────────────────────────────────────┘
+# PYROSCOPE_SERVER_ADDRESS  → URL do Pyroscope Server no cluster
+# PYROSCOPE_APPLICATION_NAME → aparece como "service_name" no Grafana
+# PYROSCOPE_TAGS            → labels para filtrar no Grafana (env, versão)
 #
-# Fluxo completo de uma requisição:
-#
-#   request entra
-#       │
-#       ▼
-#   span abre  ──► PyroscopeSpanProcessor injeta profile_id no span
-#       │
-#       ├──► pyroscope-io grava CPU amostrado com esse profile_id
-#       │
-#       ▼
-#   span fecha ──► BatchSpanProcessor envia span (+ profile_id) ao Tempo
-#                  pyroscope-io envia profile (+ profile_id) ao Pyroscope
-#
-#   No Grafana:
-#       Tempo (span)  ──► clica "Profiles for this span"
-#       Pyroscope     ◄── busca pelo profile_id  → exibe flame graph
-#
-# REGRA CRÍTICA: application_name (Pyroscope) == OTEL_SERVICE_NAME (OTel)
-# Sem essa correspondência o Grafana não consegue correlacionar.
+# O application_name DEVE ser igual ao OTEL_SERVICE_NAME para que
+# a correlação Trace → Profile funcione no Grafana Tempo.
 # ============================================================
 import pyroscope
 from pyroscope.otel import PyroscopeSpanProcessor
 
 pyroscope.configure(
-    # application_name → aparece como "service_name" na UI do Grafana Pyroscope.
-    # DEVE ser idêntico ao OTEL_SERVICE_NAME para que a correlação
-    # Trace → Profile funcione. O Tempo usa esse nome para localizar
-    # o datasource correto ao renderizar "Profiles for this span".
+    # Nome do serviço — chave de correlação com o Tempo (traces)
     application_name=os.getenv("PYROSCOPE_APPLICATION_NAME", "ranking-api"),
 
-    # server_address → URL HTTP do Pyroscope Server acessível de dentro do Pod.
-    # Formato canônico no Kubernetes:
-    #   http://<service-name>.<namespace>.svc.cluster.local:<porta>
-    # Porta padrão: 4040 (HTTP ingest)
+    # Endereço do Pyroscope Server dentro do cluster Kubernetes.
+    # Formato: http://<service>.<namespace>.svc.cluster.local:<porta>
     server_address=os.getenv("PYROSCOPE_SERVER_ADDRESS", "http://pyroscope.monitoring.svc.cluster.local:4040"),
 
-    # tags → labels adicionados a TODOS os profiles deste processo.
-    # Aparecem como seletores no Grafana Pyroscope para:
-    #   • Filtrar: {service_name="ranking-api", environment="prod"}
-    #   • Comparar versões: diff flame graph v1.0.0 vs v2.0.0
-    # Combine com tag_wrapper() nos endpoints para granularidade por rota.
+    # Tags fixas que viajam em todos os profiles deste processo.
+    # Visíveis como labels no Grafana Pyroscope para filtrar e comparar.
+    # Ex: comparar v1.0.0 vs v2.0.0 no diff flame graph.
     tags={
         "environment": os.getenv("DEPLOYMENT_ENV", "kind-dev"),
         "version":     "2.0.0",
@@ -107,35 +68,13 @@ OTEL_ENDPOINT = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector.
 
 # ── Traces ───────────────────────────────────────────────────
 tracer_provider = TracerProvider(resource=resource)
-
-# BatchSpanProcessor → exporta spans para o OTel Collector via gRPC.
-# O Collector faz o roteamento: spans → Tempo, métricas → Prometheus.
 tracer_provider.add_span_processor(
     BatchSpanProcessor(OTLPSpanExporter(endpoint=OTEL_ENDPOINT, insecure=True))
 )
-
 # ── Span Profiles bridge (Pyroscope ↔ Tempo) ─────────────────
-# PyroscopeSpanProcessor implementa a interface SpanProcessor do OTel.
-#
-# O que ele faz em cada span:
-#   on_start()  → gera profile_id único e injeta em span.attributes
-#                 como pyroscope.profile.id = "<hex-id>"
-#               → sinaliza ao pyroscope-io para marcar o profile
-#                 corrente com esse mesmo profile_id
-#   on_end()    → nenhuma ação extra (o profile_id já está no span)
-#
-# Pré-requisito no Grafana (configuração única, sem código):
-#   Grafana → Connections → Tempo datasource
-#   → seção "Trace to profiles"
-#   → Profile datasource: Grafana Pyroscope
-#   → Profile type: process_cpu:cpu:nanoseconds:cpu:nanoseconds
-#   → Custom query: {service_name="${__tags[service.name]}"}
-#
-# Verificação: abra qualquer span no Grafana Explore → Tempo.
-# O atributo pyroscope.profile.id deve estar visível nos detalhes
-# e o botão "Profiles for this span" deve aparecer no painel lateral.
+# Injeta o atributo pyroscope.profile.id em cada span.
+# Com isso, o Grafana Tempo exibe "Profiles for this span" + flame graph inline.
 tracer_provider.add_span_processor(PyroscopeSpanProcessor())
-
 trace.set_tracer_provider(tracer_provider)
 tracer = trace.get_tracer(__name__)
 

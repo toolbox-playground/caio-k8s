@@ -236,14 +236,14 @@ kubectl get pods -n monitoring -w
 
 ```sh
 # Adicionar repositório oficial do Fluent Bit
-helm repo add fluent https://fluent.github.io/helm-charts
+helm repo add fluent https://fluent.github.io/helm-charts/
 helm repo update
 ```
 
 **PowerShell:**
 
 ```powershell
-helm install fluent-bit fluent/fluent-bit `
+helm upgrade --install fluent-bit fluent/fluent-bit `
   --namespace monitoring `
   -f helm-values/values-fluent-bit.yaml
 ```
@@ -251,7 +251,7 @@ helm install fluent-bit fluent/fluent-bit `
 **bash / zsh:**
 
 ```bash
-helm install fluent-bit fluent/fluent-bit \
+helm upgrade --install fluent-bit fluent/fluent-bit \
   --namespace monitoring \
   -f helm-values/values-fluent-bit.yaml
 ```
@@ -298,7 +298,7 @@ Query LogQL equivalente:
 {kubernetes_namespace_name="games", kubernetes_container_name="super-mario"}
 ```
 
-> 💡 Os labels `kubernetes_namespace_name` e `kubernetes_container_name` vêm do metadado Kubernetes enriquecido pelo filtro do Fluent Bit (`label_keys` no `[OUTPUT]` do Loki plugin). Se os labels não aparecerem no dropdown, o Fluent Bit pode ter sido instalado antes dessa configuração — rode `helm upgrade fluent-bit fluent/fluent-bit --namespace monitoring -f helm-values/values-fluent-bit.yaml` e aguarde o DaemonSet reiniciar.
+> 💡 Os labels `kubernetes_namespace_name` e `kubernetes_container_name` vêm do metadado Kubernetes enriquecido pelo filtro do Fluent Bit (`label_keys` no `[OUTPUT]` do Loki plugin). Se os labels não aparecerem no dropdown, o Fluent Bit pode ter sido instalado antes dessa configuração — rode `helm upgrade --install fluent-bit fluent/fluent-bit --namespace monitoring -f helm-values/values-fluent-bit.yaml` e aguarde o DaemonSet reiniciar.
 
 > ⚠️ Se o dropdown aparecer vazio, verifique o intervalo de tempo. O Loki expira queries sem range de tempo explícito — use sempre "Last 1 hour" ou mais no Grafana Explore.
 

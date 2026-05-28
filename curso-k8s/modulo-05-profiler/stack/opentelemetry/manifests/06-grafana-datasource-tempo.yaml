@@ -1,0 +1,130 @@
+# ============================================================
+# Grafana — Datasource Tempo (provisionado como código)
+# ============================================================
+# Este ConfigMap é detectado automaticamente pelo sidecar do Grafana
+# (kube-prometheus-stack) e provisiona o datasource Tempo com:
+#
+#   1. tracesToLogsV2  → "Logs for this span"  no Grafana Explore
+#   2. tracesToMetrics → "Metrics for this span" no Grafana Explore
+#
+# COMO FUNCIONA O PROVISIONAMENTO:
+#   O kube-prometheus-stack implanta um sidecar container no pod do Grafana
+#   que observa ConfigMaps com o label grafana_datasource: "1".
+#   Quando este ConfigMap é aplicado, o sidecar recarrega o Grafana
+#   automaticamente — sem restart manual.
+#
+# ATENÇÃO:
+#   Se o datasource "tempo" já existir como configuração manual no Grafana,
+#   este arquivo o sobrescreve. O UID (dfn6rrm6edkowe) garante que é o
+#   mesmo datasource atualizado, não um duplicado.
+#
+# Aplicar:
+#   kubectl apply -f 06-grafana-datasource-tempo.yaml
+#
+# Verificar:
+#   kubectl get configmap -n monitoring grafana-datasource-tempo
+#   kubectl logs -n monitoring -l app.kubernetes.io/name=grafana -c grafana-sc-datasources --tail=20
+# ============================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-tempo
+  namespace: monitoring
+  labels:
+    # Label que o sidecar do Grafana observa para provisionamento automático.
+    # Definido em: kube-prometheus-stack → grafana.sidecar.datasources.label
+    grafana_datasource: "1"
+
+data:
+  datasources.yaml: |
+    apiVersion: 1
+
+    # deleteDatasources remove entradas obsoletas do banco interno do Grafana.
+    # Útil ao renomear datasources entre atualizações do módulo.
+    deleteDatasources:
+      - name: tempo
+        orgId: 1
+
+    datasources:
+
+      # ── Tempo ─────────────────────────────────────────────
+      # Backend de traces distribuídos. Recebe os spans via OTLP
+      # do OTel Collector (03-otel-collector.yaml).
+      - name: tempo
+        type: tempo
+        # uid fixo para que outros datasources (Pyroscope, módulo 05)
+        # referenciem este datasource de forma estável.
+        uid: dfn6rrm6edkowe
+        url: http://tempo.monitoring.svc.cluster.local:3200
+        access: proxy
+        basicAuth: false
+        isDefault: false
+        # editable: true permite editar pelo UI (útil em ambiente de estudo).
+        # Em produção: editable: false para prevenir drift.
+        editable: true
+        jsonData:
+
+          # ── Trace to Logs (Loki) ────────────────────────────
+          # Exibe o botão "Logs for this span" no painel de detalhes do span.
+          # Quando clicado, abre o Loki já filtrado pelo traceId do span selecionado.
+          #
+          # customQuery: false → Grafana monta a query automaticamente:
+          #   {service_name="ranking-api"} | trace_id="<traceId>"
+          #
+          # Pré-requisito na aplicação: enviar logs com traceId no campo
+          # trace_id (feito pelo OTel Logging SDK no main.py).
+          tracesToLogsV2:
+            datasourceUid: efn6ru21pagowd   # UID do datasource Loki
+            customQuery: false
+            tags:
+              # Mapeamento: atributo do span → label de stream do Loki.
+              # O OTel Collector converte service.name → service_name nos logs.
+              - key: service.name
+                value: service_name
+
+          # ── Trace to Metrics (Prometheus) ───────────────────
+          # Exibe o botão "Metrics for this span" no painel de detalhes do span.
+          # Quando clicado, abre o Prometheus com queries pré-configuradas
+          # filtradas pelo serviço do span selecionado.
+          #
+          # COMO FUNCIONA O $__tags:
+          #   O Grafana substitui $__tags pelos pares label=valor mapeados em tags[].
+          #   Com a tag abaixo (service.name → service_name) e span de "ranking-api":
+          #     $__tags  →  service_name="ranking-api"
+          #
+          #   A query  sum(rate(request_duration_ms_count{$__tags}[2m]))
+          #   vira:    sum(rate(request_duration_ms_count{service_name="ranking-api"}[2m]))
+          #
+          # DISPONIBILIDADE DAS MÉTRICAS:
+          #   As métricas abaixo são emitidas pelo próprio app (main.py) via OTel SDK.
+          #   O OTel Collector exporta via prometheus exporter com
+          #   resource_to_telemetry_conversion: enabled, adicionando o label service_name.
+          #
+          # ALTERNATIVA — span metrics:
+          #   Se o OTel Collector tiver o spanmetrics connector habilitado, use:
+          #   traces_spanmetrics_calls_total, traces_spanmetrics_duration_seconds_bucket
+          tracesToMetrics:
+            datasourceUid: prometheus         # UID do datasource Prometheus
+            spanStartTimeShift: "-2m"         # janela de tempo antes do span
+            spanEndTimeShift: "2m"            # janela de tempo após o span
+            tags:
+              # Mapeamento: atributo do span → label Prometheus.
+              # O OTel Collector aplica resource_to_telemetry_conversion,
+              # convertendo service.name → service_name em todas as métricas.
+              - key: service.name
+                value: service_name
+            queries:
+              # Taxa de requisições por endpoint (req/s nos últimos 2 min)
+              # $$__tags é o escape de $__tags para o loader de provisionamento do Grafana.
+              # Em runtime, $$__tags → service_name="ranking-api" (tags do span selecionado).
+              - name: "Taxa de requisições"
+                query: "sum(rate(request_duration_ms_milliseconds_count{$$__tags}[2m])) by (exported_endpoint)"
+
+              # Taxa de erros agrupada por endpoint e motivo
+              - name: "Taxa de erros"
+                query: "sum(rate(api_errors_total{$$__tags}[2m])) by (exported_endpoint, reason)"
+
+              # Latência p95 em milissegundos por endpoint
+              - name: "Latência p95 (ms)"
+                query: "histogram_quantile(0.95, sum(rate(request_duration_ms_milliseconds_bucket{$$__tags}[2m])) by (le, exported_endpoint))"

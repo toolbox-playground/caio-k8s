@@ -63,7 +63,7 @@ O `cluster-config.yaml` deste módulo inclui os mapeamentos de todos os módulos
 kind delete cluster --name k8s-essentials
 
 # Recriar com o config completo do Módulo 05
-kind create cluster --config hybrid/manifests/cluster-config.yaml
+kind create cluster --config cluster-config.yaml
 
 # Confirmar que os nodes ficaram Ready
 kubectl get nodes
@@ -119,9 +119,9 @@ kubectl patch deployment metrics-server -n kube-system \
 ```sh
 kubectl create namespace games --dry-run=client -o yaml | kubectl apply -f -
 
-kubectl apply -f ../modulo-02-deploy-app/manifests/01-deployment-mario.yaml
-kubectl apply -f ../modulo-02-deploy-app/manifests/02-service-mario.yaml
-kubectl apply -f ../modulo-02-deploy-app/manifests/03-hpa.yaml
+kubectl apply -f stack/mario/01-deployment-mario.yaml
+kubectl apply -f stack/mario/02-service-mario.yaml
+kubectl apply -f stack/mario/03-hpa.yaml
 ```
 
 ---
@@ -133,7 +133,7 @@ kubectl apply -f ../modulo-02-deploy-app/manifests/03-hpa.yaml
 ```sh
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts
-helm repo add fluent https://fluent.github.io/helm-charts
+helm repo add fluent https://fluent.github.io/helm-charts/
 helm repo update
 ```
 
@@ -148,7 +148,7 @@ kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f 
 
 helm upgrade --install kind-prometheus prometheus-community/kube-prometheus-stack `
   --namespace monitoring `
-  -f ../modulo-03-monitoring/helm-values/values-prometheus-stack.yaml
+  -f stack/monitoring/helm-values/values-prometheus-stack.yaml
 ```
 
 **bash / zsh:**
@@ -158,7 +158,7 @@ kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f 
 
 helm upgrade --install kind-prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
-  -f ../modulo-03-monitoring/helm-values/values-prometheus-stack.yaml
+  -f stack/monitoring/helm-values/values-prometheus-stack.yaml
 ```
 
 ---
@@ -170,7 +170,7 @@ helm upgrade --install kind-prometheus prometheus-community/kube-prometheus-stac
 ```powershell
 helm upgrade --install loki grafana/loki `
   --namespace monitoring `
-  -f ../modulo-03-monitoring/helm-values/values-loki.yaml
+  -f stack/monitoring/helm-values/values-loki.yaml
 ```
 
 **bash / zsh:**
@@ -178,7 +178,7 @@ helm upgrade --install loki grafana/loki `
 ```bash
 helm upgrade --install loki grafana/loki \
   --namespace monitoring \
-  -f ../modulo-03-monitoring/helm-values/values-loki.yaml
+  -f stack/monitoring/helm-values/values-loki.yaml
 ```
 
 ---
@@ -190,7 +190,7 @@ helm upgrade --install loki grafana/loki \
 ```powershell
 helm upgrade --install fluent-bit fluent/fluent-bit `
   --namespace monitoring `
-  -f ../modulo-03-monitoring/helm-values/values-fluent-bit.yaml
+  -f stack/monitoring/helm-values/values-fluent-bit.yaml
 ```
 
 **bash / zsh:**
@@ -198,7 +198,7 @@ helm upgrade --install fluent-bit fluent/fluent-bit `
 ```bash
 helm upgrade --install fluent-bit fluent/fluent-bit \
   --namespace monitoring \
-  -f ../modulo-03-monitoring/helm-values/values-fluent-bit.yaml
+  -f stack/monitoring/helm-values/values-fluent-bit.yaml
 ```
 
 ---
@@ -214,9 +214,9 @@ helm upgrade --install blackbox-exporter \
   prometheus-community/prometheus-blackbox-exporter \
   --namespace monitoring
 
-kubectl apply -f ../modulo-03-monitoring/manifests/01-four-golden-signals.yaml
-kubectl apply -f ../modulo-03-monitoring/manifests/02-blackbox-probe.yaml
-kubectl apply -f ../modulo-03-monitoring/manifests/03-grafana-alert-rules.yaml
+kubectl apply -f stack/monitoring/manifests/01-four-golden-signals.yaml
+kubectl apply -f stack/monitoring/manifests/02-blackbox-probe.yaml
+kubectl apply -f stack/monitoring/manifests/03-grafana-alert-rules.yaml
 ```
 
 ---
@@ -228,7 +228,7 @@ kubectl apply -f ../modulo-03-monitoring/manifests/03-grafana-alert-rules.yaml
 ```powershell
 helm upgrade --install tempo grafana/tempo `
   --namespace monitoring `
-  -f ../modulo-04-opentelemetry/helm-values/values-tempo.yaml
+  -f stack/opentelemetry/helm-values/values-tempo.yaml
 ```
 
 **bash / zsh:**
@@ -236,7 +236,7 @@ helm upgrade --install tempo grafana/tempo `
 ```bash
 helm upgrade --install tempo grafana/tempo \
   --namespace monitoring \
-  -f ../modulo-04-opentelemetry/helm-values/values-tempo.yaml
+  -f stack/opentelemetry/helm-values/values-tempo.yaml
 ```
 
 ---
@@ -246,8 +246,8 @@ helm upgrade --install tempo grafana/tempo \
 **PowerShell e bash:**
 
 ```sh
-kubectl apply -f ../modulo-04-opentelemetry/manifests/03-otel-collector.yaml
-kubectl apply -f ../modulo-04-opentelemetry/manifests/04-podmonitor-otel-collector.yaml
+kubectl apply -f stack/opentelemetry/manifests/03-otel-collector.yaml
+kubectl apply -f stack/opentelemetry/manifests/04-podmonitor-otel-collector.yaml
 ```
 
 ---
@@ -259,7 +259,7 @@ O ConfigMap abaixo provisiona o Tempo no Grafana com **Trace to Logs** (Loki) e 
 **PowerShell e bash:**
 
 ```sh
-kubectl apply -f ../modulo-04-opentelemetry/manifests/06-grafana-datasource-tempo.yaml
+kubectl apply -f stack/opentelemetry/manifests/06-grafana-datasource-tempo.yaml
 ```
 
 Verificar carregamento:
@@ -340,16 +340,16 @@ Importe os seguintes JSONs **nesta ordem**:
 
 | Arquivo | Datasource |
 |---|---|
-| `../modulo-03-monitoring/grafana-dashboards/four-golden-signals.json` | Prometheus |
+| `stack/monitoring/grafana-dashboards/four-golden-signals.json` | Prometheus |
 
 #### Módulo 04 — Observabilidade com OTel
 
 | Arquivo | Datasource |
 |---|---|
-| `../modulo-04-opentelemetry/grafana-dashboards/latencia-p99.json` | Prometheus + Tempo |
-| `../modulo-04-opentelemetry/grafana-dashboards/p99-por-endpoint.json` | Prometheus |
-| `../modulo-04-opentelemetry/grafana-dashboards/logs-devops.json` | Loki |
-| `../modulo-04-opentelemetry/grafana-dashboards/devsecops.json` | Prometheus + Loki + Tempo |
+| `stack/opentelemetry/grafana-dashboards/latencia-p99.json` | Prometheus + Tempo |
+| `stack/opentelemetry/grafana-dashboards/p99-por-endpoint.json` | Prometheus |
+| `stack/opentelemetry/grafana-dashboards/logs-devops.json` | Loki |
+| `stack/opentelemetry/grafana-dashboards/devsecops.json` | Prometheus + Loki + Tempo |
 
 ---
 
@@ -381,7 +381,7 @@ O Pyroscope é o backend de continuous profiling. Ele recebe e armazena flame gr
 ```powershell
 helm upgrade --install pyroscope grafana/pyroscope `
   --namespace monitoring `
-  -f hybrid/helm-values/values-pyroscope.yaml
+  -f helm-values/values-pyroscope.yaml
 ```
 
 **bash / zsh:**
@@ -389,7 +389,7 @@ helm upgrade --install pyroscope grafana/pyroscope `
 ```bash
 helm upgrade --install pyroscope grafana/pyroscope \
   --namespace monitoring \
-  -f hybrid/helm-values/values-pyroscope.yaml
+  -f helm-values/values-pyroscope.yaml
 ```
 
 Aguardar:
@@ -443,14 +443,14 @@ A `ranking-api:v2-profiler` adiciona o `pyroscope-io` SDK ao código Python. O t
 
 ```sh
 # Build da imagem com o SDK do Pyroscope
-docker build -t ranking-api:v2-profiler ./hybrid/app
+docker build -t ranking-api:v2-profiler ./app
 
 # Carregar no cluster Kind
 kind load docker-image ranking-api:v2-profiler --name k8s-essentials
 
 # Deploy no namespace games
-kubectl apply -f hybrid/manifests/01-deployment-ranking-api-v2.yaml
-kubectl apply -f ../modulo-04-opentelemetry/manifests/02-service-ranking-api.yaml
+kubectl apply -f manifests/01-deployment-ranking-api-v2.yaml
+kubectl apply -f stack/opentelemetry/manifests/02-service-ranking-api.yaml
 ```
 
 Aguardar:
@@ -481,7 +481,7 @@ O Alloy roda como DaemonSet — um pod por node. Usa eBPF para perfilar **todos 
 ```powershell
 helm upgrade --install alloy grafana/alloy `
   --namespace monitoring `
-  -f hybrid/helm-values/values-alloy.yaml
+  -f helm-values/values-alloy.yaml
 ```
 
 **bash / zsh:**
@@ -489,7 +489,7 @@ helm upgrade --install alloy grafana/alloy `
 ```bash
 helm upgrade --install alloy grafana/alloy \
   --namespace monitoring \
-  -f hybrid/helm-values/values-alloy.yaml
+  -f helm-values/values-alloy.yaml
 ```
 
 Verificar DaemonSet:

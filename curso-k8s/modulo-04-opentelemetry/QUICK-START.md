@@ -88,7 +88,7 @@ kubectl apply -f ../modulo-02-deploy-app/manifests/03-hpa.yaml
 ```sh
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts
-helm repo add fluent https://fluent.github.io/helm-charts
+helm repo add fluent https://fluent.github.io/helm-charts/
 helm repo update
 ```
 
@@ -141,7 +141,7 @@ helm install loki grafana/loki \
 **PowerShell:**
 
 ```powershell
-helm install fluent-bit fluent/fluent-bit `
+helm upgrade --install fluent-bit fluent/fluent-bit `
   --namespace monitoring `
   -f ../modulo-03-monitoring/helm-values/values-fluent-bit.yaml
 ```
@@ -149,7 +149,7 @@ helm install fluent-bit fluent/fluent-bit `
 **bash / zsh:**
 
 ```bash
-helm install fluent-bit fluent/fluent-bit \
+helm upgrade --install fluent-bit fluent/fluent-bit \
   --namespace monitoring \
   -f ../modulo-03-monitoring/helm-values/values-fluent-bit.yaml
 ```

@@ -37,7 +37,7 @@ Um comando cria tudo, versionado e configurável.
 # Adicionar um repositório
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts
-helm repo add fluent https://fluent.github.io/helm-charts
+helm repo add fluent https://fluent.github.io/helm-charts/
 
 # Atualizar a lista de charts disponíveis (como apt update)
 helm repo update
@@ -236,14 +236,14 @@ helm install loki grafana/loki \
 
 **PowerShell:**
 ```powershell
-helm install fluent-bit fluent/fluent-bit `
+helm upgrade --install fluent-bit fluent/fluent-bit `
   --namespace monitoring `
   -f helm-values/values-fluent-bit.yaml
 ```
 
 **bash / zsh:**
 ```bash
-helm install fluent-bit fluent/fluent-bit \
+helm upgrade --install fluent-bit fluent/fluent-bit \
   --namespace monitoring \
   -f helm-values/values-fluent-bit.yaml
 ```

@@ -1,0 +1,139 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    },
+    {
+      "name": "DS_TEMPO",
+      "label": "Tempo",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "tempo",
+      "pluginName": "Tempo"
+    }
+  ],
+  "title": "Ranking API — Latência por Percentil (Otel) 2",
+  "uid": "ranking-api-latency-otel",
+  "description": "Latência p50/p95/p99 corrigida para o padrão OpenTelemetry da Ranking API.",
+  "schemaVersion": 38,
+  "version": 2,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "tags": ["opentelemetry", "ranking-api", "latency"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Latência por Percentil — geral",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 5, "showPoints": "never" },
+          "min": 0
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": "/p99/" }, "properties": [{ "id": "custom.lineWidth", "value": 3 }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] },
+          { "matcher": { "id": "byRegexp", "options": "/p95/" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
+          { "matcher": { "id": "byRegexp", "options": "/p50/" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_server_duration_milliseconds_bucket{service_name=\"ranking-api\"}[5m])) by (le))",
+          "legendFormat": "p99 — global",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket{service_name=\"ranking-api\"}[5m])) by (le))",
+          "legendFormat": "p95 — global",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_duration_milliseconds_bucket{service_name=\"ranking-api\"}[5m])) by (le))",
+          "legendFormat": "p50 — global",
+          "refId": "C"
+        }
+      ],
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] } }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Latência p99 por rota (http_target)",
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "ms", "min": 0 } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_server_duration_milliseconds_bucket{service_name=\"ranking-api\"}[5m])) by (le, http_target))",
+          "legendFormat": "p99 — {{http_target}}",
+          "refId": "A"
+        }
+      ],
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "p99 Atual",
+      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 200 }, { "color": "red", "value": 500 }] }
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_server_duration_milliseconds_bucket{service_name=\"ranking-api\"}[5m])) by (le))",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Taxa de Erros (HTTP 5xx / 4xx) por Target",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "min": 0 } },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ranking-api\", http_status_code=~\"[45]..\"}[5m])) by (http_target, http_status_code)",
+          "legendFormat": "{{http_target}} — Status {{http_status_code}}",
+          "refId": "A"
+        }
+      ],
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" } }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Throughput Geral (Requisições / seg)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "min": 0 } },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"ranking-api\"}[5m])) by (http_target)",
+          "legendFormat": "{{http_target}}",
+          "refId": "A"
+        }
+      ],
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" } }
+    }
+  ]
+}
