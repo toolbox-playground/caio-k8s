@@ -20,8 +20,15 @@ kind get clusters
 Se o cluster não existir:
 
 ```bash
+# Linux / macOS
 kind create cluster \
   --name k8s-essentials \
+  --config cluster-config.yaml
+```
+```pwsh
+# Windows (PowerShell)
+kind create cluster `
+  --name k8s-essentials `
   --config cluster-config.yaml
 ```
 
@@ -65,15 +72,24 @@ helm repo update
 > fica em retry automático até o Mimir subir.
 
 ```bash
+# Linux / macOS
 helm upgrade --install kind-prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   -f stack/monitoring/helm-values/values-prometheus-stack.yaml \
+  --wait --timeout 5m
+```
+```pwsh
+# Windows (PowerShell)
+helm upgrade --install kind-prometheus prometheus-community/kube-prometheus-stack `
+  --namespace monitoring `
+  -f stack/monitoring/helm-values/values-prometheus-stack.yaml `
   --wait --timeout 5m
 ```
 
 ### 0.6 — Instalar Loki + Fluent Bit
 
 ```bash
+# Linux / macOS
 helm upgrade --install loki grafana/loki \
   --namespace monitoring \
   -f stack/monitoring/helm-values/values-loki.yaml \
@@ -82,6 +98,18 @@ helm upgrade --install loki grafana/loki \
 helm upgrade --install fluent-bit fluent/fluent-bit \
   --namespace monitoring \
   -f stack/monitoring/helm-values/values-fluent-bit.yaml \
+  --wait --timeout 2m
+```
+```pwsh
+# Windows (PowerShell)
+helm upgrade --install loki grafana/loki `
+  --namespace monitoring `
+  -f stack/monitoring/helm-values/values-loki.yaml `
+  --wait --timeout 3m
+
+helm upgrade --install fluent-bit fluent/fluent-bit `
+  --namespace monitoring `
+  -f stack/monitoring/helm-values/values-fluent-bit.yaml `
   --wait --timeout 2m
 ```
 
@@ -103,9 +131,17 @@ kubectl apply -f stack/monitoring/manifests/
 ### 1.1 — Instalar o MinIO
 
 ```bash
+# Linux / macOS
 helm upgrade --install minio bitnami/minio \
   --namespace monitoring \
   -f helm-values/values-minio.yaml \
+  --wait --timeout 5m
+```
+```pwsh
+# Windows (PowerShell)
+helm upgrade --install minio bitnami/minio `
+  --namespace monitoring `
+  -f helm-values/values-minio.yaml `
   --wait --timeout 5m
 ```
 
@@ -188,7 +224,14 @@ kubectl apply -f manifests/03-grafana-datasource-mimir.yaml
 ### 3.2 — Verificar que o sidecar do Grafana detectou o ConfigMap
 
 ```bash
+# Linux / macOS
 kubectl logs -n monitoring -l app.kubernetes.io/name=grafana \
+  -c grafana-sc-datasources --tail=5
+# Esperado: "Datasources config reloaded"
+```
+```pwsh
+# Windows (PowerShell)
+kubectl logs -n monitoring -l app.kubernetes.io/name=grafana `
   -c grafana-sc-datasources --tail=5
 # Esperado: "Datasources config reloaded"
 ```
@@ -273,11 +316,21 @@ Anote o horário atual.
 ### 5.2 — Deletar o pod do Prometheus (simula restart/upgrade)
 
 ```bash
+# Linux / macOS
 kubectl delete pod -n monitoring \
   -l app.kubernetes.io/name=prometheus --wait=false
 
 # O Kubernetes recria imediatamente — aguarde:
 kubectl rollout status statefulset/prometheus-kind-prometheus-kube-pro-prometheus \
+  -n monitoring
+```
+```pwsh
+# Windows (PowerShell)
+kubectl delete pod -n monitoring `
+  -l app.kubernetes.io/name=prometheus --wait=false
+
+# O Kubernetes recria imediatamente — aguarde:
+kubectl rollout status statefulset/prometheus-kind-prometheus-kube-pro-prometheus `
   -n monitoring
 ```
 
@@ -334,10 +387,13 @@ Cada diretório contém:
 - `meta.json` — metadados do bloco (min/max timestamp, número de séries)
 
 ```bash
-# Ou inspecione via kubectl
-kubectl exec -n monitoring statefulset/mimir -- \
-  ls /data/tsdb
+# Linux / macOS
+kubectl exec -n monitoring statefulset/mimir -- ls /data/tsdb
 # Mostra o WAL local do ingester (pré-compactação)
+```
+```pwsh
+# Windows (PowerShell)
+kubectl exec -n monitoring statefulset/mimir -- ls /data/tsdb
 ```
 
 ---

@@ -47,9 +47,17 @@ helm repo update
 ### 1.2 — Instalar o ArgoCD
 
 ```bash
+# Linux / macOS
 helm upgrade --install argocd argo/argo-cd \
   --namespace argocd --create-namespace \
   -f install/values-argocd.yaml \
+  --wait --timeout 5m
+```
+```pwsh
+# Windows (PowerShell)
+helm upgrade --install argocd argo/argo-cd `
+  --namespace argocd --create-namespace `
+  -f install/values-argocd.yaml `
   --wait --timeout 5m
 ```
 
@@ -88,10 +96,19 @@ winget install ArgoProj.ArgoCD
 ```
 
 ```bash
-# Login via CLI
+# Linux / macOS — login via CLI
 argocd login localhost:8080 \
   --username admin \
   --password <senha> \
+  --insecure
+
+argocd version
+```
+```pwsh
+# Windows (PowerShell) — login via CLI
+argocd login localhost:8080 `
+  --username admin `
+  --password "<senha>" `
   --insecure
 
 argocd version
@@ -186,10 +203,19 @@ O ArgoCD precisa de credenciais para clonar o repositório Gitea
 ### 3.1 — Registrar o repositório
 
 ```bash
+# Linux / macOS
 argocd repo add \
   http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git \
   --username gitops \
   --password gitops-secret \
+  --insecure-skip-server-verification
+```
+```pwsh
+# Windows (PowerShell)
+argocd repo add `
+  http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git `
+  --username gitops `
+  --password gitops-secret `
   --insecure-skip-server-verification
 ```
 
@@ -408,11 +434,19 @@ argocd app get mario --refresh
 ### ArgoCD não consegue clonar o repositório
 
 ```bash
-# Verificar conectividade
+# Linux / macOS
 kubectl run -n argocd -it --rm debug --image=busybox --restart=Never -- \
   wget -q -O- http://gitea-http.gitea.svc.cluster.local:3000
 # Esperado: HTML do Gitea
+```
+```pwsh
+# Windows (PowerShell)
+kubectl run -n argocd -it --rm debug --image=busybox --restart=Never -- `
+  wget -q -O- http://gitea-http.gitea.svc.cluster.local:3000
+# Esperado: HTML do Gitea
+```
 
+```bash
 # Verificar credentials do repo
 argocd repo list
 ```
