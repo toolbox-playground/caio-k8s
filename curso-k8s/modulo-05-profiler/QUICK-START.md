@@ -542,7 +542,14 @@ helm upgrade --install alloy grafana/alloy \
 
 Verificar DaemonSet:
 
-**PowerShell e bash:**
+**PowerShell:**
+
+```powershell
+kubectl get daemonset -n monitoring | Select-string alloy
+kubectl rollout status daemonset/alloy -n monitoring
+```
+
+**Bash:**
 
 ```sh
 kubectl get daemonset -n monitoring | grep alloy
