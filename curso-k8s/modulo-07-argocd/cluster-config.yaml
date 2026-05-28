@@ -1,0 +1,81 @@
+# ============================================================
+# Kind Cluster: k8s-essentials (Módulo 07 — com ArgoCD)
+# ============================================================
+# Extensão do cluster do Módulo 06.
+# Adiciona mapeamentos de porta para:
+#   → ArgoCD UI (8080)
+#   → Gitea — git server local para o GitOps loop (33000)
+#
+# ⚠️  Se o cluster já existir com outra config, delete e recrie:
+#     kind delete cluster --name k8s-essentials
+#     kind create cluster --config cluster-config.yaml
+# ============================================================
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+
+name: k8s-essentials
+
+nodes:
+  # ========== CONTROL PLANE ==========
+  - role: control-plane
+    extraPortMappings:
+
+    # ---- Módulo 02: Super Mario App ----
+    - containerPort: 30000
+      hostPort: 8081
+      protocol: TCP
+
+    # ---- Módulo 03: Prometheus ----
+    - containerPort: 30090
+      hostPort: 9090
+      protocol: TCP
+
+    # ---- Módulo 03: Grafana ----
+    - containerPort: 31000
+      hostPort: 3000
+      protocol: TCP
+
+    # ---- Módulo 03: Alertmanager ----
+    - containerPort: 32000
+      hostPort: 9093
+      protocol: TCP
+
+    # ---- Módulo 03: Node Exporter ----
+    - containerPort: 32001
+      hostPort: 9100
+      protocol: TCP
+
+    # ---- Módulo 05: Grafana Pyroscope ----
+    - containerPort: 34040
+      hostPort: 4040
+      protocol: TCP
+
+    # ---- Módulo 06: Grafana Mimir ----
+    - containerPort: 39009
+      hostPort: 9009
+      protocol: TCP
+
+    # ---- Módulo 06: MinIO Console ----
+    - containerPort: 39001
+      hostPort: 9001
+      protocol: TCP
+
+    # ---- Módulo 07: ArgoCD UI ----
+    # Interface web e API do ArgoCD
+    # Acesse em: http://localhost:8080
+    # Login: admin / <ver Passo 1.3>
+    - containerPort: 30080
+      hostPort: 8080
+      protocol: TCP
+
+    # ---- Módulo 07: Gitea (git server local) ----
+    # Git server para o GitOps loop sem depender do GitHub
+    # Acesse em: http://localhost:33000
+    # Login: gitops / gitops-secret
+    - containerPort: 33000
+      hostPort: 33000
+      protocol: TCP
+
+  # ========== WORKER NODE ==========
+  - role: worker

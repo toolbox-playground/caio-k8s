@@ -1,0 +1,70 @@
+# values-gitea.yaml
+# Gitea — git server leve para uso local.
+#
+# Por que Gitea e não GitHub?
+#   → Funciona 100% offline e dentro do Kind
+#   → O ArgoCD dentro do cluster acessa via DNS interno (sem exposição externa)
+#   → O GitOps loop completo (push → sync) funciona sem conta externa
+#
+# Em produção: substitua por GitHub, GitLab ou Gitea auto-hospedado.
+# Só muda o repoURL nas Applications do ArgoCD.
+#
+# Chart: gitea-charts/gitea
+# Helm repo: helm repo add gitea-charts https://dl.gitea.com/charts/
+#
+# Instalar:
+#   helm upgrade --install gitea gitea-charts/gitea \
+#     --namespace gitea --create-namespace \
+#     -f install/values-gitea.yaml \
+#     --wait --timeout 5m
+#
+# Após instalar, criar repo via API (ver QUICK-START Passo 2.x)
+
+# ── Administrador ─────────────────────────────────────────────────────────
+gitea:
+  admin:
+    username: gitops
+    # Em produção: use um secret management (Vault, ESO, Sealed Secrets).
+    # Para o cluster Kind: senha hardcoded é aceitável.
+    password: gitops-secret
+    email: gitops@local.dev
+
+  config:
+    APP_NAME: "GitOps Local"
+    # Desabilita registro público — apenas admin pode criar usuários.
+    # Evita poluição acidental no git server de curso.
+    service:
+      DISABLE_REGISTRATION: true
+
+# ── Service: HTTP (UI + git over HTTP) ───────────────────────────────────
+# NodePort 33000 → Kind containerPort 33000 → hostPort 33000
+# Acesse: http://localhost:33000
+service:
+  http:
+    type: NodePort
+    port: 3000
+    nodePort: 33000
+
+  # SSH: desativado para simplicidade neste módulo.
+  # Em produção: habilite para autenticação via chave SSH.
+  ssh:
+    type: ClusterIP
+
+# ── Persistência ─────────────────────────────────────────────────────────
+persistence:
+  enabled: true
+  size: 2Gi
+
+# ── PostgreSQL embutido ────────────────────────────────────────────────────
+# Gitea usa SQLite por padrão no chart — suficiente para uso local.
+# postgresql:
+#   enabled: false  # ← mantenha assim para Kind (SQLite é mais leve)
+
+# ── Recursos ─────────────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

@@ -1,0 +1,45 @@
+# ============================================================
+# ArgoCD Application — Super Mario
+# ============================================================
+# Deploya os manifests do Super Mario (Deployment + Service + HPA)
+# a partir do diretório stack/mario/ no repositório.
+#
+# Esta Application é gerenciada pela root (00-root-app.yaml).
+# Não aplique manualmente — a root cuida disso.
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mario
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+
+  # Labels ajudam a filtrar Applications na UI e CLI
+  labels:
+    module: "07"
+    tier: app
+
+spec:
+  project: default
+
+  source:
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+    # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
+    targetRevision: HEAD
+    # Diretório com os manifests do Mario neste módulo
+    path: curso-k8s/modulo-07-argocd/stack/mario
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: games
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Cria o namespace games automaticamente
+      - CreateNamespace=true
+      - ServerSideApply=true

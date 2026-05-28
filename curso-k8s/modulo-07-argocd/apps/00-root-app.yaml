@@ -1,0 +1,77 @@
+# ============================================================
+# ArgoCD — App of Apps (raiz)
+# ============================================================
+# Esta é a ÚNICA Application criada manualmente (via kubectl apply
+# ou argocd app create). Ela assiste o diretório apps/ no repositório
+# e cria/sincroniza automaticamente todas as outras Applications.
+#
+# Padrão: App of Apps
+#   root → apps/01-mario-app.yaml  → stack/mario/
+#         apps/02-prometheus-app.yaml → Helm kube-prometheus-stack
+#         apps/03-loki-app.yaml      → Helm loki
+#         ... (e assim por diante)
+#
+# COMO CRIAR (substitua a URL do repo antes):
+#   1. Edite este arquivo com a URL real do seu repo
+#   2. kubectl apply -f apps/00-root-app.yaml
+#   3. ArgoCD detecta os outros *-app.yaml e os deploya automaticamente
+#
+# OU via CLI:
+#   argocd app create root \
+#     --repo http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git \
+#     --path curso-k8s/modulo-07-argocd/apps \
+#     --dest-server https://kubernetes.default.svc \
+#     --dest-namespace argocd \
+#     --sync-policy automated \
+#     --auto-prune --self-heal
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  # O finalizer garante que ao deletar a root Application,
+  # todos os recursos filhos também sejam deletados (cascade delete).
+  # Para remover sem deletar os recursos: remova o finalizer antes.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+
+spec:
+  project: default
+
+  source:
+    # ── ATENÇÃO: substitua pela URL do SEU repositório ──
+    # Opção A (Gitea local — recomendado para Kind):
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+    # Opção B (GitHub):
+    # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
+
+    # Aponta para o branch principal
+    targetRevision: HEAD
+
+    # Diretório com os arquivos de Application filhos
+    path: curso-k8s/modulo-07-argocd/apps
+
+    directory:
+      # Não processa subdiretórios (evita processar arquivos em stack/ acidentalmente)
+      recurse: false
+
+  destination:
+    # O cluster local — dentro do cluster, sempre este endereço
+    server: https://kubernetes.default.svc
+    # As Applications filhas ficam no namespace argocd
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      # prune: deleta recursos que foram removidos do git
+      prune: true
+      # selfHeal: reverte mudanças feitas diretamente no cluster (fora do git)
+      selfHeal: true
+
+    syncOptions:
+      # Cria o namespace argocd se não existir (necessário na primeira aplicação)
+      - CreateNamespace=true
+      # Usa server-side apply para melhor compatibilidade com CRDs
+      - ServerSideApply=true

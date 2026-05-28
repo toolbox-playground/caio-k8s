@@ -1,0 +1,40 @@
+# Versão da API: v1 para Services (core)
+apiVersion: v1
+
+# Tipo de recurso: Service (expõe pods na rede)
+kind: Service
+
+# ========== METADADOS ==========
+metadata:
+  # Nome do service: DNS interno será super-mario-service.games.svc.cluster.local
+  name: super-mario-service
+  
+  # Namespace: Mesmo namespace do Deployment
+  namespace: games
+  
+  # Labels: Para organização e seletores
+  labels:
+    app: super-mario
+
+# ========== ESPECIFICAÇÃO DO SERVICE ==========
+spec:
+  # Tipo de Service: NodePort (expõe em porta do node)
+  # Tipos disponíveis: ClusterIP (padrão), NodePort, LoadBalancer, ExternalName
+  type: NodePort
+  
+  # Seletor: Identifica quais pods receberão tráfego
+  # Deve corresponder aos labels dos pods do Deployment
+  selector:
+    app: super-mario
+  
+  # Portas expostas pelo service
+  ports:
+  - port: 8080         # Porta do Service (usada internamente no cluster)
+    targetPort: 8080   # Porta do container (onde a app escuta)
+    nodePort: 30000    # Porta no node (30000-32767) - acesso externo
+    protocol: TCP      # Protocolo de rede
+    name: http         # Nome descritivo da porta
+  
+  # Afinidade de sessão: None = distribui requests aleatoriamente
+  # Opção: ClientIP = mesmo cliente vai sempre para mesmo pod
+  sessionAffinity: None

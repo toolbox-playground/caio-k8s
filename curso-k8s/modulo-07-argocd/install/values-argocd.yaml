@@ -1,0 +1,92 @@
+# values-argocd.yaml
+# Helm values do Argo CD para o cluster Kind local.
+#
+# Chart: argo/argo-cd
+# Helm repo: helm repo add argo https://argoproj.github.io/argo-helm
+#
+# Instalar:
+#   helm upgrade --install argocd argo/argo-cd \
+#     --namespace argocd --create-namespace \
+#     -f install/values-argocd.yaml \
+#     --wait --timeout 5m
+
+# ── Configurações globais do servidor ArgoCD ────────────────────────────────
+configs:
+  params:
+    # Desabilita TLS no servidor — usa HTTP puro.
+    # APENAS para ambiente local/Kind. Em produção: remova esta linha e
+    # configure certificados TLS via cert-manager ou ingress com TLS.
+    server.insecure: "true"
+
+  # Configurações do ArgoCD (argocd-cm)
+  cm:
+    # Permite que o ArgoCD gerencie recursos no mesmo namespace onde está instalado.
+    # Necessário para o padrão App of Apps (onde as Applications ficam em argocd/).
+    application.resourceTrackingMethod: annotation
+
+# ── ArgoCD Server (UI + API) ──────────────────────────────────────────────
+server:
+  service:
+    type: NodePort
+    # nodePortHttp: deve corresponder ao containerPort do Kind (30080).
+    # hostPort 8080 no kind → NodePort 30080 no cluster
+    nodePortHttp: 30080
+    # nodePortHttps: 443 path — não necessário no modo insecure
+    nodePortHttps: 30443
+
+  # Recursos mínimos para o Kind — suficiente para ≤20 Applications.
+  # Em produção: aumente conforme o número de apps e frequência de sync.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# ── Application Set Controller ───────────────────────────────────────────
+applicationSet:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# ── Notifications Controller ─────────────────────────────────────────────
+notifications:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# ── Dex (SSO) ─────────────────────────────────────────────────────────────
+# Dex provê integração com provedores OAuth (GitHub, GitLab, OIDC, etc.).
+# Desativado por padrão — usamos login admin/password neste módulo.
+# Em produção: configure com seu provedor SSO.
+dex:
+  enabled: false
+
+# ── Redis ─────────────────────────────────────────────────────────────────
+redis:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# ── Repo Server (clona e processa manifests do git) ──────────────────────
+repoServer:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi

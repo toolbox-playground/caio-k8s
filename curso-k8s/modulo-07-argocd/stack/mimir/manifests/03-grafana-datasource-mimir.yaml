@@ -1,0 +1,63 @@
+# ============================================================
+# Grafana — Datasource Mimir
+# ============================================================
+# Provisiona o datasource Mimir no Grafana via sidecar do
+# kube-prometheus-stack. O sidecar detecta este ConfigMap
+# (label grafana_datasource: "1") e recarrega o Grafana.
+#
+# O Mimir expõe uma API 100% compatível com Prometheus via
+# /prometheus — o datasource usa type: prometheus.
+#
+# Aplicar:
+#   kubectl apply -f 03-grafana-datasource-mimir.yaml
+#
+# Verificar:
+#   kubectl logs -n monitoring -l app.kubernetes.io/name=grafana \
+#     -c grafana-sc-datasources --tail=10
+#   Esperado: "Datasources config reloaded"
+# ============================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-mimir
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+
+data:
+  mimir-datasource.yaml: |
+    apiVersion: 1
+
+    datasources:
+
+      # ── Grafana Mimir ──────────────────────────────────────
+      # O Mimir é compatível com a API do Prometheus.
+      # A URL /prometheus expõe todos os endpoints PromQL:
+      #   /prometheus/api/v1/query
+      #   /prometheus/api/v1/query_range
+      #   /prometheus/api/v1/labels
+      #   etc.
+      #
+      # Diferença de usar o Prometheus diretamente:
+      #   → Prometheus: apenas dados recentes (retenção local de 15 dias)
+      #   → Mimir:      dados históricos de longo prazo (object storage)
+      #
+      # uid semântico "mimir" para ser referenciado em dashboards
+      # e em outros datasources sem strings crípticas.
+      - name: Mimir
+        type: prometheus
+        uid: mimir
+        url: http://mimir.monitoring.svc.cluster.local:9009/prometheus
+        access: proxy
+        basicAuth: false
+        isDefault: false
+        editable: true
+        jsonData:
+          # Consultas ao Mimir ficam mais lentas para períodos longos —
+          # aumentar o timeout garante que queries de 30d+ não expirem.
+          timeoutSeconds: 60
+          # queryTimeout: igual ao timeoutSeconds, usado pelo query editor.
+          queryTimeout: "60s"
+          # httpMethod POST é mais eficiente para queries complexas.
+          httpMethod: POST

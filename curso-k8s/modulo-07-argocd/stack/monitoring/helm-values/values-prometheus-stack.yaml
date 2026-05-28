@@ -1,0 +1,60 @@
+# values-prometheus-stack.yaml
+# Values do kube-prometheus-stack para o Módulo 06.
+#
+# Diferença em relação aos módulos anteriores:
+#   → Adiciona remoteWrite ao Prometheus para enviar métricas ao Mimir.
+#
+# Em produção: ajuste os thresholds de queue e o retention do Prometheus.
+#
+# Chart: prometheus-community/kube-prometheus-stack
+
+prometheus:
+  service:
+    type: NodePort
+    nodePort: 30090
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    externalUrl: http://localhost:9090
+
+    # ── Remote Write para o Mimir ──────────────────────────────────────────
+    # Faz o Prometheus enviar uma cópia de todas as métricas para o Mimir.
+    #
+    # COMO FUNCIONA:
+    #   1. Prometheus raspa métricas dos targets (comportamento normal)
+    #   2. Armazena no TSDB local (padrão: 15 dias de retenção)
+    #   3. ADICIONALMENTE: envia via HTTP POST para o Mimir em tempo real
+    #   4. Mimir compacta e grava em blocos no MinIO (persistência longa)
+    #
+    # RESULTADO: se o Prometheus reiniciar e perder o TSDB local,
+    # os dados históricos continuam acessíveis via Mimir → MinIO.
+    remoteWrite:
+      - url: http://mimir.monitoring.svc.cluster.local:9009/api/v1/push
+        # queueConfig controla o comportamento do buffer de envio.
+        # Com os defaults abaixo, o Prometheus agrupa amostras em lotes
+        # de 1000 e envia a cada 5s — eficiente para Kind.
+        queueConfig:
+          maxSamplesPerSend: 1000
+          batchSendDeadline: 5s
+          # capacity: tamanho do buffer em memória antes de descartar.
+          # Aumentar se você vir "queue is full" nos logs do Prometheus.
+          capacity: 10000
+
+grafana:
+  service:
+    type: NodePort
+    nodePort: 31000
+  sidecar:
+    alerts:
+      enabled: true
+
+alertmanager:
+  service:
+    type: NodePort
+    nodePort: 32000
+  alertmanagerSpec:
+    externalUrl: http://localhost:9093
+
+prometheus-node-exporter:
+  service:
+    type: NodePort
+    nodePort: 32001

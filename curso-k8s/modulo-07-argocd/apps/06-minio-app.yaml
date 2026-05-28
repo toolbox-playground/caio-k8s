@@ -1,0 +1,57 @@
+# ============================================================
+# ArgoCD Application — MinIO
+# ============================================================
+# MinIO provê o object storage S3-compatível para o Mimir.
+# Deve estar sincronizado ANTES do Mimir para que os buckets
+# existam quando o initContainer do Mimir tentar conectar.
+#
+# O campo "syncWave" garante a ordem de sync via annotation:
+#   wave -1 → MinIO sobe primeiro
+#   wave  0 → Mimir sobe depois (padrão)
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: minio
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    module: "07"
+    tier: storage
+
+  # Sync Wave: MinIO precisa estar pronto antes do Mimir.
+  # Waves menores sincronizam primeiro. ArgoCD aguarda cada wave
+  # estar Healthy antes de iniciar a próxima.
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+
+spec:
+  project: default
+
+  sources:
+    - repoURL: https://charts.bitnami.com/bitnami
+      chart: minio
+      targetRevision: "*"
+      helm:
+        releaseName: minio
+        valueFiles:
+          - $values/curso-k8s/modulo-07-argocd/stack/mimir/helm-values/values-minio.yaml
+
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+      # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
+      targetRevision: HEAD
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
