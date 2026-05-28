@@ -261,8 +261,8 @@ helm upgrade --install tempo grafana/tempo \
 **PowerShell e bash:**
 
 ```sh
-kubectl apply -f stack/opentelemetry/manifests/03-otel-collector.yaml
-kubectl apply -f stack/opentelemetry/manifests/04-podmonitor-otel-collector.yaml
+kubectl apply -f stack/opentelemetry/manifests/02-otel-collector.yaml
+kubectl apply -f stack/opentelemetry/manifests/03-podmonitor-otel-collector.yaml
 ```
 
 ---
@@ -274,7 +274,7 @@ O ConfigMap abaixo provisiona o Tempo no Grafana com **Trace to Logs** (Loki) e 
 **PowerShell e bash:**
 
 ```sh
-kubectl apply -f stack/opentelemetry/manifests/06-grafana-datasource-tempo.yaml
+kubectl apply -f stack/opentelemetry/manifests/04-grafana-datasource-tempo.yaml
 ```
 
 Verificar carregamento:
@@ -298,7 +298,40 @@ kubectl logs -n monitoring \
 
 ---
 
-### Passo 0.12 — Aguardar toda a stack subir
+### Passo 0.12 — Provisionar datasource Loki no Grafana
+
+O ConfigMap abaixo provisiona o Loki no Grafana com **Logs → Traces** configurado: ao clicar em um traceId nos logs da `ranking-api`, o Grafana abre o trace correspondente no Tempo.
+
+> O UID `efn6ru21pagowd` é referenciado pelo datasource Tempo em `tracesToLogsV2` — o botão **"Logs for this span"** só funciona se este ConfigMap estiver aplicado.
+
+**PowerShell e bash:**
+
+```sh
+kubectl apply -f manifests/01-grafana-datasource-loki.yaml
+```
+
+Verificar carregamento:
+
+**PowerShell:**
+
+```powershell
+kubectl logs -n monitoring `
+  -l app.kubernetes.io/name=grafana `
+  -c grafana-sc-datasources --tail=5
+# Esperado: Response: 200 OK {"message":"Datasources config reloaded"}
+```
+
+**bash / zsh:**
+
+```bash
+kubectl logs -n monitoring \
+  -l app.kubernetes.io/name=grafana \
+  -c grafana-sc-datasources --tail=5
+```
+
+---
+
+### Passo 0.13 — Aguardar toda a stack subir
 
 **PowerShell e bash:**
 
@@ -331,7 +364,7 @@ kubectl get pods -n otel
 
 ---
 
-### Passo 0.13 — Importar dashboards dos Módulos 03 e 04
+### Passo 0.14 — Importar dashboards dos Módulos 03 e 04
 
 **Grafana: http://localhost:3000 → Dashboards → New → Import → Upload dashboard JSON file**
 
@@ -464,8 +497,8 @@ docker build -t ranking-api:v2-profiler ./app
 kind load docker-image ranking-api:v2-profiler --name k8s-essentials
 
 # Deploy no namespace games
-kubectl apply -f manifests/01-deployment-ranking-api-v2.yaml
-kubectl apply -f stack/opentelemetry/manifests/02-service-ranking-api.yaml
+kubectl apply -f manifests/03-deployment-ranking-api-v2.yaml
+kubectl apply -f stack/opentelemetry/manifests/01-service-ranking-api.yaml
 ```
 
 Aguardar:
