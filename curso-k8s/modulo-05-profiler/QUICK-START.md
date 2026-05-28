@@ -577,7 +577,7 @@ kubectl run fortio `
   --restart=Never `
   -n games `
   -- load -c 5 -qps 10 -t 300s `
-  http://ranking-api.games.svc.cluster.local:8000/rankings
+  http://ranking-api.games.svc.cluster.local/rankings
 ```
 
 **Bash:**
@@ -588,7 +588,7 @@ kubectl run fortio \
   --restart=Never \
   -n games \
   -- load -c 5 -qps 10 -t 300s \
-  http://ranking-api.games.svc.cluster.local:8000/rankings
+  http://ranking-api.games.svc.cluster.local/rankings
 ```
 
 Acompanhar:
