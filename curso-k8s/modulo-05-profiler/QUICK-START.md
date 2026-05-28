@@ -1,119 +1,90 @@
-# 🚀 Módulo 05 — Escolha sua Abordagem
+# 🚀 Módulo 05 — Profiling Contínuo (Modo Híbrido: SDK + Grafana Alloy)
 
-Este módulo oferece **três formas** de fazer profiling contínuo com Grafana Pyroscope.  
-Cada uma tem seu próprio guia completo. Escolha abaixo:
+> ⚠️ **Todos os comandos devem ser executados de dentro da pasta `modulo-05-profiler/`:**
+>
+> **PowerShell:**
+> ```powershell
+> cd curso-k8s/modulo-05-profiler
+> ```
+> **bash / zsh:**
+> ```bash
+> cd curso-k8s/modulo-05-profiler
+> ```
 
----
+## O que será instalado neste módulo
 
-## Abordagem 1 — Pyroscope SDK
+Este módulo combina **duas fontes de profiling** rodando em paralelo sobre a mesma aplicação:
 
-📁 **Pasta:** [pyroscope-sdk/](pyroscope-sdk/)  
-📄 **Guia:** [pyroscope-sdk/QUICK-START.md](pyroscope-sdk/QUICK-START.md)
+| Fonte | O que coleta | Tag no Grafana |
+|---|---|---|
+| **pyroscope-io SDK** | Call stack Python — funções, linhas de código, hot paths | `profiler=sdk` |
+| **Grafana Alloy (eBPF)** | Syscalls do kernel, I/O, runtime C, qualquer processo | `profiler=ebpf` |
 
-**O que faz:** adiciona o SDK `pyroscope-io` dentro do código Python da `ranking-api`.  
-A aplicação amostra o próprio call stack e envia os profiles para o Pyroscope.
+O resultado é que você pode cruzar dois flame graphs da mesma `ranking-api`:
+- O SDK mostra `calculate_score` usando 40ms de CPU Python
+- O eBPF mostra que `futex_wait` consumiu mais 340ms abaixo do Python
 
-**Melhor quando:**
-- Você controla o código-fonte
-- Precisa de `tag_wrapper` (perfil separado por endpoint, feature, usuário)
-- Quer correlação precisa Trace → Profile no Grafana
+Essa combinação resolve o problema do "trace lento sem motivo aparente" — o SDK mostra o que o Python faz, o eBPF mostra o que o kernel faz enquanto o Python espera.
 
-```sh
-cd curso-k8s/modulo-05-profiler/pyroscope-sdk
-# siga o QUICK-START.md dentro desta pasta
+**Stack completa ao final deste guia:**
+
+```
+┌─────────────────────────────────────────────────┐
+│  namespace: monitoring                          │
+│  Prometheus · Grafana · AlertManager            │
+│  Loki · Fluent Bit · Tempo · OTel Collector     │
+│  Pyroscope (server) · Alloy (DaemonSet eBPF)    │
+└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│  namespace: games                               │
+│  Super Mario (HPA) · ranking-api v2 (SDK)       │
+└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│  namespace: otel                                │
+│  OTel Collector                                 │
+└─────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Abordagem 2 — Grafana Alloy (eBPF)
+## Fase 0 — Preparar o cluster com toda a stack anterior
 
-📁 **Pasta:** [grafana-alloy/](grafana-alloy/)  
-📄 **Guia:** [grafana-alloy/QUICK-START.md](grafana-alloy/QUICK-START.md)
+> 🎯 **Faça esta fase apenas se está recriando o cluster do zero ou iniciando o ambiente pela primeira vez.**  
+> Se os módulos 03 e 04 já estão rodando (`kubectl get pods -n monitoring`), vá direto para a **Fase 1**.
 
-**O que faz:** instala o Grafana Alloy como DaemonSet. Ele usa eBPF para perfilar  
-**todos os processos do cluster sem modificar nenhuma aplicação**.
+### Passo 0.1 — Criar o cluster Kind com todas as portas mapeadas
 
-**Melhor quando:**
-- App de terceiro, legado ou sem acesso ao código
-- Quer profiling de toda a infra (Redis, Postgres, qualquer pod) de uma vez
-- Deseja zero mudanças nas aplicações
-
-```sh
-cd curso-k8s/modulo-05-profiler/grafana-alloy
-# siga o QUICK-START.md dentro desta pasta
-```
-
----
-
-## Comparação rápida
-
-| | SDK | Alloy (eBPF) | **Híbrido** |
-|---|---|---|---|
-| Muda o código? | Sim | **Não** | Sim (só sua app) |
-| Perfil por endpoint? | **Sim** (tag_wrapper) | Não | **Sim** |
-| Qualquer linguagem/processo? | Não | **Sim** | **Sim** |
-| Trace → Profile precisa? | **Sim** | Parcial | **Sim** |
-| `privileged: true` no K8s? | Não | Sim | Sim |
-| Syscalls/kernel visíveis? | Não | **Sim** | **Sim** |
-| Recomendado para produção? | Ambientes simples | Infra sem acesso ao código | **Sim** |
-
----
-
-## Abordagem 3 — Híbrido (SDK + Alloy)
-
-📁 **Pasta:** [hybrid/](hybrid/)  
-📄 **Guia:** [hybrid/QUICK-START.md](hybrid/QUICK-START.md)
-
-**O que faz:** combina o SDK na `ranking-api` (granularidade Python + tag_wrapper)  
-com o Alloy eBPF perfilando toda a infra do cluster (syscalls, runtime C, outros pods).
-
-**Por que usar:**
-- O SDK mostra "qual função Python gastou CPU"
-- O eBPF mostra "qual syscall essa função disparou no kernel" — ex: `futex_wait`
-- Você pode ver p99=380ms no trace, 40ms no flame graph Python, e 340ms em `futex_wait` no eBPF
-- No Grafana: filtre por `profiler=sdk` (frames Python) ou `profiler=ebpf` (kernel)
-
-```sh
-cd curso-k8s/modulo-05-profiler/hybrid
-# siga o QUICK-START.md dentro desta pasta
-```
-
----
-
-> 📚 **Teoria** (o que é profiler, flame graph, eBPF, casos de uso):  
-> consulte o [README.md do módulo](README.md).
-
----
-
-## Pré-condição: Módulos 03 e 04 concluídos
-
-O Módulo 05 se apoia no stack completo dos módulos anteriores:
-- Grafana (módulo 03) — para visualizar os flame graphs
-- Tempo (módulo 04) — para correlação Trace → Profile
-- OTel Collector (módulo 04) — para os traces da ranking-api
-
-Se já estiver tudo `Running`, pule para a **Etapa 1**.  
-Se precisar recriar do zero, siga a seção "Subindo tudo do zero" abaixo.
-
----
-
-## Subindo tudo do zero (cluster + stack completo)
-
-> 🎯 Faça isso apenas se deletou o cluster ou está começando um ambiente novo.
-
-### Passo 1 — Criar cluster Kind com as portas de todos os módulos
+O `cluster-config.yaml` deste módulo inclui os mapeamentos de todos os módulos anteriores **mais** a porta do Pyroscope (4040).
 
 **PowerShell e bash:**
 
 ```sh
-# Deletar cluster anterior se existir
+# Deletar cluster anterior se existir (ignorar erro se não existir)
 kind delete cluster --name k8s-essentials
 
-# Recriar com o config do Módulo 05 (inclui todas as portas anteriores + Pyroscope :4040)
-kind create cluster --config manifests/cluster-config.yaml
+# Recriar com o config completo do Módulo 05
+kind create cluster --config hybrid/manifests/cluster-config.yaml
+
+# Confirmar que os nodes ficaram Ready
+kubectl get nodes
 ```
 
-### Passo 2 — Instalar Metrics Server
+Portas disponíveis após a criação:
+
+| Serviço | localhost | NodePort |
+|---|---|---|
+| Super Mario | http://localhost:8081 | 30000 |
+| Prometheus | http://localhost:9090 | 30090 |
+| Grafana | http://localhost:3000 | 31000 |
+| AlertManager | http://localhost:9093 | 32000 |
+| Node Exporter | http://localhost:9100 | 32001 |
+| **Pyroscope** | **http://localhost:4040** | **34040** |
+
+---
+
+### Passo 0.2 — Instalar o Metrics Server
+
+O Metrics Server é necessário para o HPA funcionar (`kubectl top` e escalamento automático).
 
 **PowerShell e bash:**
 
@@ -137,7 +108,11 @@ kubectl patch deployment metrics-server -n kube-system \
   -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
 ```
 
-### Passo 3 — Instalar stack de monitoramento (Módulo 03)
+> ⚠️ O patch desabilita a validação TLS do kubelet — necessário no Kind porque o kubelet usa certificados autoassinados. Não use em produção.
+
+---
+
+### Passo 0.3 — Deploy do Super Mario (Módulo 02)
 
 **PowerShell e bash:**
 
@@ -149,44 +124,137 @@ kubectl apply -f ../modulo-02-deploy-app/manifests/02-service-mario.yaml
 kubectl apply -f ../modulo-02-deploy-app/manifests/03-hpa.yaml
 ```
 
-```sh
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo update
+---
 
-helm install kind-prometheus prometheus-community/kube-prometheus-stack \
-  --namespace monitoring \
-  --create-namespace \
-  -f ../modulo-03-monitoring/helm-values/values-prometheus-stack.yaml
-```
-
-```sh
-helm repo add grafana https://grafana.github.io/helm-charts
-
-helm install loki grafana/loki \
-  --namespace monitoring \
-  -f ../modulo-03-monitoring/helm-values/values-loki.yaml
-
-helm install fluent-bit grafana/fluent-bit \
-  --namespace monitoring \
-  -f ../modulo-03-monitoring/helm-values/values-fluent-bit.yaml
-```
-
-### Passo 4 — Instalar Tempo e OTel Collector (Módulo 04)
+### Passo 0.4 — Adicionar repositórios Helm
 
 **PowerShell e bash:**
 
 ```sh
-helm install tempo grafana/tempo \
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add fluent https://fluent.github.io/helm-charts
+helm repo update
+```
+
+---
+
+### Passo 0.5 — Instalar Prometheus + Grafana + AlertManager (Módulo 03)
+
+**PowerShell:**
+
+```powershell
+kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade --install kind-prometheus prometheus-community/kube-prometheus-stack `
+  --namespace monitoring `
+  -f ../modulo-03-monitoring/helm-values/values-prometheus-stack.yaml
+```
+
+**bash / zsh:**
+
+```bash
+kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade --install kind-prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  -f ../modulo-03-monitoring/helm-values/values-prometheus-stack.yaml
+```
+
+---
+
+### Passo 0.6 — Instalar o Loki (Módulo 03)
+
+**PowerShell:**
+
+```powershell
+helm upgrade --install loki grafana/loki `
+  --namespace monitoring `
+  -f ../modulo-03-monitoring/helm-values/values-loki.yaml
+```
+
+**bash / zsh:**
+
+```bash
+helm upgrade --install loki grafana/loki \
+  --namespace monitoring \
+  -f ../modulo-03-monitoring/helm-values/values-loki.yaml
+```
+
+---
+
+### Passo 0.7 — Instalar o Fluent Bit (Módulo 03)
+
+**PowerShell:**
+
+```powershell
+helm upgrade --install fluent-bit fluent/fluent-bit `
+  --namespace monitoring `
+  -f ../modulo-03-monitoring/helm-values/values-fluent-bit.yaml
+```
+
+**bash / zsh:**
+
+```bash
+helm upgrade --install fluent-bit fluent/fluent-bit \
+  --namespace monitoring \
+  -f ../modulo-03-monitoring/helm-values/values-fluent-bit.yaml
+```
+
+---
+
+### Passo 0.8 — Instalar o Blackbox Exporter + alertas (Módulo 03)
+
+O Blackbox Exporter monitora a latência sintética do Super Mario a cada 15 segundos.
+
+**PowerShell e bash:**
+
+```sh
+helm upgrade --install blackbox-exporter \
+  prometheus-community/prometheus-blackbox-exporter \
+  --namespace monitoring
+
+kubectl apply -f ../modulo-03-monitoring/manifests/01-four-golden-signals.yaml
+kubectl apply -f ../modulo-03-monitoring/manifests/02-blackbox-probe.yaml
+kubectl apply -f ../modulo-03-monitoring/manifests/03-grafana-alert-rules.yaml
+```
+
+---
+
+### Passo 0.9 — Instalar o Grafana Tempo (Módulo 04)
+
+**PowerShell:**
+
+```powershell
+helm upgrade --install tempo grafana/tempo `
+  --namespace monitoring `
+  -f ../modulo-04-opentelemetry/helm-values/values-tempo.yaml
+```
+
+**bash / zsh:**
+
+```bash
+helm upgrade --install tempo grafana/tempo \
   --namespace monitoring \
   -f ../modulo-04-opentelemetry/helm-values/values-tempo.yaml
+```
 
+---
+
+### Passo 0.10 — Instalar o OTel Collector (Módulo 04)
+
+**PowerShell e bash:**
+
+```sh
 kubectl apply -f ../modulo-04-opentelemetry/manifests/03-otel-collector.yaml
 kubectl apply -f ../modulo-04-opentelemetry/manifests/04-podmonitor-otel-collector.yaml
 ```
 
-### Passo 5 — Provisionar datasource Tempo com Trace to Metrics (Módulo 04)
+---
 
-Provisiona o datasource Tempo no Grafana com `tracesToLogsV2` e `tracesToMetrics` configurados como código:
+### Passo 0.11 — Provisionar datasource Tempo no Grafana (Módulo 04)
+
+O ConfigMap abaixo provisiona o Tempo no Grafana com **Trace to Logs** (Loki) e **Trace to Metrics** (Prometheus) já configurados. O sidecar do Grafana detecta e recarrega em ~30s.
 
 **PowerShell e bash:**
 
@@ -194,70 +262,151 @@ Provisiona o datasource Tempo no Grafana com `tracesToLogsV2` e `tracesToMetrics
 kubectl apply -f ../modulo-04-opentelemetry/manifests/06-grafana-datasource-tempo.yaml
 ```
 
-> ⚡ O sidecar do Grafana detecta e recarrega automaticamente em ~30s.
+Verificar carregamento:
+
+**PowerShell:**
+
+```powershell
+kubectl logs -n monitoring `
+  -l app.kubernetes.io/name=grafana `
+  -c grafana-sc-datasources --tail=5
+# Esperado: Response: 200 OK {"message":"Datasources config reloaded"}
+```
+
+**bash / zsh:**
+
+```bash
+kubectl logs -n monitoring \
+  -l app.kubernetes.io/name=grafana \
+  -c grafana-sc-datasources --tail=5
+```
 
 ---
 
-## Etapa 1 — Instalar o Grafana Pyroscope
-
-### Adicionar o Helm repo da Grafana (se ainda não adicionou)
+### Passo 0.12 — Aguardar toda a stack subir
 
 **PowerShell e bash:**
 
 ```sh
-helm repo add grafana https://grafana.github.io/helm-charts
-helm repo update
+kubectl get pods -n monitoring -w
 ```
 
-### Instalar o Pyroscope
+Estado esperado (todos `Running`):
 
-**PowerShell e bash:**
+```
+alertmanager-kind-prometheus-kube-prome-alertmanager-0   2/2   Running
+blackbox-exporter-prometheus-blackbox-exporter-xxxx      1/1   Running
+fluent-bit-xxxx                                          1/1   Running
+kind-prometheus-grafana-xxxx                             4/4   Running
+kind-prometheus-kube-prome-operator-xxxx                 1/1   Running
+kind-prometheus-kube-state-metrics-xxxx                  1/1   Running
+kind-prometheus-prometheus-node-exporter-xxxx            1/1   Running
+loki-0                                                   2/2   Running
+loki-gateway-xxxx                                        1/1   Running
+prometheus-kind-prometheus-kube-prome-prometheus-0       2/2   Running
+tempo-0                                                  1/1   Running
+```
+
+E no namespace `otel`:
 
 ```sh
-helm install pyroscope grafana/pyroscope `
-  --namespace monitoring `
-  --create-namespace `
-  -f helm-values/values-pyroscope.yaml
+kubectl get pods -n otel
+# otel-collector-xxxx   1/1   Running
 ```
-
-**Bash:**
-
-```sh
-helm install pyroscope grafana/pyroscope \
-  --namespace monitoring \
-  --create-namespace \
-  -f helm-values/values-pyroscope.yaml
-```
-
-### Verificar se o Pyroscope subiu
-
-**PowerShell e bash:**
-
-```sh
-kubectl get pods -n monitoring -l app.kubernetes.io/name=pyroscope
-# Aguarde: STATUS = Running
-```
-
-```sh
-kubectl get svc -n monitoring | grep pyroscope
-# Deve mostrar: pyroscope   NodePort   <IP>   <none>   4040:34040/TCP
-```
-
-> 🌐 Pyroscope UI disponível em: **http://localhost:4040**
 
 ---
 
-## Etapa 2 — Provisionar Datasources no Grafana (como código)
+### Passo 0.13 — Importar dashboards dos Módulos 03 e 04
 
-O Grafana já está rodando do Módulo 03. Em vez de configurar os datasources pela UI (sujeito a drift), provisionamos tudo via ConfigMap — o sidecar do Grafana detecta e recarrega automaticamente.
+**Grafana: http://localhost:3000 → Dashboards → New → Import → Upload dashboard JSON file**
 
-Um único `kubectl apply` provisiona três coisas:
+> 💡 **Recuperar a senha do Grafana:**
+>
+> **PowerShell:**
+> ```powershell
+> kubectl --namespace monitoring get secret kind-prometheus-grafana `
+>   -o jsonpath="{.data.admin-password}" |
+>   ForEach-Object { [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_)) }
+> ```
+> **bash / zsh:**
+> ```bash
+> kubectl --namespace monitoring get secret kind-prometheus-grafana \
+>   -o jsonpath="{.data.admin-password}" | base64 --decode
+> ```
 
-| O que | Resultado no Grafana |
+Importe os seguintes JSONs **nesta ordem**:
+
+#### Módulo 03 — Four Golden Signals
+
+| Arquivo | Datasource |
 |---|---|
-| Datasource **Grafana Pyroscope** | Grafana consegue exibir flame graphs |
-| Datasource **Tempo** com `tracesToProfiles` | Botão **"Profiles for this span"** nos spans |
-| Datasource **Tempo** com `tracesToMetrics` | Botão **"Metrics for this span"** nos spans |
+| `../modulo-03-monitoring/grafana-dashboards/four-golden-signals.json` | Prometheus |
+
+#### Módulo 04 — Observabilidade com OTel
+
+| Arquivo | Datasource |
+|---|---|
+| `../modulo-04-opentelemetry/grafana-dashboards/latencia-p99.json` | Prometheus + Tempo |
+| `../modulo-04-opentelemetry/grafana-dashboards/p99-por-endpoint.json` | Prometheus |
+| `../modulo-04-opentelemetry/grafana-dashboards/logs-devops.json` | Loki |
+| `../modulo-04-opentelemetry/grafana-dashboards/devsecops.json` | Prometheus + Loki + Tempo |
+
+---
+
+### ✅ Verificação final da stack
+
+**PowerShell e bash:**
+
+```sh
+# Todos os pods devem estar Running
+kubectl get pods -n monitoring
+kubectl get pods -n otel
+kubectl get pods -n games
+
+# Serviços acessíveis (NodePort)
+# Grafana:      http://localhost:3000
+# Prometheus:   http://localhost:9090
+# AlertManager: http://localhost:9093
+# Pyroscope:    http://localhost:4040  ← instalado na Fase 1
+```
+
+---
+
+## Fase 1 — Instalar o Pyroscope Server
+
+O Pyroscope é o backend de continuous profiling. Ele recebe e armazena flame graphs enviados tanto pelo SDK Python quanto pelo Grafana Alloy eBPF.
+
+**PowerShell:**
+
+```powershell
+helm upgrade --install pyroscope grafana/pyroscope `
+  --namespace monitoring `
+  -f hybrid/helm-values/values-pyroscope.yaml
+```
+
+**bash / zsh:**
+
+```bash
+helm upgrade --install pyroscope grafana/pyroscope \
+  --namespace monitoring \
+  -f hybrid/helm-values/values-pyroscope.yaml
+```
+
+Aguardar:
+
+**PowerShell e bash:**
+
+```sh
+kubectl rollout status statefulset/pyroscope -n monitoring
+```
+
+Acessar: **http://localhost:4040**
+
+---
+
+## Fase 2 — Provisionar datasource Pyroscope no Grafana
+
+Este ConfigMap adiciona o datasource Pyroscope **e** atualiza o datasource Tempo para habilitar a correlação **Trace → Profile** (botão "Profiles for this span" direto no trace).
 
 **PowerShell e bash:**
 
@@ -265,245 +414,262 @@ Um único `kubectl apply` provisiona três coisas:
 kubectl apply -f manifests/02-grafana-datasource-tempo-pyroscope.yaml
 ```
 
-### Verificar o provisionamento
+Verificar:
 
-```sh
-# O sidecar grafana-sc-datasources deve logar "200 OK" em ~30s
-kubectl logs -n monitoring -l app.kubernetes.io/name=grafana \
-  -c grafana-sc-datasources --tail=5
-# Esperado: "None sent to .../reload. Response: 200 OK"
-```
-
-> 💡 **Grafana → Connections → Data sources** deve listar:  
-> `tempo`, `grafana-pyroscope-datasource`, `Prometheus`, `loki`, `Alertmanager`
-
----
-
-## Etapa 3 — Build da ranking-api v2 (com Pyroscope SDK)
-
-Esta versão adiciona o SDK `pyroscope-io` à aplicação do Módulo 04.
-
-### Build da imagem
-
-**PowerShell e bash:**
-
-```sh
-# Build da nova versão com o SDK pyroscope-io
-docker build -t ranking-api:v2-profiler ./app
-```
-
-> ⚡ O primeiro build é rápido — `pyroscope-io 1.0.8` é uma wheel pré-compilada em Rust (abi3, Python 3.10+). Não precisa de gcc, python3-dev nem compilação local.
-
-### Carregar a imagem no cluster Kind
-
-**PowerShell e bash:**
-
-```sh
-kind load docker-image ranking-api:v2-profiler --name k8s-essentials
-```
-
-### Verificar que a imagem está disponível
-
-**PowerShell e bash:**
-
-```sh
-docker exec k8s-essentials-control-plane crictl images | grep ranking-api
-# Deve listar:  ranking-api   v2-profiler   <hash>   <tamanho>
-```
-
----
-
-## Etapa 4 — Deploy da ranking-api v2
-
-**PowerShell e bash:**
-
-```sh
-kubectl apply -f manifests/01-deployment-ranking-api-v2.yaml
-```
-
-### Verificar o deploy
-
-**PowerShell e bash:**
-
-```sh
-kubectl get pods -n games -l app=ranking-api
-# Aguarde todos os pods: STATUS = Running, READY = 1/1
-```
-
-```sh
-# O SDK pyroscope-io roda em background silenciosamente — não loga ao iniciar.
-# Se houver erro de conexão com o Pyroscope, você verá algo como:
-#   "Failed to push profile" ou "connection refused"
-# Se o log estiver limpo (sem erros), o SDK está funcionando.
-kubectl logs -n games -l app=ranking-api --tail=20
-```
+**PowerShell:**
 
 ```powershell
-# Confirmação alternativa: verificar se o serviço já aparece no Pyroscope
-# Aguarde ~30s e acesse http://localhost:4040 — "ranking-api" deve aparecer na lista
-# Ou consulte via API (PowerShell):
-kubectl run -it --rm pyroscope-check --image=curlimages/curl --restart=Never -- `
-  curl -s "http://pyroscope.monitoring.svc.cluster.local:4040/api/apps" | Select-String "ranking"
+kubectl logs -n monitoring `
+  -l app.kubernetes.io/name=grafana `
+  -c grafana-sc-datasources --tail=10
+# Esperado: Response: 200 OK {"message":"Datasources config reloaded"}
 ```
+
+**bash / zsh:**
 
 ```bash
-# bash / zsh:
-kubectl run -it --rm pyroscope-check --image=curlimages/curl --restart=Never -- \
-  curl -s "http://pyroscope.monitoring.svc.cluster.local:4040/api/apps" | grep ranking
-```
-
-```sh
-# Verificar que os traces ainda chegam ao Tempo
-kubectl logs -n otel deployment/otel-collector --tail=30
+kubectl logs -n monitoring \
+  -l app.kubernetes.io/name=grafana \
+  -c grafana-sc-datasources --tail=10
 ```
 
 ---
 
-## Etapa 5 — Gerar carga para criar profiles
+## Fase 3 — Build e deploy da ranking-api v2 (com SDK)
 
-Profiles ficam interessantes com dados reais. Use o Fortio para simular tráfego:
+A `ranking-api:v2-profiler` adiciona o `pyroscope-io` SDK ao código Python. O tag `profiler=sdk` identifica os profiles vindos desta fonte no Grafana.
 
 **PowerShell e bash:**
 
 ```sh
-# Stress test na ranking-api (endpoints /rankings e /score)
-kubectl apply -f pyroscope-sdk/manifests/02-stress-test-fortio.yaml
+# Build da imagem com o SDK do Pyroscope
+docker build -t ranking-api:v2-profiler ./hybrid/app
+
+# Carregar no cluster Kind
+kind load docker-image ranking-api:v2-profiler --name k8s-essentials
+
+# Deploy no namespace games
+kubectl apply -f hybrid/manifests/01-deployment-ranking-api-v2.yaml
+kubectl apply -f ../modulo-04-opentelemetry/manifests/02-service-ranking-api.yaml
 ```
 
-Ou dispare manualmente via port-forward:
+Aguardar:
 
 **PowerShell e bash:**
 
 ```sh
-# Em um terminal separado — manter aberto
-kubectl port-forward -n games svc/ranking-api 8000:80
+kubectl rollout status deployment/ranking-api -n games
 ```
+
+Verificar que o SDK está se conectando:
+
+**PowerShell e bash:**
 
 ```sh
-# Em outro terminal — gerar carga
-# Instalar fortio localmente se não tiver
-# fortio load -qps 10 -t 60s http://localhost:8000/rankings
-# fortio load -qps 10 -t 60s http://localhost:8000/score
-
-# Alternativa: curl em loop
-for i in 1..50; do curl -s http://localhost:8000/rankings > $null; Start-Sleep -Milliseconds 200; done
+kubectl logs -n games -l app=ranking-api --tail=20
+# Deve aparecer conexão bem-sucedida ao Pyroscope sem erros
 ```
 
 ---
 
-## Etapa 6 — Visualizar os Flame Graphs no Grafana
+## Fase 4 — Instalar o Grafana Alloy (eBPF)
 
-### Explorar profiles no Grafana Explore
+O Alloy roda como DaemonSet — um pod por node. Usa eBPF para perfilar **todos os processos do cluster** sem modificar nenhuma aplicação. O tag `profiler=ebpf` é adicionado automaticamente via relabeling no `values-alloy.yaml`.
 
-1. Acesse **http://localhost:3000**
-2. Menu lateral → **Explore**
-3. Selecione datasource: **Grafana Pyroscope**
-4. Em **Profile type**, e cole dentro e dê enter `process_cpu:cpu:nanoseconds:cpu:nanoseconds`
-5. Em **Labels**, digite: `{service_name="ranking-api"}`
-6. Ajuste o intervalo de tempo para os últimos 15 minutos
-7. Clique em **"Run query"**
+**PowerShell:**
 
-### O que você verá
-
-```
-Flame graph da ranking-api nos últimos 15 minutos:
-
-┌─────────────────────────────────────────────────────────────────┐
-│  ranking_api.get_rankings                        [████████ 45%] │
-│  ranking_api.submit_score                        [██████   35%] │
-│  uvicorn._bootstrap                              [███      15%] │
-│  outros                                          [█         5%] │
-└─────────────────────────────────────────────────────────────────┘
+```powershell
+helm upgrade --install alloy grafana/alloy `
+  --namespace monitoring `
+  -f hybrid/helm-values/values-alloy.yaml
 ```
 
-Clique em qualquer bloco para expandir o call stack.
+**bash / zsh:**
+
+```bash
+helm upgrade --install alloy grafana/alloy \
+  --namespace monitoring \
+  -f hybrid/helm-values/values-alloy.yaml
+```
+
+Verificar DaemonSet:
+
+**PowerShell e bash:**
+
+```sh
+kubectl get daemonset -n monitoring | grep alloy
+kubectl rollout status daemonset/alloy -n monitoring
+```
+
+Confirmar que o eBPF está coletando:
+
+**PowerShell e bash:**
+
+```sh
+kubectl logs -n monitoring -l app.kubernetes.io/name=alloy --tail=30
+# Procure: component started  component=pyroscope.ebpf.default
+```
 
 ---
 
-## Etapa 7 — Span Profiles + Span Metrics: os três botões no Tempo
+## Fase 5 — Gerar carga
 
-Esta é a feature central do módulo. Ao abrir qualquer span no Grafana Tempo, três botões aparecem no painel lateral:
+**PowerShell e bash:**
 
-| Botão | Destino | O que mostra |
+```sh
+kubectl run fortio \
+  --image=fortio/fortio \
+  --restart=Never \
+  -n games \
+  -- load -c 5 -qps 10 -t 300s \
+  http://ranking-api.games.svc.cluster.local:8000/rankings
+```
+
+Acompanhar:
+
+**PowerShell e bash:**
+
+```sh
+kubectl logs -n games fortio -f
+```
+
+> Aguarde ~2 minutos para acumular profiles suficientes antes de explorar no Grafana.
+
+---
+
+## Fase 6 — Visualizar no Grafana
+
+### 6.1 — Profiles lado a lado (SDK vs eBPF)
+
+```
+Grafana → Explore → Datasource: Grafana Pyroscope
+```
+
+**Profile SDK (frames Python):**
+```
+{service_name="ranking-api", profiler="sdk"}
+```
+
+**Profile eBPF (syscalls do kernel):**
+```
+{service_name="ranking-api", profiler="ebpf"}
+```
+
+> Use o botão **Split** do Explore para abrir os dois flame graphs lado a lado.
+
+### 6.2 — O que cada flame graph mostra
+
+**SDK — call stack Python nomeado:**
+```
+ranking
+  └── get_rankings
+        └── _generate_scores
+              └── calculate_score  ← hot path em Python
+```
+
+**eBPF — o que acontece abaixo do Python:**
+```
+ranking-api
+  ├── python3.12
+  │     └── PyEval_EvalFrameDefault
+  │           └── futex_wait  ← onde o tempo realmente some
+  └── libc: read, write, epoll_wait
+```
+
+> **Insight chave:** se o SDK mostra 40ms de CPU Python mas o trace p99 é 380ms,  
+> os 340ms restantes estão em `futex_wait` ou I/O de rede — visível no eBPF,  
+> **invisível** para o SDK porque o processo não estava usando CPU Python nesse intervalo.
+
+### 6.3 — Correlação Trace → Profile
+
+Quando o Pyroscope datasource está configurado, o Grafana Tempo exibe um botão **"Profiles for this span"** em cada span:
+
+```
+Grafana → Explore → Datasource: Tempo
+{ resource.service.name = "ranking-api" && duration > 100ms }
+→ Clique em um trace → Clique em um span → "Profiles for this span"
+```
+
+Isso abre o flame graph do exato intervalo de tempo daquele span — sem precisar filtrar manualmente.
+
+### 6.4 — Infra do cluster profiled pelo eBPF
+
+O Alloy perfila automaticamente todos os pods do cluster. Explore no Pyroscope:
+
+```
+{namespace="monitoring", service_name="prometheus-server", profiler="ebpf"}
+{namespace="monitoring", service_name="loki", profiler="ebpf"}
+{namespace="otel", service_name="otel-collector", profiler="ebpf"}
+```
+
+---
+
+## Acesso rápido aos serviços
+
+| Serviço | URL | Credenciais |
 |---|---|---|
-| **Logs for this span** | Loki | Logs do serviço no exato intervalo do span |
-| **Metrics for this span** | Prometheus | Taxa de requisições, erros e p95 do serviço |
-| **Profiles for this span** | Pyroscope | Flame graph de CPU daquele span específico |
-
-> ✅ Os datasources foram provisionados na Etapa 2. Se você pulou, execute agora:  
-> `kubectl apply -f manifests/02-grafana-datasource-tempo-pyroscope.yaml`
-
-### Como funciona o "Profiles for this span"
-
-O botão só aparece se o span tiver o atributo `pyroscope.profile.id`. Ele é injetado automaticamente pelo `PyroscopeSpanProcessor` registrado no `main.py`:
-
-```python
-from pyroscope.otel import PyroscopeSpanProcessor
-tracer_provider.add_span_processor(PyroscopeSpanProcessor())
-```
-
-Quando o span é criado, o processor gera um `profile_id` único, injeta como atributo no span e sinaliza ao `pyroscope-io` para associar o CPU amostrado naquele intervalo a esse `profile_id`. O Grafana usa o `profile_id` para buscar o profile no Pyroscope e renderiza o flame graph inline.
-
-### Verificar que o atributo está nos spans
-
-```sh
-# Busca traces recentes no Tempo — confirme que pyroscope.profile.id está presente
-kubectl run -it --rm tempo-check --image=curlimages/curl --restart=Never -n monitoring -- \
-  curl -s "http://tempo:3200/api/search?limit=1&q={resource.service.name=\"ranking-api\"}"
-```
-
-Ou via Grafana: **Explore → Tempo** → abra qualquer span da `ranking-api` → na lista de atributos deve aparecer `pyroscope.profile.id = <hex-id>`.
-
-### Testando os três botões
-
-1. Gere tráfego (Etapa 5 ou 6 já fizeram isso)
-2. Grafana → **Explore** → Datasource: **Tempo**
-3. Execute: `{ resource.service.name = "ranking-api" && duration > 50ms }`
-4. Clique em um trace → clique em um span (ex: `GET /rankings`)
-5. No painel lateral, verifique os três botões:
-   - **Logs** → abre Loki filtrado pelo intervalo do span
-   - **Metrics** → abre Prometheus com 3 queries pré-configuradas do serviço
-   - **Profiles** → abre Pyroscope com o flame graph de CPU daquele span
-
----
-
-## Resumo dos endpoints de acesso
-
-| Serviço        | URL                    | Credenciais         |
-|----------------|------------------------|---------------------|
-| Grafana        | http://localhost:3000  | admin / prom-operator |
-| Pyroscope UI   | http://localhost:4040  | sem autenticação    |
-| Prometheus     | http://localhost:9090  | sem autenticação    |
-| ranking-api    | http://localhost:8081/rankings | —           |
+| Grafana | http://localhost:3000 | admin / (ver Passo 0.13) |
+| Prometheus | http://localhost:9090 | — |
+| AlertManager | http://localhost:9093 | — |
+| Pyroscope | http://localhost:4040 | — |
 
 ---
 
 ## Troubleshooting
 
-### Pyroscope pod em CrashLoopBackOff
+### Profiles não aparecem no Grafana
 
 ```sh
-kubectl describe pod -n monitoring -l app.kubernetes.io/name=pyroscope
-kubectl logs -n monitoring -l app.kubernetes.io/name=pyroscope --previous
+# Verificar conectividade do Alloy com o Pyroscope
+kubectl exec -n monitoring \
+  $(kubectl get pod -n monitoring -l app.kubernetes.io/name=alloy \
+    -o jsonpath='{.items[0].metadata.name}') \
+  -- wget -qO- http://pyroscope.monitoring.svc.cluster.local:4040/ready
+
+# Verificar targets descobertos
+kubectl logs -n monitoring -l app.kubernetes.io/name=alloy | grep -i "target\|error"
 ```
 
-Verifique se o cluster foi criado com o `cluster-config.yaml` do Módulo 05 (precisa ter a porta 34040).
+### SDK não envia profiles
 
-### ranking-api não aparece no Pyroscope
+**PowerShell:**
+
+```powershell
+kubectl exec -n games `
+  $(kubectl get pod -n games -l app=ranking-api -o jsonpath='{.items[0].metadata.name}') `
+  -- env | Select-String PYROSCOPE
+# Deve mostrar:
+# PYROSCOPE_SERVER_ADDRESS=http://pyroscope.monitoring.svc.cluster.local:4040
+# PYROSCOPE_APPLICATION_NAME=ranking-api
+# PYROSCOPE_TAGS=...,profiler=sdk
+```
+
+**bash / zsh:**
+
+```bash
+kubectl exec -n games \
+  $(kubectl get pod -n games -l app=ranking-api -o jsonpath='{.items[0].metadata.name}') \
+  -- env | grep PYROSCOPE
+```
+
+### Alloy não inicia (eBPF indisponível)
 
 ```sh
-# Verificar variável de ambiente do deployment
-kubectl get deployment ranking-api -n games -o jsonpath='{.spec.template.spec.containers[0].env}'
+kubectl describe pod -n monitoring -l app.kubernetes.io/name=alloy | grep -A10 "Events"
 ```
 
-A variável `PYROSCOPE_SERVER_ADDRESS` deve apontar para `http://pyroscope.monitoring.svc.cluster.local:4040`.
+> Em Kind no Windows/macOS, o kernel Linux é exposto via VM pelo Docker Desktop — o eBPF geralmente funciona. Se falhar com `permission denied`, confirme que o pod tem `privileged: true` no `values-alloy.yaml`.
+
+### fluent-bit falha no install
+
+Se o `helm install` falhar com "already installed", use `helm upgrade --install` (já é o padrão em todos os comandos deste guia).
 
 ```sh
-# Verificar DNS interno
-kubectl run -it --rm debug --image=busybox --restart=Never -- \
-  nslookup pyroscope.monitoring.svc.cluster.local
+# Verificar releases instalados
+helm list -n monitoring
 ```
 
-### "Data source connected" mas sem dados no Grafana
+---
 
-Aguarde pelo menos **30 segundos** após o deploy — o SDK faz push a cada 15s. Se ainda não aparecer, verifique os logs do pod da ranking-api por erros de conexão com o Pyroscope.
+> 📚 Para entender a teoria (o que é profiler, flame graph, eBPF, casos de uso reais),  
+> consulte o [README.md do módulo](README.md).
