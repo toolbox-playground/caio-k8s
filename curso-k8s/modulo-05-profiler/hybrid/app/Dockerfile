@@ -13,7 +13,7 @@
 #   - Removidas após o build para manter a imagem enxuta
 # ============================================================
 
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 LABEL maintainer="curso-k8s"
 LABEL description="Ranking API v2 — FastAPI com OpenTelemetry + Grafana Pyroscope"

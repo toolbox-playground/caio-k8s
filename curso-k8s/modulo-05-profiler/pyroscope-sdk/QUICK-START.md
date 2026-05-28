@@ -105,10 +105,11 @@ kubectl get pods -n monitoring -l app.kubernetes.io/name=pyroscope
 
 ## Etapa 3 — Build e deploy da ranking-api v2
 
-> ⚠️ **Requisito: Python 3.11 no Dockerfile**
+> ✅ **Python 3.12 suportado**
 >
-> O SDK `pyroscope-io==0.8.7` usa uma extensão C nativa (`py-spy`) que **não é compatível com Python 3.12**.
-> O `Dockerfile` já usa `python:3.11-slim` — não altere para versões superiores.
+> O SDK `pyroscope-io==1.0.8` usa uma implementação em **Rust** (substituiu o py-spy da 0.8.x)
+> e é distribuído como wheel `cp310-abi3` — compatível com Python 3.10, 3.11 e 3.12.
+> O `Dockerfile` usa `python:3.12-slim`.
 
 ```sh
 docker build -t ranking-api:v2-profiler ./app

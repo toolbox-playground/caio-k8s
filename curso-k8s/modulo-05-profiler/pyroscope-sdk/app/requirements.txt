@@ -18,9 +18,9 @@ opentelemetry-semantic-conventions==0.50b0
 
 # ── Grafana Pyroscope — Continuous Profiling ─────────────────
 # SDK Python para profiling contínuo.
-# Amostra o call stack via py-spy (C extension) e envia para
-# o Pyroscope Server via HTTP a cada 15 segundos.
+# Implementação em Rust (substituiu o py-spy/C extension da 0.8.x),
+# envia pprof profiles para o Pyroscope Server via HTTP a cada 15s.
 #
 # Overhead: <1% CPU, <5MB memória extra.
-# Requer: Python 3.8+ em Linux (funciona no container alpine/slim).
-pyroscope-io==0.8.7
+# Requer: Python 3.10+ (ABI estável cp310-abi3).
+pyroscope-io==1.0.8
