@@ -105,6 +105,11 @@ kubectl get pods -n monitoring -l app.kubernetes.io/name=pyroscope
 
 ## Etapa 3 — Build e deploy da ranking-api v2
 
+> ⚠️ **Requisito: Python 3.11 no Dockerfile**
+>
+> O SDK `pyroscope-io==0.8.7` usa uma extensão C nativa (`py-spy`) que **não é compatível com Python 3.12**.
+> O `Dockerfile` já usa `python:3.11-slim` — não altere para versões superiores.
+
 ```sh
 docker build -t ranking-api:v2-profiler ./app
 kind load docker-image ranking-api:v2-profiler --name k8s-essentials
@@ -116,60 +121,71 @@ kubectl get pods -n games -l app=ranking-api
 # Aguarde READY = 1/1
 ```
 
-Verifique que o SDK iniciou:
+Verifique que o SDK iniciou (ele é **silencioso** no startup — sem mensagem de confirmação):
 ```sh
 kubectl logs -n games -l app=ranking-api --tail=5
-# Deve mostrar logs do uvicorn sem erros de conexão com o Pyroscope
+# Deve mostrar apenas logs do uvicorn, sem erros
 ```
 
 ---
 
-## Etapa 4 — Gerar carga
+## Etapa 4 — Gerar carga (Fortio)
+
+O Fortio faz 20 requisições/s por 10 minutos para a `ranking-api`:
 
 ```sh
-# Em um terminal: port-forward
-kubectl port-forward -n games svc/ranking-api 8000:80
-
-# Em outro terminal: gerar requisições
-# PowerShell:
-for ($i = 0; $i -lt 100; $i++) {
-  Invoke-RestMethod http://localhost:8000/rankings | Out-Null
-  Invoke-RestMethod -Method Post http://localhost:8000/score `
-    -ContentType "application/json" `
-    -Body "{`"player`":`"jogador$i`",`"score`":$($i * 100)}" | Out-Null
-  Start-Sleep -Milliseconds 100
-}
-
-# bash:
-# for i in $(seq 1 100); do
-#   curl -s http://localhost:8000/rankings > /dev/null
-#   curl -s -X POST http://localhost:8000/score \
-#     -H "Content-Type: application/json" \
-#     -d "{\"player\":\"jogador$i\",\"score\":$((i*100))}" > /dev/null
-#   sleep 0.1
-# done
+kubectl apply -f manifests/02-stress-test-fortio.yaml
+kubectl get pod fortio-ranking-api -n games
+# Aguarde STATUS = Running
 ```
+
+Verifique que o tráfego chegou:
+```sh
+kubectl logs -n games fortio-ranking-api --tail=3
+# Deve mostrar: Starting at 20 qps ...
+```
+
+> 💡 O fortio roda por 10 minutos (`-t 10m`). Após isso fica com `Completed`.
+> Para rodar novamente: `kubectl delete pod fortio-ranking-api -n games` e aplique de novo.
 
 ---
 
-## Etapa 5 — Ver flame graphs no Grafana
+## Etapa 5 — Confirmar que profiles chegaram
 
-1. **Grafana → Explore → Datasource: Grafana Pyroscope**
-2. **Label filters:** `service_name = ranking-api`
-3. **Profile type:** `process_cpu:cpu:nanoseconds:cpu:nanoseconds`
+Antes de abrir o Grafana, confirme nos logs do Pyroscope:
+
+```sh
+kubectl logs -n monitoring pyroscope-0 --tail=20 | grep ranking-api
+# Deve aparecer:
+# msg="profile accepted" service_name=ranking-api profile_type=process_cpu detected_language=python
+```
+
+Se não aparecer nada, verifique:
+1. O pod da ranking-api tem a imagem nova? `kubectl get pod -n games -l app=ranking-api -o jsonpath='{.items[0].spec.containers[0].image}'`
+2. O fortio está rodando? `kubectl get pod fortio-ranking-api -n games`
+
+---
+
+## Etapa 6 — Ver flame graphs no Grafana
+
+1. **Grafana → Explore** (`http://localhost:3000/explore`)
+2. No dropdown de datasource (canto superior esquerdo), selecione **Grafana Pyroscope**
+3. O UI mostra dois dropdowns:
+   - **Service Name:** selecione `ranking-api`
+   - **Profile type:** selecione `process_cpu:cpu:nanoseconds:cpu:nanoseconds`
 4. Intervalo: últimos 15 minutos → **Run query**
+5. O flame graph aparece abaixo — as funções mais largas são as que consomem mais CPU
 
-### Filtrar por endpoint (tag_wrapper)
+> 🔥 Procure no flame graph as funções `get_rankings` e `calcular_score` — elas têm sleeps
+> simulando latência real, então vão aparecer com destaque no perfil de CPU.
 
-Para ver apenas o perfil do `/rankings`:
+### Filtrar por tag
 
-- **Label filters:** `service_name = ranking-api` + `endpoint = /rankings`
+O SDK envia os profiles com as tags definidas no `PYROSCOPE_TAGS`.
+Para filtrar por versão ou ambiente, adicione um **Label filter** no Explore:
 
-Para comparar `/rankings` vs `/score`:
-
-- Ative o modo **"Split"** no Grafana Explore
-- Lado A: `endpoint = /rankings`
-- Lado B: `endpoint = /score`
+- `version = 2.0.0`
+- `environment = kind-dev`
 
 ---
 
