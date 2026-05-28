@@ -36,9 +36,13 @@ pyroscope.configure(
     # Tags fixas que viajam em todos os profiles deste processo.
     # Visíveis como labels no Grafana Pyroscope para filtrar e comparar.
     # Ex: comparar v1.0.0 vs v2.0.0 no diff flame graph.
+    #
+    # ATENÇÃO: o SDK Python NÃO lê a env var PYROSCOPE_TAGS automaticamente.
+    # As tags precisam ser passadas explicitamente aqui.
     tags={
         "environment": os.getenv("DEPLOYMENT_ENV", "kind-dev"),
         "version":     "2.0.0",
+        "profiler":    "sdk",   # diferencia do eBPF (Alloy) no Grafana
     },
 )
 

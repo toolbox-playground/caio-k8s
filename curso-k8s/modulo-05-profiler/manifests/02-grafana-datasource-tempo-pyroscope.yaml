@@ -85,7 +85,7 @@ data:
 
           # ── Trace to Logs (Loki) — herdado do módulo 04 ────
           tracesToLogsV2:
-            datasourceUid: efn6ru21pagowd
+            datasourceUid: afnfjb2o4l1q8f   # UID do datasource Loki (provisionado pelo helm)
             customQuery: false
             tags:
               - key: service.name

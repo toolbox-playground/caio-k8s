@@ -4,14 +4,17 @@
 # Versão da Ranking API com pyroscope-io SDK.
 # O Alloy eBPF rodará em paralelo via DaemonSet, sem mudanças aqui.
 #
-# Diferenças em relação ao pyroscope-sdk/manifests:
-#   - PYROSCOPE_TAGS inclui "profiler=sdk"
-#     Isso permite diferenciar no Grafana:
-#       {service_name="ranking-api", profiler="sdk"}  → frames Python (SDK)
-#       {service_name="ranking-api", profiler="ebpf"} → syscalls do kernel (Alloy)
+# Como os labels de profiling funcionam:
+#   - "profiler=sdk" → definido em app/main.py via pyroscope.configure(tags=...)
+#     O SDK Python NÃO lê PYROSCOPE_TAGS; os tags devem ser passados no código.
+#   - "profiler=ebpf" → adicionado pelo Alloy via relabeling (values-alloy.yaml)
+#
+# Isso permite diferenciar no Grafana:
+#   {service_name="ranking-api", profiler="sdk"}  → frames Python (SDK)
+#   {service_name="ranking-api", profiler="ebpf"} → syscalls do kernel (Alloy)
 #
 # Aplicar:
-#   kubectl apply -f manifests/01-deployment-ranking-api-v2.yaml
+#   kubectl apply -f manifests/03-deployment-ranking-api-v2.yaml
 # ============================================================
 
 apiVersion: apps/v1
@@ -73,13 +76,13 @@ spec:
           value: "ranking-api"
 
         - name: PYROSCOPE_TAGS
-          # ── Diferença do modo híbrido ──────────────────────
-          # "profiler=sdk" identifica que este profile veio do SDK Python.
-          # O Alloy eBPF adiciona "profiler=ebpf" automaticamente via relabeling.
+          # ATENÇÃO: o SDK Python (pyroscope-io) NÃO lê esta env var automaticamente.
+          # A tag "profiler=sdk" é definida diretamente em app/main.py via
+          # pyroscope.configure(tags={"profiler": "sdk"}).
           #
-          # No Grafana você diferencia assim:
-          #   {service_name="ranking-api", profiler="sdk"}  → frames Python
-          #   {service_name="ranking-api", profiler="ebpf"} → syscalls do kernel
+          # Esta env var fica aqui como documentação dos valores esperados,
+          # mas não tem efeito sobre os profiles. O tag que chega ao Grafana
+          # vem do código em main.py, não desta variável de ambiente.
           value: "environment=kind-dev,version=2.0.0,profiler=sdk"
 
         # ── Probes ────────────────────────────────────────────
