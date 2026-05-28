@@ -101,11 +101,11 @@ data:
                 value: service_name
             queries:
               - name: "Taxa de requisições"
-                query: "sum(rate(request_duration_ms_count{$$__tags}[2m])) by (endpoint)"
+                query: "sum(rate(request_duration_ms_milliseconds_count{$$__tags}[2m])) by (exported_endpoint)"
               - name: "Taxa de erros"
-                query: "sum(rate(api_errors_total{$$__tags}[2m])) by (endpoint, reason)"
+                query: "sum(rate(api_errors_total{$$__tags}[2m])) by (exported_endpoint, reason)"
               - name: "Latência p95 (ms)"
-                query: "histogram_quantile(0.95, sum(rate(request_duration_ms_bucket{$$__tags}[2m])) by (le, endpoint))"
+                query: "histogram_quantile(0.95, sum(rate(request_duration_ms_milliseconds_bucket{$$__tags}[2m])) by (le, exported_endpoint))"
 
           # ── Trace to Profiles (Pyroscope) — novo no módulo 05 ─
           # Exibe o botão "Profiles for this span" no painel de detalhes
@@ -125,10 +125,10 @@ data:
           #   4. Tempo recebe o span com o profile_id; Pyroscope recebe o profile
           #   5. Grafana usa o profile_id para fazer o link: span → flame graph
           #
-          # VARIÁVEL ${__tags[service_name]}:
-          #   "service_name" é o VALUE do mapeamento em tags[] abaixo.
-          #   Resolve para o valor do atributo service.name do span (ex: "ranking-api").
-          #   Query final: {service_name="ranking-api"}
+          # VARIÁVEL $$__tags:
+          #   Expande para um label matcher completo do Pyroscope, usando o mapeamento
+          #   definido em tags[] abaixo. Ex: service_name="ranking-api"
+          #   $$__tags é o escape do loader de provisionamento — armazena como $__tags.
           tracesToProfiles:
             datasourceUid: dfndbfp01e7swd   # UID do datasource Pyroscope
             # profileTypeId identifica o tipo de profile no Pyroscope.
@@ -139,10 +139,9 @@ data:
             # false = Grafana monta automaticamente, mas com menos controle.
             customQuery: true
             # query em formato de seletor do Pyroscope (similar ao PromQL labelMatchers).
-            # $${__tags[service_name]} é o escape do loader de provisionamento do Grafana.
-            # Em runtime, ${__tags[service_name]} é substituído pelo valor do atributo
-            # service.name do span (ex: "ranking-api").
-            query: '{service_name="$${__tags[service_name]}"}'
+            # {$$__tags} → armazenado como {$__tags} → em runtime expande para
+            # {service_name="ranking-api"} usando o mapeamento service.name→service_name.
+            query: '{$$__tags}'
             tags:
               # Mapeamento: atributo do span OTel → label do Pyroscope.
               # service.name no span → service_name no Pyroscope.

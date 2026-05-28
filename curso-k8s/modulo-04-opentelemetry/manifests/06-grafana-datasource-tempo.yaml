@@ -119,12 +119,12 @@ data:
               # $$__tags é o escape de $__tags para o loader de provisionamento do Grafana.
               # Em runtime, $$__tags → service_name="ranking-api" (tags do span selecionado).
               - name: "Taxa de requisições"
-                query: "sum(rate(request_duration_ms_count{$$__tags}[2m])) by (endpoint)"
+                query: "sum(rate(request_duration_ms_milliseconds_count{$$__tags}[2m])) by (exported_endpoint)"
 
               # Taxa de erros agrupada por endpoint e motivo
               - name: "Taxa de erros"
-                query: "sum(rate(api_errors_total{$$__tags}[2m])) by (endpoint, reason)"
+                query: "sum(rate(api_errors_total{$$__tags}[2m])) by (exported_endpoint, reason)"
 
               # Latência p95 em milissegundos por endpoint
               - name: "Latência p95 (ms)"
-                query: "histogram_quantile(0.95, sum(rate(request_duration_ms_bucket{$$__tags}[2m])) by (le, endpoint))"
+                query: "histogram_quantile(0.95, sum(rate(request_duration_ms_milliseconds_bucket{$$__tags}[2m])) by (le, exported_endpoint))"
