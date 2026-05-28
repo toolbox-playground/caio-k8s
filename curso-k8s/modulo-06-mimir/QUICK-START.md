@@ -1,16 +1,61 @@
 # Módulo 06 — Grafana Mimir: Quick Start
 
 > **Contexto**: Você acabou de terminar o Módulo 05 (Profiler).
-> O cluster `k8s-essentials` está de pé, mas vazio.
-> Este guia instala toda a stack do zero — incluindo o **Mimir**, que vai resolver
-> o problema que você provavelmente já teve com Prometheus:
+> Este guia tem dois caminhos:
+> - **Cluster já rodando** (veio do módulo 05 sem destruir): pule para a [Fase 1](#fase-1--instalar-o-minio-object-storage).
+> - **Cluster novo / recriado**: siga a Fase 0 completa.
+>
+> O Mimir resolve o problema clássico do Prometheus:
 > *"Reiniciei o servidor e perdi todos os dados históricos."*
+
+---
+
+## Pré-requisito — Navegar até o diretório do módulo
+
+Todos os caminhos relativos deste guia (`cluster-config.yaml`, `stack/`, `helm-values/`, `manifests/`) partem de `modulo-06-mimir`. Execute antes de qualquer comando:
+
+```bash
+# Linux / macOS
+cd curso-k8s/modulo-06-mimir
+```
+```pwsh
+# Windows (PowerShell)
+Set-Location curso-k8s\modulo-06-mimir
+```
+
+> Se você já está dentro do workspace na raiz do repo:
+> `c:\Users\marce\Documents\Toolbox\caio-k8s`
 
 ---
 
 ## Fase 0 — Cluster e Stack Base
 
+> **Vindo do Módulo 05 com o cluster ainda rodando?**
+> Se o cluster `k8s-essentials` já está up e a stack (Prometheus, Loki, Grafana,
+> Mario, Pyroscope) já está instalada, **pule toda a Fase 0** e vá direto para
+> a **[Fase 1 — MinIO](#fase-1--instalar-o-minio-object-storage)**.
+> Só precisará atualizar o `values-prometheus-stack.yaml` para adicionar o `remoteWrite`.
+>
+> ⚠️ **Atenção**: o MinIO agora é instalado via manifest (não mais pelo chart bitnami).
+> Não é necessário adicionar nenhum repo Helm extra — apenas aplique:
+>
+> ```bash
+> kubectl apply -f manifests/00-minio.yaml
+> ```
+
 ### 0.1 — Verificar ou recriar o cluster
+
+> **Módulos 05 e 06 usam NodePorts acima de 32767** (34040, 39009, 39001).
+> O Kubernetes restringe o range padrão a 30000-32767. O `cluster-config.yaml`
+> deste módulo já inclui `service-node-port-range: 30000-40000` via `kubeadmConfigPatches`.
+>
+> Se você criou o cluster com uma config antiga (módulo 03/04/05) **sem** essa extensão,
+> precisará recriar:
+> ```bash
+> kind delete cluster --name k8s-essentials
+> kind create cluster --name k8s-essentials --config cluster-config.yaml
+> ```
+> Após recriar, reaplique todos os manifests das fases anteriores.
 
 ```bash
 kind get clusters
@@ -128,31 +173,34 @@ kubectl apply -f stack/monitoring/manifests/
 > O `initContainer` do StatefulSet aguarda o MinIO subir, mas é
 > melhor tê-lo funcionando antes de aplicar os manifests do Mimir.
 
+> **Nota**: o chart `bitnami/minio` foi descontinuado. Usamos agora a imagem
+> oficial `minio/minio` via manifest Kubernetes (sem dependência de Helm chart externo).
+> O arquivo `manifests/00-minio.yaml` contém: Secret, StatefulSet, Services e um Job
+> que cria os 3 buckets automaticamente via `minio/mc`.
+
 ### 1.1 — Instalar o MinIO
 
 ```bash
-# Linux / macOS
-helm upgrade --install minio bitnami/minio \
-  --namespace monitoring \
-  -f helm-values/values-minio.yaml \
-  --wait --timeout 5m
+kubectl apply -f manifests/00-minio.yaml
 ```
-```pwsh
-# Windows (PowerShell)
-helm upgrade --install minio bitnami/minio `
-  --namespace monitoring `
-  -f helm-values/values-minio.yaml `
-  --wait --timeout 5m
+
+Aguarde o StatefulSet e o Job de criação de buckets:
+
+```bash
+kubectl rollout status statefulset/minio -n monitoring
+
+# Verificar o Job de provisionamento dos buckets
+kubectl wait --for=condition=complete job/minio-create-buckets -n monitoring --timeout=120s
 ```
 
 ### 1.2 — Verificar os buckets provisionados
 
 ```bash
-kubectl get pods -n monitoring -l app.kubernetes.io/name=minio
-# Esperado: minio-0 Running 2/2
+kubectl get pods -n monitoring -l app=minio
+# Esperado: minio-0 Running 1/1
 
-kubectl logs -n monitoring statefulset/minio -c minio-provisioning --tail=20
-# Esperado: Created bucket mimir-blocks, mimir-alertmanager, mimir-ruler
+kubectl logs -n monitoring job/minio-create-buckets -c mc
+# Esperado: "Buckets criados: mimir-blocks, mimir-alertmanager, mimir-ruler"
 ```
 
 Console web (login: mimir / mimir-supersecret):
@@ -396,6 +444,11 @@ kubectl exec -n monitoring statefulset/mimir -- ls /data/tsdb
 kubectl exec -n monitoring statefulset/mimir -- ls /data/tsdb
 ```
 
+> Para visualizar os blocos já compactados no MinIO via CLI:
+> ```bash
+> kubectl exec -n monitoring statefulset/minio -- mc ls local/mimir-blocks
+> ```
+
 ---
 
 ## Troubleshooting
@@ -405,10 +458,15 @@ kubectl exec -n monitoring statefulset/mimir -- ls /data/tsdb
 ```bash
 kubectl logs -n monitoring statefulset/mimir --tail=30
 # Se: "bucket does not exist: mimir-blocks"
-# Significa que o MinIO não criou os buckets
+# Significa que o Job de criação de buckets falhou ou ainda não terminou
 
-# Solução: verifique o job de provisioning do MinIO
-kubectl logs -n monitoring statefulset/minio -c minio-provisioning
+# Verificar status do Job
+kubectl get job minio-create-buckets -n monitoring
+kubectl logs -n monitoring job/minio-create-buckets -c mc
+
+# Reaplicar o Job (se necessário)
+kubectl delete job minio-create-buckets -n monitoring
+kubectl apply -f manifests/00-minio.yaml
 ```
 
 ### remote_write com falha — "connection refused"

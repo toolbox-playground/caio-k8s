@@ -200,5 +200,5 @@ spec:
     - name: http
       port: 9009
       targetPort: 9009
-      nodePort: 39009
+      nodePort: 39009  # requer service-node-port-range: 30000-40000 no cluster-config.yaml
       protocol: TCP
