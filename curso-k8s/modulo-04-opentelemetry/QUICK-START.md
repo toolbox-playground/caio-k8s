@@ -339,7 +339,34 @@ http://localhost:3000
 
 > ✅ O Loki não precisa de autenticação (instalado com `auth_enabled=false`). O `Save & Test` deve retornar sucesso imediato.
 
-### Adicionar Tempo
+### Provisionar datasource Tempo como código (recomendado)
+
+Em vez de configurar o Tempo manualmente pela UI, aplique o ConfigMap de provisionamento. O sidecar do Grafana detecta e recarrega automaticamente em ~30s:
+
+**PowerShell e bash:**
+
+```sh
+kubectl apply -f manifests/06-grafana-datasource-tempo.yaml
+```
+
+Esse ConfigMap configura o datasource Tempo com:
+- **Trace to Logs** (Loki) — botão "Logs for this span" nos spans
+- **Trace to Metrics** (Prometheus) — botão "Metrics for this span" com 3 queries pré-configuradas:
+  - Taxa de requisições por endpoint
+  - Taxa de erros por endpoint e motivo
+  - Latência p95 por endpoint
+
+Verificar:
+
+```sh
+kubectl logs -n monitoring -l app.kubernetes.io/name=grafana \
+  -c grafana-sc-datasources --tail=5
+# Esperado: Response: 200 OK {"message":"Datasources config reloaded"}
+```
+
+### Adicionar Tempo (alternativa manual)
+
+Se preferir configurar pela UI em vez do ConfigMap:
 
 ```
 http://localhost:3000

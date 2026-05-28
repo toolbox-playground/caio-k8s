@@ -1,0 +1,151 @@
+# ============================================================
+# Grafana — Datasources Pyroscope + Tempo com Span Profiles
+# ============================================================
+# Este ConfigMap estende o módulo 04: adiciona o datasource
+# Pyroscope e habilita o "Profiles for this span" no Tempo.
+#
+# APLIQUE DEPOIS do módulo 04:
+#   kubectl apply -f ../../modulo-04-opentelemetry/manifests/06-grafana-datasource-tempo.yaml
+#   kubectl apply -f 02-grafana-datasource-tempo-pyroscope.yaml
+#
+# O segundo apply sobrescreve o ConfigMap grafana-datasource-tempo
+# do módulo 04, adicionando tracesToProfiles ao Tempo e provisionando
+# o datasource do Pyroscope.
+#
+# Verificar:
+#   kubectl get configmap -n monitoring grafana-datasource-tempo grafana-datasource-pyroscope
+#   kubectl logs -n monitoring -l app.kubernetes.io/name=grafana -c grafana-sc-datasources --tail=30
+# ============================================================
+
+# ── Datasource Pyroscope ─────────────────────────────────────
+# Provisionado separadamente para que o módulo 05 possa ser
+# instalado de forma incremental (o módulo 04 não precisa do Pyroscope).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-pyroscope
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+
+data:
+  pyroscope-datasource.yaml: |
+    apiVersion: 1
+    datasources:
+
+      # ── Grafana Pyroscope ──────────────────────────────────
+      # Backend de continuous profiling. Recebe profiles pprof
+      # enviados pelo pyroscope-io SDK a cada 15s.
+      #
+      # O uid fixo (grafana-pyroscope-datasource) é referenciado pelo
+      # datasource do Tempo em tracesToProfiles.datasourceUid.
+      # Alterar este uid quebra a correlação Trace → Profile.
+      - name: grafana-pyroscope-datasource
+        type: grafana-pyroscope-datasource
+        uid: dfndbfp01e7swd
+        url: http://pyroscope.monitoring.svc.cluster.local:4040
+        access: proxy
+        basicAuth: false
+        isDefault: false
+        editable: true
+
+---
+
+# ── Datasource Tempo (atualizado com tracesToProfiles) ───────
+# Sobrescreve o ConfigMap do módulo 04, adicionando a seção
+# tracesToProfiles. As seções tracesToLogsV2 e tracesToMetrics
+# são mantidas idênticas ao módulo 04.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-tempo
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+
+data:
+  datasources.yaml: |
+    apiVersion: 1
+
+    deleteDatasources:
+      - name: tempo
+        orgId: 1
+
+    datasources:
+
+      - name: tempo
+        type: tempo
+        uid: dfn6rrm6edkowe
+        url: http://tempo.monitoring.svc.cluster.local:3200
+        access: proxy
+        basicAuth: false
+        isDefault: false
+        editable: true
+        jsonData:
+
+          # ── Trace to Logs (Loki) — herdado do módulo 04 ────
+          tracesToLogsV2:
+            datasourceUid: efn6ru21pagowd
+            customQuery: false
+            tags:
+              - key: service.name
+                value: service_name
+
+          # ── Trace to Metrics (Prometheus) — herdado do módulo 04 ─
+          tracesToMetrics:
+            datasourceUid: prometheus
+            spanStartTimeShift: "-2m"
+            spanEndTimeShift: "2m"
+            tags:
+              - key: service.name
+                value: service_name
+            queries:
+              - name: "Taxa de requisições"
+                query: "sum(rate(request_duration_ms_count{$$__tags}[2m])) by (endpoint)"
+              - name: "Taxa de erros"
+                query: "sum(rate(api_errors_total{$$__tags}[2m])) by (endpoint, reason)"
+              - name: "Latência p95 (ms)"
+                query: "histogram_quantile(0.95, sum(rate(request_duration_ms_bucket{$$__tags}[2m])) by (le, endpoint))"
+
+          # ── Trace to Profiles (Pyroscope) — novo no módulo 05 ─
+          # Exibe o botão "Profiles for this span" no painel de detalhes
+          # do span no Grafana Explore → Tempo.
+          #
+          # PRÉ-REQUISITO NA APLICAÇÃO:
+          #   O span precisa ter o atributo pyroscope.profile.id.
+          #   Isso é feito pelo PyroscopeSpanProcessor registrado no TracerProvider:
+          #
+          #     from pyroscope.otel import PyroscopeSpanProcessor
+          #     tracer_provider.add_span_processor(PyroscopeSpanProcessor())
+          #
+          # COMO FUNCIONA:
+          #   1. PyroscopeSpanProcessor gera um profile_id único ao abrir cada span
+          #   2. Injeta pyroscope.profile.id = "<hex-id>" nos atributos do span
+          #   3. pyroscope-io grava o profile de CPU associado a esse profile_id
+          #   4. Tempo recebe o span com o profile_id; Pyroscope recebe o profile
+          #   5. Grafana usa o profile_id para fazer o link: span → flame graph
+          #
+          # VARIÁVEL ${__tags[service_name]}:
+          #   "service_name" é o VALUE do mapeamento em tags[] abaixo.
+          #   Resolve para o valor do atributo service.name do span (ex: "ranking-api").
+          #   Query final: {service_name="ranking-api"}
+          tracesToProfiles:
+            datasourceUid: dfndbfp01e7swd   # UID do datasource Pyroscope
+            # profileTypeId identifica o tipo de profile no Pyroscope.
+            # Formato: <app_type>:<profile_type>:<unit>:<aggregation>:<unit>
+            # process_cpu:cpu:nanoseconds:cpu:nanoseconds = CPU time em nanosegundos
+            profileTypeId: "process_cpu:cpu:nanoseconds:cpu:nanoseconds"
+            # customQuery: true permite escrever a query Pyroscope manualmente.
+            # false = Grafana monta automaticamente, mas com menos controle.
+            customQuery: true
+            # query em formato de seletor do Pyroscope (similar ao PromQL labelMatchers).
+            # $${__tags[service_name]} é o escape do loader de provisionamento do Grafana.
+            # Em runtime, ${__tags[service_name]} é substituído pelo valor do atributo
+            # service.name do span (ex: "ranking-api").
+            query: '{service_name="$${__tags[service_name]}"}'
+            tags:
+              # Mapeamento: atributo do span OTel → label do Pyroscope.
+              # service.name no span → service_name no Pyroscope.
+              # Deve coincidir com application_name no pyroscope.configure() do app.
+              - key: service.name
+                value: service_name

@@ -184,6 +184,18 @@ kubectl apply -f ../modulo-04-opentelemetry/manifests/03-otel-collector.yaml
 kubectl apply -f ../modulo-04-opentelemetry/manifests/04-podmonitor-otel-collector.yaml
 ```
 
+### Passo 5 — Provisionar datasource Tempo com Trace to Metrics (Módulo 04)
+
+Provisiona o datasource Tempo no Grafana com `tracesToLogsV2` e `tracesToMetrics` configurados como código:
+
+**PowerShell e bash:**
+
+```sh
+kubectl apply -f ../modulo-04-opentelemetry/manifests/06-grafana-datasource-tempo.yaml
+```
+
+> ⚡ O sidecar do Grafana detecta e recarrega automaticamente em ~30s.
+
 ---
 
 ## Etapa 1 — Instalar o Grafana Pyroscope
@@ -235,19 +247,35 @@ kubectl get svc -n monitoring | grep pyroscope
 
 ---
 
-## Etapa 2 — Adicionar Pyroscope como Datasource no Grafana
+## Etapa 2 — Provisionar Datasources no Grafana (como código)
 
-O Grafana já está rodando do Módulo 03. Agora adicionamos o Pyroscope como datasource.
+O Grafana já está rodando do Módulo 03. Em vez de configurar os datasources pela UI (sujeito a drift), provisionamos tudo via ConfigMap — o sidecar do Grafana detecta e recarrega automaticamente.
 
-### Via Grafana UI
+Um único `kubectl apply` provisiona três coisas:
 
-1. Acesse **http://localhost:3000** (admin / prom-operator)
-2. Menu lateral → **Connections** → **Data sources**
-3. Botão **"Add new data source"**
-4. Busque por **"Grafana Pyroscope"** e clique nele
-5. Configure:
-   - **URL:** `http://pyroscope.monitoring.svc.cluster.local:4040`
-6. Clique em **"Save & test"** — deve aparecer "Data source connected"
+| O que | Resultado no Grafana |
+|---|---|
+| Datasource **Grafana Pyroscope** | Grafana consegue exibir flame graphs |
+| Datasource **Tempo** com `tracesToProfiles` | Botão **"Profiles for this span"** nos spans |
+| Datasource **Tempo** com `tracesToMetrics` | Botão **"Metrics for this span"** nos spans |
+
+**PowerShell e bash:**
+
+```sh
+kubectl apply -f manifests/02-grafana-datasource-tempo-pyroscope.yaml
+```
+
+### Verificar o provisionamento
+
+```sh
+# O sidecar grafana-sc-datasources deve logar "200 OK" em ~30s
+kubectl logs -n monitoring -l app.kubernetes.io/name=grafana \
+  -c grafana-sc-datasources --tail=5
+# Esperado: "None sent to .../reload. Response: 200 OK"
+```
+
+> 💡 **Grafana → Connections → Data sources** deve listar:  
+> `tempo`, `grafana-pyroscope-datasource`, `Prometheus`, `loki`, `Alertmanager`
 
 ---
 
@@ -264,7 +292,7 @@ Esta versão adiciona o SDK `pyroscope-io` à aplicação do Módulo 04.
 docker build -t ranking-api:v2-profiler ./app
 ```
 
-> ⏳ O primeiro build pode demorar alguns minutos — o pacote `pyroscope-io` compila extensões C.
+> ⚡ O primeiro build é rápido — `pyroscope-io 1.0.8` é uma wheel pré-compilada em Rust (abi3, Python 3.10+). Não precisa de gcc, python3-dev nem compilação local.
 
 ### Carregar a imagem no cluster Kind
 
@@ -392,30 +420,50 @@ Clique em qualquer bloco para expandir o call stack.
 
 ---
 
-## Etapa 7 — Configurar Trace to Profile (correlação com Tempo)
+## Etapa 7 — Span Profiles + Span Metrics: os três botões no Tempo
 
-Esta etapa conecta os traces do Tempo aos profiles do Pyroscope, permitindo navegar de um span diretamente para o flame graph correspondente.
+Esta é a feature central do módulo. Ao abrir qualquer span no Grafana Tempo, três botões aparecem no painel lateral:
 
-1. Acesse **http://localhost:3000**
-2. Menu → **Connections → Data sources → Tempo**
-3. Role até a seção **"Trace to profiles"**
-4. Ative a opção
-5. Configure:
-   - **Data source:** `Grafana Pyroscope`
-   - **Profile type:** `process_cpu:cpu:nanoseconds:cpu:nanoseconds`
-   - **Custom query:** ative e use:
-     ```
-     {service_name="${__tags.service_name}"}
-     ```
-6. Clique em **"Save & test"**
+| Botão | Destino | O que mostra |
+|---|---|---|
+| **Logs for this span** | Loki | Logs do serviço no exato intervalo do span |
+| **Metrics for this span** | Prometheus | Taxa de requisições, erros e p95 do serviço |
+| **Profiles for this span** | Pyroscope | Flame graph de CPU daquele span específico |
 
-### Testando a correlação
+> ✅ Os datasources foram provisionados na Etapa 2. Se você pulou, execute agora:  
+> `kubectl apply -f manifests/02-grafana-datasource-tempo-pyroscope.yaml`
 
-1. Gere algum tráfego na ranking-api (passo anterior)
+### Como funciona o "Profiles for this span"
+
+O botão só aparece se o span tiver o atributo `pyroscope.profile.id`. Ele é injetado automaticamente pelo `PyroscopeSpanProcessor` registrado no `main.py`:
+
+```python
+from pyroscope.otel import PyroscopeSpanProcessor
+tracer_provider.add_span_processor(PyroscopeSpanProcessor())
+```
+
+Quando o span é criado, o processor gera um `profile_id` único, injeta como atributo no span e sinaliza ao `pyroscope-io` para associar o CPU amostrado naquele intervalo a esse `profile_id`. O Grafana usa o `profile_id` para buscar o profile no Pyroscope e renderiza o flame graph inline.
+
+### Verificar que o atributo está nos spans
+
+```sh
+# Busca traces recentes no Tempo — confirme que pyroscope.profile.id está presente
+kubectl run -it --rm tempo-check --image=curlimages/curl --restart=Never -n monitoring -- \
+  curl -s "http://tempo:3200/api/search?limit=1&q={resource.service.name=\"ranking-api\"}"
+```
+
+Ou via Grafana: **Explore → Tempo** → abra qualquer span da `ranking-api` → na lista de atributos deve aparecer `pyroscope.profile.id = <hex-id>`.
+
+### Testando os três botões
+
+1. Gere tráfego (Etapa 5 ou 6 já fizeram isso)
 2. Grafana → **Explore** → Datasource: **Tempo**
-3. Busque traces: `{ resource.service.name = "ranking-api" && duration > 50ms }`
-4. Clique em um trace → expanda o waterfall → clique em um span
-5. No painel de detalhes do span, procure o link **"View in Pyroscope"** ou botão de profile
+3. Execute: `{ resource.service.name = "ranking-api" && duration > 50ms }`
+4. Clique em um trace → clique em um span (ex: `GET /rankings`)
+5. No painel lateral, verifique os três botões:
+   - **Logs** → abre Loki filtrado pelo intervalo do span
+   - **Metrics** → abre Prometheus com 3 queries pré-configuradas do serviço
+   - **Profiles** → abre Pyroscope com o flame graph de CPU daquele span
 
 ---
 

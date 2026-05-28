@@ -24,3 +24,9 @@ opentelemetry-semantic-conventions==0.50b0
 # Overhead: <1% CPU, <5MB memória extra.
 # Requer: Python 3.10+ (ABI estável cp310-abi3).
 pyroscope-io==1.0.8
+
+# ── Grafana Pyroscope — Span Profiles (Trace ↔ Profile bridge) ────────────────
+# Registra o PyroscopeSpanProcessor no TracerProvider do OpenTelemetry.
+# Adiciona o atributo pyroscope.profile.id em cada span, permitindo que o
+# Grafana Tempo exiba o botão "Profiles for this span" com flame graph inline.
+pyroscope-otel
