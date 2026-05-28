@@ -148,7 +148,8 @@ kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f 
 
 helm upgrade --install kind-prometheus prometheus-community/kube-prometheus-stack `
   --namespace monitoring `
-  -f stack/monitoring/helm-values/values-prometheus-stack.yaml
+  -f stack/monitoring/helm-values/values-prometheus-stack.yaml `
+  --wait --timeout 5m
 ```
 
 **bash / zsh:**
@@ -158,7 +159,8 @@ kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f 
 
 helm upgrade --install kind-prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
-  -f stack/monitoring/helm-values/values-prometheus-stack.yaml
+  -f stack/monitoring/helm-values/values-prometheus-stack.yaml \
+  --wait --timeout 5m
 ```
 
 ---
@@ -170,7 +172,8 @@ helm upgrade --install kind-prometheus prometheus-community/kube-prometheus-stac
 ```powershell
 helm upgrade --install loki grafana/loki `
   --namespace monitoring `
-  -f stack/monitoring/helm-values/values-loki.yaml
+  -f stack/monitoring/helm-values/values-loki.yaml `
+  --wait --timeout 3m
 ```
 
 **bash / zsh:**
@@ -178,7 +181,8 @@ helm upgrade --install loki grafana/loki `
 ```bash
 helm upgrade --install loki grafana/loki \
   --namespace monitoring \
-  -f stack/monitoring/helm-values/values-loki.yaml
+  -f stack/monitoring/helm-values/values-loki.yaml \
+  --wait --timeout 3m
 ```
 
 ---
@@ -190,7 +194,8 @@ helm upgrade --install loki grafana/loki \
 ```powershell
 helm upgrade --install fluent-bit fluent/fluent-bit `
   --namespace monitoring `
-  -f stack/monitoring/helm-values/values-fluent-bit.yaml
+  -f stack/monitoring/helm-values/values-fluent-bit.yaml `
+  --wait --timeout 2m
 ```
 
 **bash / zsh:**
@@ -198,7 +203,8 @@ helm upgrade --install fluent-bit fluent/fluent-bit `
 ```bash
 helm upgrade --install fluent-bit fluent/fluent-bit \
   --namespace monitoring \
-  -f stack/monitoring/helm-values/values-fluent-bit.yaml
+  -f stack/monitoring/helm-values/values-fluent-bit.yaml \
+  --wait --timeout 2m
 ```
 
 ---
@@ -243,7 +249,8 @@ kubectl apply -f stack/monitoring/manifests/03-grafana-alert-rules.yaml
 ```powershell
 helm upgrade --install tempo grafana/tempo `
   --namespace monitoring `
-  -f stack/opentelemetry/helm-values/values-tempo.yaml
+  -f stack/opentelemetry/helm-values/values-tempo.yaml `
+  --wait --timeout 3m
 ```
 
 **bash / zsh:**
@@ -251,7 +258,8 @@ helm upgrade --install tempo grafana/tempo `
 ```bash
 helm upgrade --install tempo grafana/tempo \
   --namespace monitoring \
-  -f stack/opentelemetry/helm-values/values-tempo.yaml
+  -f stack/opentelemetry/helm-values/values-tempo.yaml \
+  --wait --timeout 3m
 ```
 
 ---
@@ -429,7 +437,8 @@ O Pyroscope é o backend de continuous profiling. Ele recebe e armazena flame gr
 ```powershell
 helm upgrade --install pyroscope grafana/pyroscope `
   --namespace monitoring `
-  -f helm-values/values-pyroscope.yaml
+  -f helm-values/values-pyroscope.yaml `
+  --wait --timeout 3m
 ```
 
 **bash / zsh:**
@@ -437,7 +446,8 @@ helm upgrade --install pyroscope grafana/pyroscope `
 ```bash
 helm upgrade --install pyroscope grafana/pyroscope \
   --namespace monitoring \
-  -f helm-values/values-pyroscope.yaml
+  -f helm-values/values-pyroscope.yaml \
+  --wait --timeout 3m
 ```
 
 Aguardar:
@@ -529,7 +539,8 @@ O Alloy roda como DaemonSet — um pod por node. Usa eBPF para perfilar **todos 
 ```powershell
 helm upgrade --install alloy grafana/alloy `
   --namespace monitoring `
-  -f helm-values/values-alloy.yaml
+  -f helm-values/values-alloy.yaml `
+  --wait --timeout 3m
 ```
 
 **bash / zsh:**
@@ -537,7 +548,8 @@ helm upgrade --install alloy grafana/alloy `
 ```bash
 helm upgrade --install alloy grafana/alloy \
   --namespace monitoring \
-  -f helm-values/values-alloy.yaml
+  -f helm-values/values-alloy.yaml \
+  --wait --timeout 3m
 ```
 
 Verificar DaemonSet:
@@ -687,39 +699,40 @@ O Alloy perfila automaticamente todos os pods do cluster. Explore no Pyroscope:
 
 ### Profiles não aparecem no Grafana
 
-```sh
+```bash
+# Linux / macOS
 # Verificar conectividade do Alloy com o Pyroscope
-kubectl exec -n monitoring \
-  $(kubectl get pod -n monitoring -l app.kubernetes.io/name=alloy \
-    -o jsonpath='{.items[0].metadata.name}') \
-  -- wget -qO- http://pyroscope.monitoring.svc.cluster.local:4040/ready
+ALLOY_POD=$(kubectl get pod -n monitoring -l app.kubernetes.io/name=alloy -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n monitoring $ALLOY_POD -- wget -qO- http://pyroscope.monitoring.svc.cluster.local:4040/ready
 
 # Verificar targets descobertos
 kubectl logs -n monitoring -l app.kubernetes.io/name=alloy | grep -i "target\|error"
 ```
+```pwsh
+# Windows (PowerShell)
+$alloyPod = kubectl get pod -n monitoring -l app.kubernetes.io/name=alloy -o jsonpath='{.items[0].metadata.name}'
+kubectl exec -n monitoring $alloyPod -- wget -qO- http://pyroscope.monitoring.svc.cluster.local:4040/ready
+
+kubectl logs -n monitoring -l app.kubernetes.io/name=alloy | Select-String "target|error"
+```
 
 ### SDK não envia profiles
 
-**PowerShell:**
-
-```powershell
-kubectl exec -n games `
-  $(kubectl get pod -n games -l app=ranking-api -o jsonpath='{.items[0].metadata.name}') `
-  -- env | Select-String PYROSCOPE
+```bash
+# Linux / macOS
+SDK_POD=$(kubectl get pod -n games -l app=ranking-api -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n games $SDK_POD -- env | grep PYROSCOPE
 # Deve mostrar:
 # PYROSCOPE_SERVER_ADDRESS=http://pyroscope.monitoring.svc.cluster.local:4040
 # PYROSCOPE_APPLICATION_NAME=ranking-api
 ```
+```pwsh
+# Windows (PowerShell)
+$sdkPod = kubectl get pod -n games -l app=ranking-api -o jsonpath='{.items[0].metadata.name}'
+kubectl exec -n games $sdkPod -- env | Select-String PYROSCOPE
+```
 
 > ⚠️ **Nota:** a variável de ambiente `PYROSCOPE_TAGS` **não é lida pelo SDK Python** (`pyroscope-io`). As tags (incluindo `profiler=sdk`) são configuradas diretamente no código em `pyroscope.configure(tags={...})` — veja `app/main.py`.
-
-**bash / zsh:**
-
-```bash
-kubectl exec -n games \
-  $(kubectl get pod -n games -l app=ranking-api -o jsonpath='{.items[0].metadata.name}') \
-  -- env | grep PYROSCOPE
-```
 
 ### Alloy não inicia (eBPF indisponível)
 
@@ -735,12 +748,18 @@ kubectl describe pod -n monitoring -l app.kubernetes.io/name=alloy | grep -A10 "
 
 **Causa:** O profiling eBPF de Python (frame unwinding via `py_perf`) exige acesso aos frame pointers do CPython no nível do kernel. Em ambientes com múltiplas camadas de virtualização — WSL2 → Docker → kind → container — o eBPF não consegue carregar os símbolos do interpretador Python (`libpython3.x`) nos mapas eBPF.
 
-```sh
+```bash
+# Linux / macOS
 # Confirmar a causa: verificar métricas de Python unwinding no Alloy
 kubectl port-forward -n monitoring svc/alloy 12345:12345 &
 curl http://localhost:12345/metrics | grep -E 'UnwindPython|exe_id_loaded|ebpf_active'
-# Se UnwindPython* não aparecer: Python unwinding nunca foi tentado
-# Se agent_num_exe_id_loaded_to_ebpf for baixo: apenas executáveis Go carregados
+```
+```pwsh
+# Windows (PowerShell) — abra um segundo terminal para o port-forward
+Start-Job { kubectl port-forward -n monitoring svc/alloy 12345:12345 }
+Start-Sleep 2
+$m = Invoke-RestMethod http://localhost:12345/metrics
+$m -split "`n" | Select-String 'UnwindPython|exe_id_loaded|ebpf_active'
 ```
 
 **Solução:** Use `profiler="sdk"` para profiling de call stack Python. O eBPF continua útil para perfilar processos Go e nativos do cluster (Prometheus, Loki, OTel Collector).

@@ -14,6 +14,15 @@ apiVersion: kind.x-k8s.io/v1alpha4
 
 name: k8s-essentials
 
+# Estende o range de nodePort para incluir portas acima de 32767.
+# O Pyroscope usa nodePort 34040 (fora do range padrão 30000-32767).
+kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+      extraArgs:
+        service-node-port-range: "30000-40000"
+
 nodes:
   # ========== CONTROL PLANE ==========
   - role: control-plane

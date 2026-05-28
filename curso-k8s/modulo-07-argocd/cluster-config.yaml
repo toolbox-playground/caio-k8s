@@ -16,6 +16,15 @@ apiVersion: kind.x-k8s.io/v1alpha4
 
 name: k8s-essentials
 
+# Estende o range de nodePort para incluir portas acima de 32767.
+# Módulos 05-07 usam: 34040 (Pyroscope), 39009 (Mimir), 39001 (MinIO), 33000 (Gitea).
+kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+      extraArgs:
+        service-node-port-range: "30000-40000"
+
 nodes:
   # ========== CONTROL PLANE ==========
   - role: control-plane

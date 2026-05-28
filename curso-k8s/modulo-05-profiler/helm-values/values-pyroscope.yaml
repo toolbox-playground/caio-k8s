@@ -10,7 +10,7 @@
 
 service:
   type: NodePort
-  nodePort: 34040
+  nodePort: 34040  # requer service-node-port-range: 30000-40000 no cluster-config.yaml
 
 pyroscope:
 

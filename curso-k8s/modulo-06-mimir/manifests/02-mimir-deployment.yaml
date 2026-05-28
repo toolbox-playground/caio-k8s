@@ -59,7 +59,7 @@ spec:
         - name: mimir
           # Versão estável do Mimir. Verifique a versão mais recente em:
           # https://hub.docker.com/r/grafana/mimir/tags
-          image: grafana/mimir:2.13.0
+          image: grafana/mimir:3.0.6
           imagePullPolicy: IfNotPresent
 
           args:

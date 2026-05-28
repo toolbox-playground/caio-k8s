@@ -59,7 +59,7 @@ spec:
         - name: minio
           # Imagem oficial do MinIO — atualizar a tag conforme necessário.
           # Verifique tags disponíveis: https://hub.docker.com/r/minio/minio/tags
-          image: minio/minio:RELEASE.2024-11-07T00-52-20Z
+          image: minio/minio:RELEASE.2025-10-15T17-29-55Z
           imagePullPolicy: IfNotPresent
           args:
             - server
@@ -179,7 +179,7 @@ spec:
       containers:
         - name: mc
           # MinIO client oficial para criação de buckets.
-          image: minio/mc:RELEASE.2024-11-05T11-29-45Z
+          image: minio/mc:RELEASE.2025-08-13T08-35-41Z
           env:
             - name: MINIO_ROOT_USER
               valueFrom:
