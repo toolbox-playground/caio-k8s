@@ -38,7 +38,7 @@ kind delete cluster --name k8s-essentials
 kind create cluster --config manifests/cluster-config.yaml
 
 # 3. Reinstalar Metrics Server (necessário após recriar)
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.8.1/components.yaml
 
 # O patch abaixo adiciona --kubelet-insecure-tls ao Metrics Server.
 # Por quê? O Metrics Server coleta CPU/memória conectando ao kubelet de cada
@@ -312,7 +312,8 @@ Query LogQL equivalente:
 
 ```sh
 helm install blackbox-exporter prometheus-community/prometheus-blackbox-exporter \
-  --namespace monitoring
+  --namespace monitoring \
+  --version 11.10.0
 ```
 
 Aguardar subir:
