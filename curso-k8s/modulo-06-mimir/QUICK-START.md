@@ -316,6 +316,21 @@ Acesse: http://localhost:3000 (admin / prom-operator)
 Navegue até **Connections → Data sources** e confirme:
 - `Mimir` com status **OK** (verde)
 
+**Recuperar a senha do Grafana:**
+
+**PowerShell:**
+```powershell
+kubectl --namespace monitoring get secret kind-prometheus-grafana `
+  -o jsonpath="{.data.admin-password}" |
+  ForEach-Object { [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_)) }
+```
+
+**bash / zsh:**
+```bash
+kubectl --namespace monitoring get secret kind-prometheus-grafana \
+  -o jsonpath="{.data.admin-password}" | base64 --decode
+```
+
 ---
 
 ## Fase 4 — Confirmar que o Prometheus está enviando dados
