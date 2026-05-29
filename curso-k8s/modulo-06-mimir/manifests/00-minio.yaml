@@ -58,8 +58,9 @@ spec:
       containers:
         - name: minio
           # Imagem oficial do MinIO — atualizar a tag conforme necessário.
+          # ⚠️  Docker Hub arquivado em set/2025. Última tag válida: RELEASE.2025-09-07T16-13-09Z
           # Verifique tags disponíveis: https://hub.docker.com/r/minio/minio/tags
-          image: minio/minio:RELEASE.2025-10-15T17-29-55Z
+          image: minio/minio:RELEASE.2025-09-07T16-13-09Z
           imagePullPolicy: IfNotPresent
           args:
             - server
