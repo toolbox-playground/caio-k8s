@@ -1,0 +1,35 @@
+# values-tempo.yaml
+# Values para o chart grafana-community/tempo (modo monolítico — single binary).
+#
+# ATENÇÃO: o chart grafana/tempo foi migrado para grafana-community/helm-charts em jan/2026.
+# Use o novo repo:
+#   helm repo add grafana-community https://grafana-community.github.io/helm-charts
+#   helm install tempo grafana-community/tempo -n monitoring -f stack/opentelemetry/helm-values/values-tempo.yaml
+#
+# Em produção:
+#   - Use grafana/tempo-distributed para escalabilidade horizontal
+#   - Troque backend: local por s3, gcs ou azure (object storage)
+#   - Habilite replicação e retenção configuráveis
+
+tempo:
+  storage:
+    trace:
+      # Onde o Tempo persiste os blocos de trace.
+      # local = PVC montado no pod. Dados são perdidos se o PVC for deletado.
+      # Alternativas produtivas: s3, gcs, azure
+      backend: local
+      local:
+        path: /var/tempo/traces
+
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          # Porta padrão OTLP/gRPC — endereço que o OTel Collector usa ao enviar traces.
+          # No 02-otel-collector.yaml: endpoint: tempo.monitoring.svc.cluster.local:4317
+          # 0.0.0.0 = escuta em todas as interfaces do pod
+          endpoint: 0.0.0.0:4317
+        http:
+          # Porta alternativa OTLP/HTTP (protobuf ou JSON).
+          # Útil para clientes que não suportam gRPC (ex: browsers via CORS).
+          endpoint: 0.0.0.0:4318

@@ -1,0 +1,13 @@
+# values-minio.yaml
+# ⚠️  DESCONTINUADO — o chart bitnami/minio foi descontinuado.
+#
+# Este arquivo é mantido apenas para referência histórica.
+# Use o manifest oficial em: manifests/00-minio.yaml
+#
+#   kubectl apply -f manifests/00-minio.yaml
+#
+# O manifest substitui este chart com:
+#   - StatefulSet oficial minio/minio
+#   - Job com minio/mc para criação dos buckets
+#   - Secret para as credenciais
+#   - Services (ClusterIP + NodePort)

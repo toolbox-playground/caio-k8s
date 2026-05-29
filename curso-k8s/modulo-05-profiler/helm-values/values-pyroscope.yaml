@@ -1,0 +1,26 @@
+# values-pyroscope.yaml
+# Helm values para o Grafana Pyroscope — idêntico às outras abordagens.
+# O Pyroscope Server é o mesmo independente da origem dos profiles.
+#
+# Instalar:
+#   helm install pyroscope grafana/pyroscope \
+#     --namespace monitoring \
+#     --create-namespace \
+#     -f helm-values/values-pyroscope.yaml
+
+service:
+  type: NodePort
+  nodePort: 34040  # requer service-node-port-range: 30000-40000 no cluster-config.yaml
+
+pyroscope:
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  persistence:
+    enabled: false

@@ -169,7 +169,7 @@ spec:
       containers:
       - name: otel-collector
         # contrib: versão com exportadores extras (Loki, etc.)
-        image: otel/opentelemetry-collector-contrib:0.113.0
+        image: otel/opentelemetry-collector-contrib:0.153.0
         imagePullPolicy: IfNotPresent
 
         args:

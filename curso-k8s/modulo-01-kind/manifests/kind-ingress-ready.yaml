@@ -11,7 +11,7 @@ name: ingress-ready
 nodes:
   # Node 1 - Control Plane (configurado para Ingress)
   - role: control-plane
-    image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+    image: kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
     
     # Patches do kubeadm: Modificam configuração inicial do Kubernetes
     kubeadmConfigPatches:
@@ -39,7 +39,7 @@ nodes:
   # Node 2 - Worker (Zone A)
   # Executa pods de aplicações
   - role: worker
-    image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+    image: kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
     labels:
       tier: compute
       zone: zone-a
@@ -47,7 +47,7 @@ nodes:
   # Node 3 - Worker (Zone B)
   # Distribui carga entre zonas
   - role: worker
-    image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+    image: kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
     labels:
       tier: compute
       zone: zone-b

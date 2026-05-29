@@ -1,0 +1,152 @@
+# ============================================================
+# Grafana — Datasources: Loki, Tempo e Pyroscope
+# ============================================================
+# Provisiona os datasources de observabilidade no Grafana via
+# sidecar do kube-prometheus-stack.
+#
+# Aplicar (incluído automaticamente em: kubectl apply -f stack/monitoring/manifests/):
+#   kubectl apply -f stack/monitoring/manifests/04-grafana-datasources.yaml
+#
+# DEPENDÊNCIAS:
+#   - Loki:      instalado no passo 0.7 deste módulo
+#   - Tempo:     requer modulo-04-opentelemetry
+#   - Pyroscope: requer modulo-05-profiler
+#
+# Se Tempo ou Pyroscope não estiverem instalados, o datasource aparecerá
+# como "Unable to connect" no Grafana — isso é esperado e não impede o
+# funcionamento dos demais. Quando o serviço subir, o datasource ativa.
+#
+# Verificar após aplicar:
+#   kubectl logs -n monitoring \
+#     -l app.kubernetes.io/name=grafana \
+#     -c grafana-sc-datasources --tail=20
+# ============================================================
+
+# ── Datasource Loki ──────────────────────────────────────────
+# Backend de logs. Disponível a partir do passo 0.7 (Loki + Fluent Bit).
+# UID fixo (loki) referenciado pelo datasource Tempo em tracesToLogsV2.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-loki
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+
+data:
+  loki-datasource.yaml: |
+    apiVersion: 1
+
+    datasources:
+
+      - name: loki
+        type: loki
+        uid: loki
+        url: http://loki.monitoring.svc.cluster.local:3100
+        access: proxy
+        basicAuth: false
+        isDefault: false
+        editable: true
+        jsonData:
+          # Correlação Logs → Traces: abre o Tempo ao encontrar um traceId nos logs.
+          # O OTel SDK emite logs com o campo trace_id no body JSON.
+          derivedFields:
+            - name: TraceID
+              matcherRegex: '"trace_id":"(\w+)"'
+              url: '$${__value.raw}'
+              datasourceUid: tempo
+              urlDisplayLabel: "Abrir trace no Tempo"
+
+---
+
+# ── Datasource Pyroscope ─────────────────────────────────────
+# Backend de continuous profiling (modulo-05).
+# UID fixo (pyroscope) referenciado pelo datasource Tempo em tracesToProfiles.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-pyroscope
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+
+data:
+  pyroscope-datasource.yaml: |
+    apiVersion: 1
+    datasources:
+
+      - name: grafana-pyroscope-datasource
+        type: grafana-pyroscope-datasource
+        uid: pyroscope
+        url: http://pyroscope.monitoring.svc.cluster.local:4040
+        access: proxy
+        basicAuth: false
+        isDefault: false
+        editable: true
+
+---
+
+# ── Datasource Tempo ─────────────────────────────────────────
+# Backend de distributed tracing (modulo-04).
+# Inclui correlações para Loki (Logs), Prometheus (Métricas) e Pyroscope (Profiles).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-tempo
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+
+data:
+  tempo-datasource.yaml: |
+    apiVersion: 1
+
+    deleteDatasources:
+      - name: tempo
+        orgId: 1
+
+    datasources:
+
+      - name: tempo
+        type: tempo
+        uid: tempo
+        url: http://tempo.monitoring.svc.cluster.local:3200
+        access: proxy
+        basicAuth: false
+        isDefault: false
+        editable: true
+        jsonData:
+
+          # ── Trace → Logs (Loki) ────────────────────────────
+          tracesToLogsV2:
+            datasourceUid: loki
+            customQuery: false
+            tags:
+              - key: service.name
+                value: service_name
+
+          # ── Trace → Metrics (Prometheus) ──────────────────
+          tracesToMetrics:
+            datasourceUid: prometheus
+            spanStartTimeShift: "-2m"
+            spanEndTimeShift: "2m"
+            tags:
+              - key: service.name
+                value: service_name
+            queries:
+              - name: "Taxa de requisições"
+                query: "sum(rate(request_duration_ms_milliseconds_count{$$__tags}[2m])) by (exported_endpoint)"
+              - name: "Taxa de erros"
+                query: "sum(rate(api_errors_total{$$__tags}[2m])) by (exported_endpoint, reason)"
+              - name: "Latência p95 (ms)"
+                query: "histogram_quantile(0.95, sum(rate(request_duration_ms_milliseconds_bucket{$$__tags}[2m])) by (le, exported_endpoint))"
+
+          # ── Trace → Profiles (Pyroscope) — modulo-05 ──────
+          tracesToProfiles:
+            datasourceUid: pyroscope
+            profileTypeId: "process_cpu:cpu:nanoseconds:cpu:nanoseconds"
+            customQuery: true
+            query: '{$$__tags}'
+            tags:
+              - key: service.name
+                value: service_name

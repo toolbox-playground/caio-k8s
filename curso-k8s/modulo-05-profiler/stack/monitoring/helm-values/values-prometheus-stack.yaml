@@ -1,0 +1,43 @@
+# values-prometheus-stack.yaml
+# Values base do kube-prometheus-stack para o cluster Kind local.
+#
+# Em produção: remova os NodePorts e use Ingress ou LoadBalancer.
+# Altere os externalUrl para os domínios públicos do cluster.
+
+prometheus:
+  service:
+    type: NodePort
+    nodePort: 30090
+  prometheusSpec:
+    # Permite que o Prometheus colete ServiceMonitors de qualquer namespace,
+    # não apenas os criados pelo próprio chart (kube-prometheus-stack).
+    # Necessário para monitorar o namespace games sem precisar de labels específicos.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    # Controla o link "Source" nas notificações do Alertmanager (ex: Discord).
+    # Em produção, substitua pela URL pública do Prometheus.
+    externalUrl: http://localhost:9090
+
+grafana:
+  service:
+    type: NodePort
+    nodePort: 31000
+  sidecar:
+    alerts:
+      # Habilita o sidecar que detecta ConfigMaps com label
+      # "grafana_alert: 1" e os carrega como alert rules.
+      # Aplicar mudança: helm upgrade kind-prometheus ... -f values-prometheus-stack.yaml
+      enabled: true
+
+alertmanager:
+  service:
+    type: NodePort
+    nodePort: 32000
+  alertmanagerSpec:
+    # Controla o link de retorno nas notificações do Alertmanager.
+    # Em produção, substitua pela URL pública do Alertmanager.
+    externalUrl: http://localhost:9093
+
+prometheus-node-exporter:
+  service:
+    type: NodePort
+    nodePort: 32001

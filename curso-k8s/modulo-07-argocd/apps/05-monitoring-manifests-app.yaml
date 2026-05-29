@@ -1,0 +1,44 @@
+# ============================================================
+# ArgoCD Application — Monitoring Manifests
+# ============================================================
+# Aplica os manifests de configuração do monitoring:
+#   - 01-four-golden-signals.yaml  → dashboard Grafana
+#   - 02-blackbox-probe.yaml       → probe de disponibilidade
+#   - 03-grafana-alert-rules.yaml  → regras de alerta
+#   - 04-grafana-datasources.yaml  → datasources Loki/Tempo/Pyroscope
+#
+# Estes são ConfigMaps/YAMLs puros (sem Helm), por isso usam
+# uma única source apontando para o path no repositório.
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring-manifests
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    module: "07"
+    tier: monitoring
+
+spec:
+  project: default
+
+  source:
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+    # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
+    targetRevision: HEAD
+    path: curso-k8s/modulo-07-argocd/stack/monitoring/manifests
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

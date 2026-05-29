@@ -1,0 +1,26 @@
+# ============================================================
+# Service: Ranking API
+# ============================================================
+# ClusterIP: acessível internamente por outros pods.
+# Para acesso externo, use port-forward:
+#   kubectl port-forward svc/ranking-api -n games 8082:80
+# ============================================================
+
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: ranking-api
+  namespace: games
+  labels:
+    app: ranking-api
+
+spec:
+  type: ClusterIP
+  selector:
+    app: ranking-api
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8000
+    protocol: TCP

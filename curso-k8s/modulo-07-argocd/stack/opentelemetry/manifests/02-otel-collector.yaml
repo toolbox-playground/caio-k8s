@@ -1,0 +1,252 @@
+# ============================================================
+# OTel Collector — ConfigMap + Deployment + Service
+# ============================================================
+# O Collector é o ponto central de coleta de telemetria.
+# Recebe traces/métricas/logs das aplicações via OTLP e
+# distribui para Tempo, Prometheus e Loki.
+#
+# Aplicar: kubectl apply -f 03-otel-collector.yaml
+# ============================================================
+
+# ── Namespace ────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: otel
+  labels:
+    module: "04-opentelemetry"
+
+---
+# ── ConfigMap: configuração do pipeline do Collector ─────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: otel
+
+data:
+  config.yaml: |
+
+    # ── Extensions: funcionalidades extras do Collector ──────
+    extensions:
+      # Expõe endpoint de health check na porta 13133
+      # Usado pela readinessProbe do Kubernetes
+      health_check:
+        endpoint: 0.0.0.0:13133
+
+    # ── Receivers: como o Collector recebe dados ─────────────
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            # Porta padrão OTLP/gRPC — aplicações enviam aqui
+            endpoint: 0.0.0.0:4317
+          http:
+            # Porta padrão OTLP/HTTP — alternativa ao gRPC
+            endpoint: 0.0.0.0:4318
+
+    # ── Processors: transformam os dados antes de exportar ───
+    processors:
+      # Agrupa dados em lotes para envio eficiente
+      batch:
+        timeout: 1s
+        send_batch_size: 1024
+
+      # Limita uso de memória — evita OOMKill do Collector
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 256
+        spike_limit_mib: 64
+
+      # Promove resource attributes do OTel para stream labels indexados do Loki.
+      #
+      # loki.resource.labels define QUAIS atributos do Resource viram labels de stream.
+      # Labels de stream são indexados — buscar por eles é rápido e barato.
+      # Atributos NÃO listados aqui ficam apenas no body do log (não indexados).
+      #
+      # Mapeamento após conversão (ponto → underscore):
+      #   service.name           → service_name="ranking-api"
+      #   deployment.environment → deployment_environment="kind-dev"
+      #   k8s.namespace.name     → k8s_namespace_name="games"
+      #
+      # Resultado no Loki: {service_name="ranking-api", level="ERROR"}
+      # O traceID NÃO está aqui — fica no body como JSON (não indexado).
+      resource:
+        attributes:
+        - action: insert
+          key: loki.resource.labels
+          value: service.name, deployment.environment, k8s.namespace.name
+
+    # ── Exporters: para onde os dados são enviados ───────────
+    exporters:
+      # Traces → Grafana Tempo (via OTLP/gRPC interno)
+      otlp/tempo:
+        endpoint: tempo.monitoring.svc.cluster.local:4317
+        tls:
+          insecure: true
+
+      # Métricas → Prometheus (Collector expõe endpoint /metrics)
+      # O Prometheus faz scrape neste endpoint via PodMonitor (04-podmonitor-otel-collector.yaml)
+      prometheus:
+        endpoint: 0.0.0.0:8889
+        resource_to_telemetry_conversion:
+          # Com enabled: true, os resource attributes do OTel viram labels Prometheus.
+          # Sem isso, as métricas aparecem sem identificação de origem:
+          #   ANTES: scores_submitted_total{}
+          #   DEPOIS: scores_submitted_total{service_name="ranking-api", deployment_environment="kind-dev"}
+          # A conversão de ponto→underscore (service.name→service_name) é automática.
+          enabled: true
+
+      # Logs → Loki (via API HTTP push)
+      loki:
+        endpoint: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
+
+      # Debug (opcional): loga dados no stdout do Collector
+      # Útil para troubleshooting, desabilitar em produção
+      debug:
+        verbosity: basic
+
+    # ── Service: define os pipelines de dados ────────────────
+    service:
+      pipelines:
+        # Pipeline de traces: OTLP → batch → Tempo
+        traces:
+          receivers:  [otlp]
+          processors: [memory_limiter, batch]
+          exporters:  [otlp/tempo]
+
+        # Pipeline de métricas: OTLP → batch → Prometheus
+        metrics:
+          receivers:  [otlp]
+          processors: [memory_limiter, batch]
+          exporters:  [prometheus]
+
+        # Pipeline de logs: OTLP → enriquece com labels → Loki
+        # O processor `resource` está APENAS neste pipeline — ele define quais
+        # atributos do Resource viram stream labels no Loki (via loki.resource.labels).
+        # Traces e métricas não precisam dele porque Tempo e Prometheus têm seus
+        # próprios mecanismos de enriquecimento (resource_to_telemetry_conversion).
+        logs:
+          receivers:  [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters:  [loki]
+
+      # Métricas internas do próprio Collector
+      telemetry:
+        metrics:
+          address: 0.0.0.0:8888
+      # Ativar extensões no service
+      extensions: [health_check]
+
+---
+# ── Deployment: o processo do Collector ──────────────────────
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: otel-collector
+  namespace: otel
+  labels:
+    app: otel-collector
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+      annotations:
+        # Prometheus scrape automático das métricas do Collector
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8889"
+        prometheus.io/path: "/metrics"
+
+    spec:
+      containers:
+      - name: otel-collector
+        # contrib: versão com exportadores extras (Loki, etc.)
+        image: otel/opentelemetry-collector-contrib:0.113.0
+        imagePullPolicy: IfNotPresent
+
+        args:
+        - "--config=/conf/config.yaml"
+
+        ports:
+        - name: otlp-grpc
+          containerPort: 4317   # recebe dados das aplicações (gRPC)
+        - name: otlp-http
+          containerPort: 4318   # recebe dados das aplicações (HTTP)
+        - name: metrics-app
+          containerPort: 8889   # expõe métricas das aplicações para Prometheus
+        - name: metrics-self
+          containerPort: 8888   # expõe métricas internas do Collector
+        - name: health-check
+          containerPort: 13133  # health check (usado pela readinessProbe)
+
+        volumeMounts:
+        - name: config
+          mountPath: /conf
+
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 13133  # porta de health check do otelcol
+          initialDelaySeconds: 5
+          periodSeconds: 10
+
+      volumes:
+      - name: config
+        configMap:
+          name: otel-collector-config
+
+---
+# ── Service: expõe o Collector para as aplicações ────────────
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: otel-collector
+  namespace: otel
+  labels:
+    app: otel-collector
+
+spec:
+  type: ClusterIP
+  selector:
+    app: otel-collector
+  ports:
+  # OTLP gRPC — usado pelas aplicações para enviar telemetria
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+    protocol: TCP
+
+  # OTLP HTTP — alternativa ao gRPC
+  - name: otlp-http
+    port: 4318
+    targetPort: 4318
+    protocol: TCP
+
+  # Métricas das aplicações (scrapeadas pelo Prometheus)
+  - name: metrics-app
+    port: 8889
+    targetPort: 8889
+    protocol: TCP
+
+  # Métricas internas do Collector
+  - name: metrics-self
+    port: 8888
+    targetPort: 8888
+    protocol: TCP

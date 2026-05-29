@@ -1,0 +1,311 @@
+# ============================================================
+# ConfigMap: Grafana Alert Rules — Four Golden Signals
+# ============================================================
+# O sidecar do Grafana (grafana-sc-alerts) monitora ConfigMaps
+# com label "grafana_alert: 1" e os carrega como alert rules
+# via provisionamento automático.
+#
+# Pré-requisito no Helm values (values-prometheus-stack.yaml):
+#   grafana:
+#     sidecar:
+#       alerts:
+#         enabled: true
+#
+# Após ativar o sidecar, basta aplicar este ConfigMap:
+#   kubectl apply -f 03-grafana-alert-rules.yaml
+#
+# Verificar: Grafana UI → Alerting → Alert Rules
+#            Pasta: "K8s Essentials"
+#
+# IMPORTANTE — datasourceUid:
+#   O UID padrão do Prometheus no kube-prometheus-stack é "prometheus".
+#   Se não funcionar, consulte: Grafana → Connections → Data sources
+#   → Prometheus → copie o UID e substitua abaixo.
+# ============================================================
+
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: grafana-alert-rules-four-golden-signals
+  namespace: monitoring
+  labels:
+    # Label obrigatório para o sidecar detectar este ConfigMap
+    grafana_alert: "1"
+
+data:
+  four-golden-signals.yaml: |
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: "Four Golden Signals — Games"
+        folder: "K8s Essentials"
+        # Intervalo de avaliação das regras
+        interval: 1m
+        rules:
+
+          # --------------------------------------------------------
+          # SINAL 1: TRÁFEGO (Traffic)
+          # Proxy: bytes de rede recebidos pelos pods no namespace games
+          # --------------------------------------------------------
+          - uid: fgs-alto-trafego
+            title: "Alto Tráfego — namespace games"
+            condition: B
+            data:
+              - refId: A
+                relativeTimeRange: {from: 300, to: 0}
+                datasourceUid: prometheus
+                model:
+                  datasource: {type: prometheus, uid: prometheus}
+                  expr: 'sum(rate(container_network_receive_bytes_total{namespace="games",pod!=""}[5m]))'
+                  instant: true
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  refId: A
+              - refId: B
+                datasourceUid: __expr__
+                model:
+                  type: classic_conditions
+                  datasource: {type: __expr__, uid: __expr__}
+                  conditions:
+                    - type: query
+                      evaluator: {type: gt, params: [1048576]}
+                      operator: {type: and}
+                      query: {params: [A]}
+                      reducer: {type: last, params: []}
+                  refId: B
+            noDataState: NoData
+            execErrState: Alerting
+            for: 2m
+            labels:
+              severity: warning
+              signal: traffic
+            annotations:
+              summary: "Alto volume de tráfego no namespace games"
+              description: >
+                Taxa de recebimento de rede acima de 1 MB/s por mais de 2 minutos.
+                Verifique se há stress test ativo ou pico de acessos reais.
+
+          # --------------------------------------------------------
+          # SINAL 2: ERROS (Errors) — Pod reiniciando
+          # Container reiniciando indica crash, OOMKill ou erro
+          # --------------------------------------------------------
+          - uid: fgs-pod-restart
+            title: "Pod Reiniciando Frequentemente — games"
+            condition: B
+            data:
+              - refId: A
+                relativeTimeRange: {from: 900, to: 0}
+                datasourceUid: prometheus
+                model:
+                  datasource: {type: prometheus, uid: prometheus}
+                  expr: 'increase(kube_pod_container_status_restarts_total{namespace="games"}[15m])'
+                  instant: true
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  refId: A
+              - refId: B
+                datasourceUid: __expr__
+                model:
+                  type: classic_conditions
+                  datasource: {type: __expr__, uid: __expr__}
+                  conditions:
+                    - type: query
+                      evaluator: {type: gt, params: [2]}
+                      operator: {type: and}
+                      query: {params: [A]}
+                      reducer: {type: last, params: []}
+                  refId: B
+            noDataState: NoData
+            execErrState: Alerting
+            for: 0s
+            labels:
+              severity: critical
+              signal: errors
+            annotations:
+              summary: "Pod reiniciando com frequência no namespace games"
+              description: >
+                Um pod no namespace games reiniciou mais de 2 vezes nos últimos 15 minutos.
+                Possível causa: OOMKill, erro de aplicação ou liveness probe falhando.
+
+          # --------------------------------------------------------
+          # SINAL 2: ERROS (Errors) — Pod fora do Ready
+          # Pod existe mas não está pronto para receber tráfego
+          # --------------------------------------------------------
+          - uid: fgs-pod-not-ready
+            title: "Pod Não Disponível — games"
+            condition: B
+            data:
+              - refId: A
+                relativeTimeRange: {from: 300, to: 0}
+                datasourceUid: prometheus
+                model:
+                  datasource: {type: prometheus, uid: prometheus}
+                  expr: 'kube_pod_status_ready{namespace="games",condition="false"}'
+                  instant: true
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  refId: A
+              - refId: B
+                datasourceUid: __expr__
+                model:
+                  type: classic_conditions
+                  datasource: {type: __expr__, uid: __expr__}
+                  conditions:
+                    - type: query
+                      evaluator: {type: gt, params: [0]}
+                      operator: {type: and}
+                      query: {params: [A]}
+                      reducer: {type: last, params: []}
+                  refId: B
+            noDataState: OK
+            execErrState: Alerting
+            for: 5m
+            labels:
+              severity: critical
+              signal: errors
+            annotations:
+              summary: "Pod não está em estado Ready no namespace games"
+              description: >
+                Um pod no namespace games não está Ready há 5 minutos.
+                O Service pode estar roteando tráfego para um pod não funcional.
+
+          # --------------------------------------------------------
+          # SINAL 3: SATURAÇÃO (Saturation) — CPU
+          # Uso atual vs. limit definido no container spec
+          # --------------------------------------------------------
+          - uid: fgs-alto-cpu
+            title: "Alto CPU — Super Mario"
+            condition: B
+            data:
+              - refId: A
+                relativeTimeRange: {from: 300, to: 0}
+                datasourceUid: prometheus
+                model:
+                  datasource: {type: prometheus, uid: prometheus}
+                  expr: >-
+                    sum by (pod) (
+                      rate(container_cpu_usage_seconds_total{namespace="games",container="super-mario"}[5m])
+                    )
+                    /
+                    sum by (pod) (
+                      kube_pod_container_resource_limits{namespace="games",container="super-mario",resource="cpu"}
+                    )
+                  instant: true
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  refId: A
+              - refId: B
+                datasourceUid: __expr__
+                model:
+                  type: classic_conditions
+                  datasource: {type: __expr__, uid: __expr__}
+                  conditions:
+                    - type: query
+                      evaluator: {type: gt, params: [0.8]}
+                      operator: {type: and}
+                      query: {params: [A]}
+                      reducer: {type: last, params: []}
+                  refId: B
+            noDataState: NoData
+            execErrState: Alerting
+            for: 3m
+            labels:
+              severity: warning
+              signal: saturation
+            annotations:
+              summary: "CPU acima de 80% do limit no Super Mario"
+              description: >
+                Um pod do Super Mario está usando mais de 80% do CPU limit por 3 minutos.
+                O HPA deveria estar criando mais réplicas. Verifique: kubectl get hpa -n games
+
+          # --------------------------------------------------------
+          # SINAL 3: SATURAÇÃO (Saturation) — Memória
+          # Risco de OOMKill quando o uso se aproxima do limit
+          # --------------------------------------------------------
+          - uid: fgs-alta-memoria
+            title: "Alta Memória — Super Mario"
+            condition: B
+            data:
+              - refId: A
+                relativeTimeRange: {from: 300, to: 0}
+                datasourceUid: prometheus
+                model:
+                  datasource: {type: prometheus, uid: prometheus}
+                  expr: >-
+                    container_memory_working_set_bytes{namespace="games",container="super-mario"}
+                    /
+                    container_spec_memory_limit_bytes{namespace="games",container="super-mario"}
+                  instant: true
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  refId: A
+              - refId: B
+                datasourceUid: __expr__
+                model:
+                  type: classic_conditions
+                  datasource: {type: __expr__, uid: __expr__}
+                  conditions:
+                    - type: query
+                      evaluator: {type: gt, params: [0.8]}
+                      operator: {type: and}
+                      query: {params: [A]}
+                      reducer: {type: last, params: []}
+                  refId: B
+            noDataState: NoData
+            execErrState: Alerting
+            for: 3m
+            labels:
+              severity: warning
+              signal: saturation
+            annotations:
+              summary: "Memória acima de 80% do limit no Super Mario"
+              description: >
+                Um pod do Super Mario está usando mais de 80% do memory limit por 3 minutos.
+                Risco de OOMKill. Verifique se o limit está subdimensionado.
+
+          # --------------------------------------------------------
+          # SINAL 4: LATÊNCIA (Latency) — Proxy via HPA
+          # HPA no máximo = sistema sem margem para absorver carga
+          # --------------------------------------------------------
+          - uid: fgs-hpa-limite
+            title: "HPA no Limite Máximo — games"
+            condition: B
+            data:
+              - refId: A
+                relativeTimeRange: {from: 300, to: 0}
+                datasourceUid: prometheus
+                model:
+                  datasource: {type: prometheus, uid: prometheus}
+                  expr: >-
+                    kube_horizontalpodautoscaler_status_current_replicas{namespace="games"}
+                    /
+                    kube_horizontalpodautoscaler_spec_max_replicas{namespace="games"}
+                  instant: true
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  refId: A
+              - refId: B
+                datasourceUid: __expr__
+                model:
+                  type: classic_conditions
+                  datasource: {type: __expr__, uid: __expr__}
+                  conditions:
+                    - type: query
+                      evaluator: {type: gte, params: [1]}
+                      operator: {type: and}
+                      query: {params: [A]}
+                      reducer: {type: last, params: []}
+                  refId: B
+            noDataState: NoData
+            execErrState: Alerting
+            for: 5m
+            labels:
+              severity: warning
+              signal: latency
+            annotations:
+              summary: "HPA atingiu número máximo de réplicas no namespace games"
+              description: >
+                O HPA está operando no limite máximo de réplicas há 5 minutos.
+                O sistema não consegue mais escalar horizontalmente.
+                Risco de degradação de latência.

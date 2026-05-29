@@ -1,0 +1,63 @@
+# ============================================================
+# ArgoCD Application — kube-prometheus-stack
+# ============================================================
+# Instala o kube-prometheus-stack via Helm usando o padrão
+# "multi-source": uma fonte para o chart Helm e outra para
+# o arquivo de values no repositório Git.
+#
+# Multi-source (ArgoCD 2.6+):
+#   → source[0]: chart Helm (prometheus-community)
+#   → source[1]: repositório git com os values (ref: values)
+#   O values file usa "$values" como alias para a fonte[1].
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus-stack
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    module: "07"
+    tier: monitoring
+
+spec:
+  project: default
+
+  sources:
+
+    # ── Fonte 1: Helm chart do prometheus-community ─────────────────────
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      # "*" = última versão disponível.
+      # Em produção: pin para uma versão específica (ex: "70.3.0")
+      # para garantir deployments determinísticos.
+      # Verifique: helm search hub kube-prometheus-stack
+      targetRevision: "*"
+      helm:
+        releaseName: kind-prometheus
+        # Referencia o arquivo de values da Fonte 2.
+        # "$values" é um alias para a fonte com ref: values
+        valueFiles:
+          - $values/curso-k8s/modulo-07-argocd/stack/monitoring/helm-values/values-prometheus-stack.yaml
+
+    # ── Fonte 2: repositório git com os values ───────────────────────────
+    # "ref: values" cria o alias "$values" usado em valueFiles acima.
+    # Não tem "path" — apenas servir como referência para os values.
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+      # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
+      targetRevision: HEAD
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

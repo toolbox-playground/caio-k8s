@@ -1,0 +1,29 @@
+# values-fluent-bit.yaml
+# Configuração do Fluent Bit para enviar logs ao Loki 3.x via gateway.
+#
+# Este arquivo sobrescreve o bloco [OUTPUT] padrão do chart fluent/fluent-bit.
+# O output `loki` envia cada linha de log ao endpoint HTTP do loki-gateway,
+# enriquecendo o stream com os labels de namespace, pod e container extraídos
+# automaticamente pelo filtro Kubernetes.
+
+config:
+  # Filtro Kubernetes: enriquece cada log com metadados do pod (namespace, pod, container, etc.)
+  filters: |
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Merge_Log           On
+        Keep_Log            Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+
+  # Output: envia logs ao gateway do Loki via plugin nativo
+  outputs: |
+    [OUTPUT]
+        Name                   loki
+        Match                  kube.*
+        Host                   loki-gateway.monitoring.svc.cluster.local
+        Port                   80
+        Labels                 job=fluent-bit
+        label_keys             $kubernetes['namespace_name'],$kubernetes['container_name'],$kubernetes['pod_name']
+        auto_kubernetes_labels on

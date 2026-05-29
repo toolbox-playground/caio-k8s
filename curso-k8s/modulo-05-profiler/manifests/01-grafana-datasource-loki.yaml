@@ -1,0 +1,64 @@
+# ============================================================
+# Grafana — Datasource Loki (provisionado como código)
+# ============================================================
+# Provisiona o datasource Loki no Grafana via sidecar do
+# kube-prometheus-stack.
+#
+# O UID (loki) é referenciado pelo datasource Tempo em
+# tracesToLogsV2.datasourceUid — alterar quebra o botão
+# "Logs for this span" no Grafana Explore → Tempo.
+#
+# Aplicar:
+#   kubectl apply -f manifests/01-grafana-datasource-loki.yaml
+#
+# Verificar:
+#   kubectl logs -n monitoring \
+#     -l app.kubernetes.io/name=grafana \
+#     -c grafana-sc-datasources --tail=10
+# ============================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-loki
+  namespace: monitoring
+  labels:
+    # Label que o sidecar do Grafana observa para provisionamento automático.
+    grafana_datasource: "1"
+
+data:
+  loki-datasource.yaml: |
+    apiVersion: 1
+
+    datasources:
+
+      # ── Grafana Loki ───────────────────────────────────────
+      # Backend de logs. Recebe logs enviados pelo Fluent Bit
+      # (infra) e pelo OTel Collector (aplicações).
+      #
+      # uid fixo referenciado pelo datasource Tempo:
+      #   tracesToLogsV2.datasourceUid: loki
+      # Manter este UID garante que o botão "Logs for this span"
+      # no Tempo funcione sem reconfiguração manual.
+      - name: loki
+        type: loki
+        uid: loki
+        url: http://loki.monitoring.svc.cluster.local:3100
+        access: proxy
+        basicAuth: false
+        isDefault: false
+        editable: true
+        jsonData:
+          # Correlação Logs → Traces: abre o Tempo a partir de um traceId
+          # encontrado nos logs da ranking-api.
+          #
+          # O OTel SDK emite logs com o campo trace_id no body JSON.
+          # O Fluent Bit envia os logs da infra sem traceId (normal).
+          derivedFields:
+            - name: TraceID
+              # Regex que captura o traceId do log JSON emitido pelo OTel SDK.
+              # Exemplo de log: {"trace_id": "abc123...", "message": "..."}
+              matcherRegex: '"trace_id":"(\w+)"'
+              url: '$${__value.raw}'
+              datasourceUid: tempo   # UID do datasource Tempo
+              urlDisplayLabel: "Abrir trace no Tempo"

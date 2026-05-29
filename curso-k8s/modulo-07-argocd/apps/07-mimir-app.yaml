@@ -1,0 +1,51 @@
+# ============================================================
+# ArgoCD Application — Grafana Mimir
+# ============================================================
+# Aplica os manifests do Mimir (ConfigMap de config + StatefulSet
+# + Services + datasource do Grafana).
+#
+# Sync Wave 0 (padrão) → sobe depois do MinIO (wave -1).
+# O initContainer do StatefulSet já aguarda o MinIO via health check,
+# mas o sync wave garante que o ArgoCD nem tente aplicar o Mimir
+# antes do MinIO estar Healthy.
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mimir
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    module: "07"
+    tier: storage
+
+spec:
+  project: default
+
+  source:
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+    # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
+    targetRevision: HEAD
+    path: curso-k8s/modulo-07-argocd/stack/mimir/manifests
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+
+    # retry: tenta novamente se o sync falhar (útil enquanto o MinIO ainda sobe)
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

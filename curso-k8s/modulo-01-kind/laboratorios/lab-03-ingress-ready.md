@@ -140,7 +140,7 @@ kind create cluster --config .\temp-configs\kind-nginx.yaml
 
 Se você encontrar o erro `failed to init node with kubeadm: command "docker exec --privileged ingress-ready-control-plane kubeadm init"` ou avisos sobre API deprecated `kubeadm.k8s.io/v1beta3`, isso indica incompatibilidade com a versão mais recente do Kubernetes.
 
-**Solução:** Use a versão estável v1.31.0 especificando a imagem do node na configuração:
+**Solução:** Use a versão estável v1.32.11 especificando a imagem do node na configuração:
 
 ```powershell
 # Criar configuração com versão específica
@@ -150,7 +150,7 @@ apiVersion: kind.x-k8s.io/v1alpha4
 name: ingress-ready
 nodes:
 - role: control-plane
-  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  image: kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
   kubeadmConfigPatches:
   - |
     kind: InitConfiguration
@@ -165,9 +165,9 @@ nodes:
     hostPort: 443
     protocol: TCP
 - role: worker
-  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  image: kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
 - role: worker
-  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  image: kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
 "@ | Out-File -FilePath ".\temp-configs\kind-nginx.yaml" -Encoding UTF8
 
 # Criar cluster
@@ -183,7 +183,7 @@ apiVersion: kind.x-k8s.io/v1alpha4
 name: ingress-ready
 nodes:
 - role: control-plane
-  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  image: kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
   kubeadmConfigPatches:
   - |
     kind: InitConfiguration
@@ -198,9 +198,9 @@ nodes:
     hostPort: 443
     protocol: TCP
 - role: worker
-  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  image: kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
 - role: worker
-  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  image: kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
 EOF
 
 # Criar cluster
@@ -212,7 +212,7 @@ kind create cluster --config ./temp-configs/kind-nginx.yaml
 - **Causa**: Kubernetes v1.35.0 introduziu mudanças que quebram compatibilidade com kubeadm
 - **Sintoma**: Kubelet não inicia após 4 minutos, erro "connection refused" em `http://127.0.0.1:10248/healthz`
 - **API Deprecated**: `kubeadm.k8s.io/v1beta3` foi marcada como deprecated, causando instabilidade
-- **Solução**: Fixar versão em v1.31.0 (última versão estável testada com Kind)
+- **Solução**: Fixar versão em v1.32.11 (versão estável recomendada para Kind v0.31.0)
 - **SHA256**: O hash garante integridade da imagem baixada (segurança)
 
 **💡 Dica:** Sempre especifique a versão da imagem em ambientes de produção para evitar surpresas!
@@ -394,7 +394,7 @@ apiVersion: kind.x-k8s.io/v1alpha4
 name: ingress-ready
 nodes:
 - role: control-plane
-  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  image: kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
   kubeadmConfigPatches:
   - |
     kind: InitConfiguration
@@ -409,9 +409,9 @@ nodes:
     hostPort: 443
     protocol: TCP
 - role: worker
-  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  image: kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
 - role: worker
-  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  image: kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
 "@ | Out-File -FilePath ".\temp-configs\kind-ingress-ready.yaml" -Encoding UTF8
 
 # Criar cluster
@@ -427,7 +427,7 @@ apiVersion: kind.x-k8s.io/v1alpha4
 name: ingress-ready
 nodes:
 - role: control-plane
-  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  image: kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
   kubeadmConfigPatches:
   - |
     kind: InitConfiguration
@@ -442,9 +442,9 @@ nodes:
     hostPort: 443
     protocol: TCP
 - role: worker
-  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  image: kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
 - role: worker
-  image: kindest/node:v1.31.0@sha256:53df588e04085fd41ae12de0c3fe4c72f7013bba32a20e7325357a1ac94ba865
+  image: kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
 EOF
 
 # Criar cluster

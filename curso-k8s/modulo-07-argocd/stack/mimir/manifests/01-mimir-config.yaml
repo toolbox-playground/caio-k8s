@@ -1,0 +1,148 @@
+# ============================================================
+# Mimir — Configuração (monolithic mode)
+# ============================================================
+# Este ConfigMap contém o arquivo de configuração do Grafana Mimir.
+# O container Mimir lê este arquivo via -config.file=/etc/mimir/mimir.yaml
+#
+# Modo: all — todos os componentes em um único processo (monolithic).
+#   - ingester: recebe os dados do remote_write
+#   - distributor: roteia dados para o ingester
+#   - querier: executa queries PromQL lendo do storage
+#   - query-frontend: cache e paralelismo de queries
+#   - compactor: compacta blocos TSDB no object storage
+#   - store-gateway: serve blocos históricos do MinIO
+#   - alertmanager: gerencia alertas (complementar ao kube Alertmanager)
+#   - ruler: avalia recording rules e alertas no Mimir
+#
+# Em produção: separe cada componente em seu próprio Deployment
+# (modo microservices) para escalar de forma independente.
+# ============================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mimir-config
+  namespace: monitoring
+
+data:
+  mimir.yaml: |
+
+    # Modo de operação: "all" executa todos os componentes no mesmo processo.
+    # O Mimir adiciona também o alertmanager quando especificado.
+    target: all,alertmanager
+
+    # Multi-tenancy desabilitado para simplificar o ambiente local.
+    # Com false: não é necessário o header X-Scope-OrgID nas requisições.
+    # Em produção com vários times: habilite e use X-Scope-OrgID: <team> para
+    # isolar métricas de diferentes equipes no mesmo cluster Mimir.
+    multitenancy_enabled: false
+
+    server:
+      http_listen_port: 9009
+      grpc_listen_port: 9095
+      log_level: info
+
+    memberlist:
+      bind_port: 7946
+      join_members:
+        - 127.0.0.1:7946 # Faz o processo monolítico olhar para si mesmo via gRP
+
+    # ── Object Storage (configuração comum) ─────────────────────────────────
+    # Define o backend S3 compartilhado entre todos os componentes.
+    # O Mimir herda essa config nos blocos blocks_storage, alertmanager_storage
+    # e ruler_storage a menos que eles sobrescrevam explicitamente.
+    common:
+      storage:
+        backend: s3
+        s3:
+          # DNS interno do MinIO no cluster. Funciona porque ambos estão
+          # no namespace monitoring e o Kubernetes resolve via CoreDNS.
+          endpoint: minio.monitoring.svc.cluster.local:9000
+          access_key_id: mimir
+          secret_access_key: mimir-supersecret
+          # insecure: true = HTTP (não HTTPS). Seguro dentro do cluster Kind.
+          # Em produção: use HTTPS e certificados válidos.
+          insecure: true
+          # bucket_lookup_type: "path" = path-style URLs (http://minio:9000/bucket/key).
+          # Necessário para MinIO — o estilo virtual-hosted (default) não funciona em ambientes locais.
+          # Substituiu "path_style: true" removido no Mimir 3.0 (introduzido em 2.13.0 via -<prefix>.s3.bucket-lookup-type).
+          bucket_lookup_type: path
+
+    # ── Blocks Storage ────────────────────────────────────────────────────────
+    # Onde o Mimir armazena os blocos TSDB compactados.
+    blocks_storage:
+      s3:
+        bucket_name: mimir-blocks
+      tsdb:
+        # Diretório local para o WAL (Write Ahead Log) do ingester.
+        # Dados aqui são TEMPORÁRIOS — apenas até serem compactados para o MinIO.
+        # O PVC do pod garante que o WAL sobrevive a restarts do próprio Mimir.
+        dir: /data/tsdb
+        block_ranges_period: ["5m"] # Cria blocos a cada 5 minutos (padrão é 2h)
+        ship_interval: 1m          # Envia para o MinIO a cada 1 minuto (padrão é 1m)
+
+    # ── Alertmanager Storage ─────────────────────────────────────────────────
+    alertmanager_storage:
+      s3:
+        bucket_name: mimir-alertmanager
+
+    # ── Ruler Storage ─────────────────────────────────────────────────────────
+    ruler_storage:
+      s3:
+        bucket_name: mimir-ruler
+
+    # ── Ingester ──────────────────────────────────────────────────────────────
+    # O ingester recebe métricas via remote_write e mantém em memória
+    # antes de compactar para blocos e enviar ao object storage.
+    ingester:
+      ring:
+        kvstore:
+          store: memberlist
+        # 1 réplica: sem redundância. Em produção: 3 (quórum de escrita).
+        replication_factor: 1
+
+    # ── Store Gateway ─────────────────────────────────────────────────────────
+    # Serve blocos históricos do MinIO para queries de longa data.
+    store_gateway:
+      sharding_ring:
+        kvstore:
+          store: memberlist
+        replication_factor: 1
+
+    # ── Compactor ─────────────────────────────────────────────────────────────
+    # Compacta blocos pequenos em blocos maiores (reduz custo de query).
+    compactor:
+      # data_dir: diretório temporário para operações de compactação.
+      # O padrão ("./data-compactor/") usa o working dir do container, que pode
+      # não ser gravável. Usamos o PVC para garantir acesso de escrita.
+      data_dir: /data/compactor
+      sharding_ring:
+        kvstore:
+          store: memberlist
+        # wait_stability_min_duration: 0 = inicia compactação imediatamente.
+        # Em produção: deixe o padrão (1m) para estabilizar o ring antes.
+        wait_stability_min_duration: 0
+
+    # ── Alertmanager ───────────────────────────────────────────────────────────────────
+    # O alertmanager do Mimir permite criar alertas diretamente no Mimir
+    # (além do Alertmanager externo do kube-prometheus-stack).
+    alertmanager:
+      sharding_ring:
+        # Padrão é 3 (para produção com HA). Com 1 instância (monolithic),
+        # manter 3 impede o ring de atingir quórum e bloqueia a inicialização.
+        replication_factor: 1
+
+    # ── Limits ───────────────────────────────────────────────────────────────
+    # Limites globais por tenant (ou globais com multitenancy_enabled: false).
+    # Os valores abaixo são adequados para um cluster Kind com ~2.000 séries ativas.
+    limits:
+      # Taxa máxima de ingestão (samples/s por tenant).
+      ingestion_rate: 30000
+      ingestion_burst_size: 200000
+      # Máximo de séries ativas por tenant.
+      max_global_series_per_user: 1500000
+      # Kubernetes tem muitas labels por série — o padrão (30) é muito baixo.
+      max_label_names_per_series: 50
+      # Máximo de entradas de metadata (nome de métricas) por tenant.
+      # max_metadata_per_user: 10000
+      # max_metadata_per_metric: 10

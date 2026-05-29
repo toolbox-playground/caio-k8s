@@ -1,0 +1,42 @@
+# ============================================================
+# ArgoCD Application — Profiler manifests (ranking-api + load)
+# ============================================================
+# Aplica os manifests do diretório stack/profiler/manifests:
+#   - Deployment da ranking-api v2 (OTel + Pyroscope SDK)
+#   - Load generator da ranking-api
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: profiler-manifests
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    module: "07"
+    tier: observability
+  annotations:
+    # Sobe depois do OTel/Pyroscope para evitar perda de telemetria inicial.
+    argocd.argoproj.io/sync-wave: "2"
+
+spec:
+  project: default
+
+  source:
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+    # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
+    targetRevision: HEAD
+    path: curso-k8s/modulo-07-argocd/stack/profiler/manifests
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

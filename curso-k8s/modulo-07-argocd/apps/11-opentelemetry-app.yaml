@@ -1,0 +1,43 @@
+# ============================================================
+# ArgoCD Application — OpenTelemetry stack
+# ============================================================
+# Aplica:
+#   - Service ranking-api
+#   - OTel Collector (ConfigMap/Deployment/Service)
+#   - PodMonitor do Collector
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: opentelemetry
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    module: "07"
+    tier: observability
+  annotations:
+    # Sobe após Tempo/Loki/Prometheus já estarem disponíveis.
+    argocd.argoproj.io/sync-wave: "1"
+
+spec:
+  project: default
+
+  source:
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+    # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
+    targetRevision: HEAD
+    path: curso-k8s/modulo-07-argocd/stack/opentelemetry/manifests
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

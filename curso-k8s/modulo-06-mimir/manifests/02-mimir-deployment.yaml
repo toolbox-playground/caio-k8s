@@ -1,0 +1,204 @@
+# ============================================================
+# Mimir — StatefulSet + Services
+# ============================================================
+# O StatefulSet garante uma identidade estável para o pod (mimir-0)
+# e um PVC para o WAL do ingester. O Deployment seria equivalente
+# aqui, mas o StatefulSet facilita a adição de réplicas depois.
+#
+# Aplicar:
+#   kubectl apply -f 02-mimir-deployment.yaml
+#
+# Verificar:
+#   kubectl rollout status statefulset/mimir -n monitoring
+#   kubectl logs -n monitoring statefulset/mimir --tail=20
+# ============================================================
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mimir
+  namespace: monitoring
+  labels:
+    app: mimir
+    app.kubernetes.io/name: mimir
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mimir
+  serviceName: mimir-headless
+
+  template:
+    metadata:
+      labels:
+        app: mimir
+        app.kubernetes.io/name: mimir
+      annotations:
+        # Força restart do pod quando o ConfigMap mimir-config muda.
+        # Sem isso, o Mimir continuaria rodando com a config antiga após kubectl apply.
+        checksum/config: "{{ include (print $.Template.BasePath \"/01-mimir-config.yaml\") . | sha256sum }}"
+
+    spec:
+      # initContainer: aguarda o MinIO estar pronto antes de iniciar o Mimir.
+      # Sem isso, o Mimir pode falhar na inicialização se o MinIO ainda estiver subindo.
+      initContainers:
+        - name: wait-minio
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until wget -q -O- http://minio.monitoring.svc.cluster.local:9000/minio/health/live; do
+                echo "Aguardando MinIO ficar ready..."
+                sleep 3
+              done
+              echo "MinIO está ready. Iniciando Mimir."
+
+      containers:
+        - name: mimir
+          # Versão estável do Mimir. Verifique a versão mais recente em:
+          # https://hub.docker.com/r/grafana/mimir/tags
+          image: grafana/mimir:3.0.6
+          imagePullPolicy: IfNotPresent
+
+          args:
+            - -config.file=/etc/mimir/mimir.yaml
+
+          ports:
+            - name: http
+              containerPort: 9009
+              protocol: TCP
+            - name: grpc
+              containerPort: 9095
+              protocol: TCP
+
+          # Ponto de montagem do ConfigMap com mimir.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /etc/mimir
+              readOnly: true
+            # PVC para o WAL do ingester (dados temporários antes de ir para o MinIO)
+            - name: data
+              mountPath: /data
+
+          # Readiness: o Mimir está pronto quando /ready retorna 200.
+          # O Kubernetes só envia tráfego ao pod quando este check passa.
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 9009
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            failureThreshold: 6
+
+          # Liveness: reinicia o pod se travar por mais de 3 minutos.
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 9009
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 6
+
+          resources:
+            requests:
+              # 256Mi é suficiente para o cluster Kind com ~2.000 séries ativas.
+              # Em produção: ajuste com base no número de séries e query rate.
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+
+      volumes:
+        - name: config
+          configMap:
+            name: mimir-config
+
+  # PVC para o WAL do ingester.
+  # O WAL persiste entre restarts do Mimir — sem ele, o ingester perderia
+  # os dados que ainda não foram compactados para o MinIO.
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+
+---
+
+# ── Service ClusterIP ──────────────────────────────────────────────────────
+# Endpoint interno para o Prometheus (remote_write) e para o Grafana (queries).
+# DNS: mimir.monitoring.svc.cluster.local
+apiVersion: v1
+kind: Service
+metadata:
+  name: mimir
+  namespace: monitoring
+  labels:
+    app: mimir
+
+spec:
+  type: ClusterIP
+  selector:
+    app: mimir
+  ports:
+    - name: http
+      port: 9009
+      targetPort: 9009
+      protocol: TCP
+    - name: grpc
+      port: 9095
+      targetPort: 9095
+      protocol: TCP
+
+---
+
+# ── Service Headless (para StatefulSet) ────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: mimir-headless
+  namespace: monitoring
+  labels:
+    app: mimir
+
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: mimir
+  ports:
+    - name: http
+      port: 9009
+      targetPort: 9009
+
+---
+
+# ── Service NodePort (acesso externo ao Kind) ─────────────────────────────
+# Expõe a API do Mimir em localhost:9009 via NodePort 39009 do Kind.
+# Útil para testar queries PromQL diretamente sem port-forward.
+#
+# Acesse: http://localhost:9009/ready
+#         http://localhost:9009/prometheus/api/v1/query?query=up
+apiVersion: v1
+kind: Service
+metadata:
+  name: mimir-nodeport
+  namespace: monitoring
+  labels:
+    app: mimir
+
+spec:
+  type: NodePort
+  selector:
+    app: mimir
+  ports:
+    - name: http
+      port: 9009
+      targetPort: 9009
+      nodePort: 39009  # requer service-node-port-range: 30000-40000 no cluster-config.yaml
+      protocol: TCP
