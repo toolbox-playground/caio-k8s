@@ -8,7 +8,7 @@ metadata:
   name: pyroscope
   namespace: argocd
   finalizers:
-    - resources-finalizer.argocd.argoproj.io
+    - resources-finalizer.argocd.argoproj.io/foreground
   labels:
     module: "07"
     tier: observability
@@ -41,3 +41,4 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+

@@ -17,7 +17,7 @@ metadata:
   name: monitoring-manifests
   namespace: argocd
   finalizers:
-    - resources-finalizer.argocd.argoproj.io
+    - resources-finalizer.argocd.argoproj.io/foreground
   labels:
     module: "07"
     tier: monitoring
@@ -42,3 +42,4 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+
