@@ -19,7 +19,7 @@ metadata:
 # ========== ESPECIFICAÇÃO DO DEPLOYMENT ==========
 spec:
   # Número de réplicas: Quantos pods idênticos manter rodando
-  replicas: 3
+  replicas: 2
   
   # Seletor: Identifica quais pods este deployment gerencia
   # IMPORTANTE: Deve corresponder aos labels do template
