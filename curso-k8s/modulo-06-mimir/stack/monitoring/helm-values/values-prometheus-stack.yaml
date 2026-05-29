@@ -59,3 +59,19 @@ prometheus-node-exporter:
   service:
     type: NodePort
     nodePort: 32001
+
+# ── Targets que falham no Kind (bind em 127.0.0.1) ──────────────────────────
+# No Kind, esses componentes escutam em loopback e não são acessíveis ao
+# Prometheus via IP do nó. Desabilitar evita erros constantes no /targets.
+# Em produção (kubeadm, EKS, GKE) remova estas linhas.
+kubeControllerManager:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+kubeProxy:
+  enabled: false
+
+kubeScheduler:
+  enabled: false

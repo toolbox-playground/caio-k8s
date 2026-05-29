@@ -130,11 +130,28 @@ Acesse em: http://localhost:8081
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana              https://grafana.github.io/helm-charts
 helm repo add fluent               https://fluent.github.io/helm-charts
-helm repo add bitnami              https://charts.bitnami.com/bitnami
 helm repo update
 ```
 
-### 0.6 — Instalar kube-prometheus-stack
+### 0.6 — Instalar Blackbox Exporter
+
+O Blackbox Exporter é necessário para as probes HTTP do Mario (`02-blackbox-probe.yaml`).
+Sem ele, o Prometheus reporta `no such host` nos targets.
+
+```bash
+# Linux / macOS
+helm upgrade --install blackbox-exporter prometheus-community/prometheus-blackbox-exporter \
+  --namespace monitoring \
+  --wait --timeout 2m
+```
+```pwsh
+# Windows (PowerShell)
+helm upgrade --install blackbox-exporter prometheus-community/prometheus-blackbox-exporter `
+  --namespace monitoring `
+  --wait --timeout 2m
+```
+
+### 0.7 — Instalar kube-prometheus-stack
 
 > **Atenção**: neste módulo, o `values-prometheus-stack.yaml` inclui o bloco
 > `remoteWrite` que envia métricas ao Mimir. O Mimir precisa estar rodando
@@ -156,7 +173,7 @@ helm upgrade --install kind-prometheus prometheus-community/kube-prometheus-stac
   --wait --timeout 5m
 ```
 
-### 0.7 — Instalar Loki + Fluent Bit
+### 0.8 — Instalar Loki + Fluent Bit
 
 ```bash
 # Linux / macOS
@@ -183,15 +200,86 @@ helm upgrade --install fluent-bit fluent/fluent-bit `
   --wait --timeout 2m
 ```
 
-### 0.8 — Aplicar dashboards, alerts e datasources da stack base
+### 0.9 — Instalar Tempo (distributed tracing)
+
+```bash
+# Linux / macOS
+helm upgrade --install tempo grafana/tempo \
+  --namespace monitoring \
+  -f stack/opentelemetry/helm-values/values-tempo.yaml \
+  --wait --timeout 3m
+```
+```pwsh
+# Windows (PowerShell)
+helm upgrade --install tempo grafana/tempo `
+  --namespace monitoring `
+  -f stack/opentelemetry/helm-values/values-tempo.yaml `
+  --wait --timeout 3m
+```
+
+### 0.10 — Instalar Pyroscope (continuous profiling)
+
+```bash
+# Linux / macOS
+helm upgrade --install pyroscope grafana/pyroscope \
+  --namespace monitoring \
+  -f stack/profiler/helm-values/values-pyroscope.yaml \
+  --wait --timeout 3m
+```
+```pwsh
+# Windows (PowerShell)
+helm upgrade --install pyroscope grafana/pyroscope `
+  --namespace monitoring `
+  -f stack/profiler/helm-values/values-pyroscope.yaml `
+  --wait --timeout 3m
+```
+
+### 0.11 — Instalar Grafana Alloy (eBPF profiling)
+
+O Alloy roda como DaemonSet e envia profiles eBPF de todos os pods para o Pyroscope.
+
+```bash
+# Linux / macOS
+helm upgrade --install alloy grafana/alloy \
+  --namespace monitoring \
+  -f stack/profiler/helm-values/values-alloy.yaml \
+  --wait --timeout 3m
+```
+```pwsh
+# Windows (PowerShell)
+helm upgrade --install alloy grafana/alloy `
+  --namespace monitoring `
+  -f stack/profiler/helm-values/values-alloy.yaml `
+  --wait --timeout 3m
+```
+
+### 0.12 — Instalar OTel Collector + ranking-api
+
+> **Build da imagem** (apenas se ainda não foi feito no módulo 05):
+> ```bash
+> docker build -t ranking-api:v2-profiler ./app
+> kind load docker-image ranking-api:v2-profiler --name k8s-essentials
+> ```
+
+```bash
+# OTel Collector (namespace otel) + Service da ranking-api
+kubectl apply -f stack/opentelemetry/manifests/01-service-ranking-api.yaml
+kubectl apply -f stack/opentelemetry/manifests/02-otel-collector.yaml
+kubectl apply -f stack/opentelemetry/manifests/03-podmonitor-otel-collector.yaml
+
+# Deployment da ranking-api v2 (com OTel SDK + Pyroscope SDK)
+kubectl apply -f stack/profiler/manifests/01-deployment-ranking-api.yaml
+kubectl rollout status deployment/ranking-api -n games
+```
+
+### 0.13 — Aplicar dashboards, alerts e datasources da stack base
 
 ```bash
 kubectl apply -f stack/monitoring/manifests/
 ```
 
-> Inclui os datasources do Grafana para **Loki**, **Tempo** e **Pyroscope** (`04-grafana-datasources.yaml`).
-> Se Tempo ou Pyroscope não estiverem instalados (requerem modulo-04/05), os datasources
-> aparecerão como "Unable to connect" — isso é esperado e não bloqueia o restante do módulo.
+> Inclui os datasources do Grafana para **Loki**, **Tempo** e **Pyroscope** (`04-grafana-datasources.yaml`),
+> dashboards e regras de alerta.
 
 ---
 
