@@ -183,11 +183,15 @@ helm upgrade --install fluent-bit fluent/fluent-bit `
   --wait --timeout 2m
 ```
 
-### 0.8 — Aplicar dashboards e alerts da stack base
+### 0.8 — Aplicar dashboards, alerts e datasources da stack base
 
 ```bash
 kubectl apply -f stack/monitoring/manifests/
 ```
+
+> Inclui os datasources do Grafana para **Loki**, **Tempo** e **Pyroscope** (`04-grafana-datasources.yaml`).
+> Se Tempo ou Pyroscope não estiverem instalados (requerem modulo-04/05), os datasources
+> aparecerão como "Unable to connect" — isso é esperado e não bloqueia o restante do módulo.
 
 ---
 
@@ -314,8 +318,9 @@ kubectl logs -n monitoring -l app.kubernetes.io/name=grafana `
 Acesse: http://localhost:3000 (admin / prom-operator)
 
 Navegue até **Connections → Data sources** e confirme:
-- `Mimir` com status **OK** (verde)
-
+- `Mimir` com status **OK** (verde)- `loki` com status **OK** (verde) — disponível após passo 0.7
+- `tempo` — OK se modulo-04 instalado; "Unable to connect" caso contrário
+- `grafana-pyroscope-datasource` — OK se modulo-05 instalado
 **Recuperar a senha do Grafana:**
 
 **PowerShell:**
@@ -341,13 +346,13 @@ Acesse: http://localhost:9090
 
 ```promql
 # Amostras enviadas com sucesso ao Mimir
-prometheus_remote_storage_samples_total{remote_name="0"}
+prometheus_remote_storage_samples_total{remote_name="mimir"}
 
 # Amostras pendentes na fila (deve ser próximo de 0 em estado estável)
-prometheus_remote_storage_pending_samples{remote_name="0"}
+prometheus_remote_storage_pending_samples{remote_name="mimir"}
 
 # Falhas (deve ser 0 — se > 0, verifique os logs do pod mimir-0)
-prometheus_remote_storage_failed_samples_total{remote_name="0"}
+prometheus_remote_storage_failed_samples_total{remote_name="mimir"}
 ```
 
 ### 4.2 — Querier o Mimir diretamente

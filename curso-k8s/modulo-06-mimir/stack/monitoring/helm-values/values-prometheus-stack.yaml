@@ -28,7 +28,8 @@ prometheus:
     # RESULTADO: se o Prometheus reiniciar e perder o TSDB local,
     # os dados históricos continuam acessíveis via Mimir → MinIO.
     remoteWrite:
-      - url: http://mimir.monitoring.svc.cluster.local:9009/api/v1/push
+      - name: mimir
+        url: http://mimir.monitoring.svc.cluster.local:9009/api/v1/push
         # queueConfig controla o comportamento do buffer de envio.
         # Com os defaults abaixo, o Prometheus agrupa amostras em lotes
         # de 1000 e envia a cada 5s — eficiente para Kind.
