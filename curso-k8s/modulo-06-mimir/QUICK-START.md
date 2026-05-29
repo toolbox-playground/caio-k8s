@@ -279,7 +279,17 @@ kubectl apply -f stack/profiler/manifests/01-deployment-ranking-api.yaml
 kubectl rollout status deployment/ranking-api -n games
 ```
 
-### 0.13 — Aplicar dashboards, alerts e datasources da stack base
+### 0.13 — Iniciar carga automática da ranking-api
+
+Sem carga, Tempo/Pyroscope podem parecer "vazios". Este deployment gera tráfego
+contínuo nos endpoints `/rankings` e `/score`.
+
+```bash
+kubectl apply -f stack/profiler/manifests/02-load-generator-ranking-api.yaml
+kubectl get pods -n games -l app=ranking-api-load
+```
+
+### 0.14 — Aplicar dashboards, alerts e datasources da stack base
 
 ```bash
 kubectl apply -f stack/monitoring/manifests/
@@ -575,19 +585,18 @@ Cada diretório contém:
 - `meta.json` — metadados do bloco (min/max timestamp, número de séries)
 
 ```bash
-# Linux / macOS
-kubectl exec -n monitoring statefulset/mimir -- ls /data/tsdb
-# Mostra o WAL local do ingester (pré-compactação)
+# Linux / macOS — listar objetos realmente gravados no MinIO (recursivo)
+kubectl exec -n monitoring statefulset/minio -- /bin/sh -c \
+  "mc alias set local http://127.0.0.1:9000 mimir mimir-supersecret >/dev/null; \
+   mc ls local/mimir-blocks --recursive | head -30"
 ```
 ```pwsh
 # Windows (PowerShell)
-kubectl exec -n monitoring statefulset/mimir -- ls /data/tsdb
+kubectl exec -n monitoring statefulset/minio -- /bin/sh -c "mc alias set local http://127.0.0.1:9000 mimir mimir-supersecret >/dev/null; mc ls local/mimir-blocks --recursive | head -30"
 ```
 
-> Para visualizar os blocos já compactados no MinIO via CLI:
-> ```bash
-> kubectl exec -n monitoring statefulset/minio -- mc ls local/mimir-blocks
-> ```
+> Observação: `kubectl exec ... statefulset/mimir -- ls /data/tsdb` falha porque
+> a imagem `grafana/mimir` é minimalista e não inclui `ls` no `PATH`.
 
 ---
 
@@ -658,6 +667,28 @@ kubectl rollout status statefulset/mimir -n monitoring
 Verifique os logs em tempo real para confirmar que subiu sem erros:
 ```bash
 kubectl logs -n monitoring statefulset/mimir -f --tail=40
+```
+
+### "Não salvou dados no MinIO" — como validar corretamente
+
+Na maioria dos casos os dados foram salvos, mas a checagem foi feita sem `--recursive`.
+
+```bash
+kubectl exec -n monitoring statefulset/minio -- /bin/sh -c \
+  "mc alias set local http://127.0.0.1:9000 mimir mimir-supersecret >/dev/null; \
+   mc ls local/mimir-blocks --recursive | head -30"
+```
+
+Se aparecerem arquivos `chunks/*`, `index` e `meta.json`, o Mimir está persistindo no MinIO.
+
+Para garantir ingestão ativa do Prometheus:
+```promql
+prometheus_remote_storage_samples_total{remote_name="mimir"}
+```
+
+Para gerar tráfego (métricas/traces/profiles) continuamente:
+```bash
+kubectl apply -f stack/profiler/manifests/02-load-generator-ranking-api.yaml
 ```
 
 ### Query no Mimir retorna "no data"

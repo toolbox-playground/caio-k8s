@@ -1,0 +1,59 @@
+# ============================================================
+# Load Generator — Ranking API
+# ============================================================
+# Gera tráfego contínuo para endpoints /rankings e /score.
+# Útil para popular métricas, traces, logs e profiles no módulo 06.
+#
+# Aplicar:
+#   kubectl apply -f stack/profiler/manifests/02-load-generator-ranking-api.yaml
+#
+# Parar:
+#   kubectl delete -f stack/profiler/manifests/02-load-generator-ranking-api.yaml
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ranking-api-load
+  namespace: games
+  labels:
+    app: ranking-api-load
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ranking-api-load
+  template:
+    metadata:
+      labels:
+        app: ranking-api-load
+    spec:
+      containers:
+        - name: curl-loop
+          image: curlimages/curl:8.12.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              i=0
+              while true; do
+                curl -fsS http://ranking-api.games.svc.cluster.local/rankings >/dev/null || true
+
+                PLAYER="bot-$((i % 15))"
+                SCORE="$((1000 + ((i * 37) % 9000)))"
+                curl -fsS -X POST http://ranking-api.games.svc.cluster.local/score \
+                  -H 'Content-Type: application/json' \
+                  -d "{\"player\":\"${PLAYER}\",\"score\":${SCORE}}" >/dev/null || true
+
+                i=$((i + 1))
+                sleep 0.2
+              done
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
