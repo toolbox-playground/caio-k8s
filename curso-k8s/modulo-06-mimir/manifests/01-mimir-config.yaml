@@ -78,6 +78,8 @@ data:
         # Dados aqui são TEMPORÁRIOS — apenas até serem compactados para o MinIO.
         # O PVC do pod garante que o WAL sobrevive a restarts do próprio Mimir.
         dir: /data/tsdb
+        block_ranges_period: ["5m"] # Cria blocos a cada 5 minutos (padrão é 2h)
+        ship_interval: 1m          # Envia para o MinIO a cada 1 minuto (padrão é 1m)
 
     # ── Alertmanager Storage ─────────────────────────────────────────────────
     alertmanager_storage:
