@@ -1,3 +1,59 @@
+## 0.19.0 (2026-05-29)
+
+### Feat
+
+- update Mimir configuration and add MinIO deployment
+- **monitoring**: adiciona carga automática para a ranking-api e atualiza instruções no QUICK-START.md
+- **monitoring**: adiciona configurações de intervalo de blocos e envio para o MinIO no ConfigMap do Mimir
+- **documentação**: atualiza instruções para uso do chart grafana-community/tempo no QUICK-START.md e values-tempo.yaml
+- add Ranking API v2 with Pyroscope SDK for continuous profiling
+- **monitoring**: adiciona datasources do Grafana para Loki, Tempo e Pyroscope e atualiza configuração do remoteWrite
+- **documentação**: adiciona instruções para recuperar a senha do Grafana no QUICK-START.md
+- **documentação**: atualiza o QUICK-START.md com instruções para instalar o Metrics Server e ajustes na sequência de instalação
+- **monitoring**: atualiza a imagem do MinIO para a última tag válida antes do arquivamento
+- **monitoring**: atualiza versão do Metrics Server e adiciona imagem do nó no cluster
+- **monitoring**: atualiza versões de imagens do Kubernetes e do MinIO, Mimir e OTel Collector
+- **monitoring**: substitui chart bitnami/minio por manifest Kubernetes e atualiza documentação
+- **documentação**: adiciona instruções para Windows no QUICK-START.md do Mimir e ArgoCD
+- **documentação**: adiciona instruções para Windows no QUICK-START.md do Mimir e ArgoCD
+- **monitoring**: add Grafana datasource for Mimir and create alert rules for Four Golden Signals
+- **monitoring**: add Kubernetes resources for Super Mario application
+- atualiza UIDs dos datasources Loki e Tempo para garantir consistência nas referências
+- atualiza instruções sobre o datasource Loki e limitações do eBPF para profiling Python
+- atualiza tags de profiling no SDK Python e corrige UID do datasource Loki nos manifestos
+- atualiza instruções para gerar carga, separando comandos para PowerShell e Bash
+- atualiza instruções para verificação do DaemonSet no módulo de profiling, separando comandos para PowerShell e Bash
+- atualiza manifestos do OTel Collector e adiciona novos recursos de datasource no Grafana
+- atualiza instruções do Passo 0.8 para instalação do Blackbox Exporter e remove referência ao Módulo 03
+- atualiza instruções do Passo 0.8 para instalação do Blackbox Exporter e adiciona seção de alertas
+- atualiza instruções de instalação do Blackbox Exporter para PowerShell e Bash
+- **opentelemetry**: add Grafana dashboard for p99 latency by endpoint
+- **opentelemetry**: add Helm values for Tempo configuration
+- **opentelemetry**: create Kubernetes service for ranking API
+- **opentelemetry**: implement OpenTelemetry Collector deployment
+- **opentelemetry**: add PodMonitor for OpenTelemetry Collector
+- **opentelemetry**: provision Grafana datasource for Tempo
+- atualiza guia QUICK-START para refletir mudanças na abordagem de profiling contínuo com SDK e Grafana Alloy
+- atualiza consultas de métricas para usar exported_endpoint em vez de endpoint
+- adiciona provisionamento do datasource Tempo e Pyroscope no Grafana com suporte a Span Profiles
+- adiciona suporte ao PyroscopeSpanProcessor para integração com Grafana Tempo
+- atualiza Dockerfile e requirements para Python 3.12 e pyroscope-io 1.0.8
+- atualiza Dockerfile para usar Python 3.11 e ajusta instruções no guia de início rápido
+- atualiza instruções de verificação do SDK Pyroscope e corrige porta no manifesto do Fortio
+- atualiza instruções de stress test e adiciona descrição do manifesto do Fortio
+- adiciona manifesto do Pod para o stress test com Fortio
+- adiciona configuração do Grafana Pyroscope ao cluster
+- reorganiza a configuração do serviço Pyroscope para melhor clareza
+- remove argumentos extras de retenção de armazenamento no Pyroscope
+- corrige a formatação dos argumentos de retenção de armazenamento no Pyroscope
+- add hybrid profiling setup with Pyroscope SDK and Grafana Alloy
+- reorganiza e atualiza comentários sobre a configuração do OpenTelemetry
+- add Pyroscope SDK integration for continuous profiling in ranking-api v2
+
+### Fix
+
+- corrige URL do serviço ranking-api removendo a porta no comando de carga
+
 ## 0.18.0 (2026-05-26)
 
 ### Feat
