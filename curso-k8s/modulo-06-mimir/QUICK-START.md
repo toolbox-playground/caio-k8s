@@ -83,6 +83,8 @@ kubectl get nodes
 # Esperado: control-plane + worker, ambos Ready
 ```
 
+
+
 ### 0.2 — Criar namespaces
 
 ```bash
@@ -90,7 +92,30 @@ kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f 
 kubectl create namespace games      --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-### 0.3 — Instalar o Mario (app de carga)
+### 0.3 — Instalar Metrics Server (HPA)
+
+O Metrics Server é necessário para o HPA funcionar (`kubectl top` e escalamento automático).
+
+**PowerShell e bash:**
+```sh
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.8.1/components.yaml
+```
+
+**PowerShell:**
+```powershell
+kubectl patch deployment metrics-server -n kube-system `
+  --type=json `
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+```
+
+**bash / zsh:**
+```bash
+kubectl patch deployment metrics-server -n kube-system \
+  --type=json \
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+```
+
+### 0.4 — Instalar o Mario (app de carga)
 
 ```bash
 kubectl apply -f stack/mario/
@@ -99,7 +124,7 @@ kubectl rollout status deployment/super-mario -n games
 
 Acesse em: http://localhost:8081
 
-### 0.4 — Adicionar repos Helm
+### 0.5 — Adicionar repos Helm
 
 ```bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -109,7 +134,7 @@ helm repo add bitnami              https://charts.bitnami.com/bitnami
 helm repo update
 ```
 
-### 0.5 — Instalar kube-prometheus-stack
+### 0.6 — Instalar kube-prometheus-stack
 
 > **Atenção**: neste módulo, o `values-prometheus-stack.yaml` inclui o bloco
 > `remoteWrite` que envia métricas ao Mimir. O Mimir precisa estar rodando
@@ -131,7 +156,7 @@ helm upgrade --install kind-prometheus prometheus-community/kube-prometheus-stac
   --wait --timeout 5m
 ```
 
-### 0.6 — Instalar Loki + Fluent Bit
+### 0.7 — Instalar Loki + Fluent Bit
 
 ```bash
 # Linux / macOS
@@ -158,7 +183,7 @@ helm upgrade --install fluent-bit fluent/fluent-bit `
   --wait --timeout 2m
 ```
 
-### 0.7 — Aplicar dashboards e alerts da stack base
+### 0.8 — Aplicar dashboards e alerts da stack base
 
 ```bash
 kubectl apply -f stack/monitoring/manifests/
@@ -497,6 +522,27 @@ kubectl rollout restart deployment/kind-prometheus-grafana -n monitoring
 
 # Ou reaplique o ConfigMap
 kubectl apply -f manifests/03-grafana-datasource-mimir.yaml
+```
+
+### Mimir não inicia — alertmanager ring / compactor
+
+**Causa**: O `alertmanager.sharding_ring.replication_factor` padrão é **3**. Com 1 instância, o ring nunca atinge quórum e bloqueia a subida. O `compactor.data_dir` padrão (`./data-compactor/`) também pode falhar se o working dir do container não for gravável.
+
+**Solução** (já aplicada no `manifests/01-mimir-config.yaml`):
+- `alertmanager.sharding_ring.replication_factor: 1`
+- `compactor.data_dir: /data/compactor`
+
+Se você já tinha o Mimir rodando com a config antiga, force o restart após reaplicar:
+
+```bash
+kubectl apply -f manifests/01-mimir-config.yaml
+kubectl rollout restart statefulset/mimir -n monitoring
+kubectl rollout status statefulset/mimir -n monitoring
+```
+
+Verifique os logs em tempo real para confirmar que subiu sem erros:
+```bash
+kubectl logs -n monitoring statefulset/mimir -f --tail=40
 ```
 
 ### Query no Mimir retorna "no data"
