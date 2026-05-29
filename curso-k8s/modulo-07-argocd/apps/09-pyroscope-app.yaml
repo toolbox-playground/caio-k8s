@@ -1,0 +1,43 @@
+# ============================================================
+# ArgoCD Application — Pyroscope
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pyroscope
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    module: "07"
+    tier: observability
+
+spec:
+  project: default
+
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: pyroscope
+      targetRevision: "*"
+      helm:
+        releaseName: pyroscope
+        valueFiles:
+          - $values/curso-k8s/modulo-07-argocd/stack/profiler/helm-values/values-pyroscope.yaml
+
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+      # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
+      targetRevision: HEAD
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

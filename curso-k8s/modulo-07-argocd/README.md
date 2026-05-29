@@ -49,6 +49,11 @@ Benefícios concretos:
 │  │                  ├── Application: monitoring-manifests   │    │
 │  │                  ├── Application: minio  (wave -1)       │    │
 │  │                  └── Application: mimir  (wave  0)       │    │
+│  │                  ├── Application: tempo                  │    │
+│  │                  ├── Application: pyroscope              │    │
+│  │                  ├── Application: alloy  (wave  1)       │    │
+│  │                  ├── Application: opentelemetry (wave 1) │    │
+│  │                  └── Application: profiler-manifests (2) │    │
 │  └────────────────────────┬────────────────────────────────┘    │
 │                           │  kubectl apply (server-side)         │
 └───────────────────────────┼─────────────────────────────────────┘
@@ -168,15 +173,22 @@ modulo-07-argocd/
 │   ├── 04-fluent-bit-app.yaml  # Application: Fluent Bit (Helm multi-source)
 │   ├── 05-monitoring-manifests-app.yaml  # Application: dashboards + alerts
 │   ├── 06-minio-app.yaml       # Application: MinIO (sync wave -1)
-│   └── 07-mimir-app.yaml       # Application: Mimir (manifests)
+│   ├── 07-mimir-app.yaml       # Application: Mimir (manifests)
+│   ├── 08-tempo-app.yaml       # Application: Tempo (Helm)
+│   ├── 09-pyroscope-app.yaml   # Application: Pyroscope (Helm)
+│   ├── 10-alloy-app.yaml       # Application: Alloy eBPF (Helm)
+│   ├── 11-opentelemetry-app.yaml      # Application: OTel Collector + Service
+│   └── 12-profiler-manifests-app.yaml # Application: ranking-api + load
 │
 └── stack/                      ← Manifests que as Applications deployam
     ├── mario/
+  ├── minio/
     ├── monitoring/
     │   ├── helm-values/
     │   └── manifests/
+  ├── opentelemetry/
+  ├── profiler/
     └── mimir/
-        ├── helm-values/
         └── manifests/
 ```
 

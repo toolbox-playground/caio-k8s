@@ -42,6 +42,11 @@ data:
       grpc_listen_port: 9095
       log_level: info
 
+    memberlist:
+      bind_port: 7946
+      join_members:
+        - 127.0.0.1:7946 # Faz o processo monolítico olhar para si mesmo via gRP
+
     # ── Object Storage (configuração comum) ─────────────────────────────────
     # Define o backend S3 compartilhado entre todos os componentes.
     # O Mimir herda essa config nos blocos blocks_storage, alertmanager_storage
@@ -58,8 +63,10 @@ data:
           # insecure: true = HTTP (não HTTPS). Seguro dentro do cluster Kind.
           # Em produção: use HTTPS e certificados válidos.
           insecure: true
-          # path_style: compatibilidade com MinIO (não usa virtual-hosted style).
-          path_style: true
+          # bucket_lookup_type: "path" = path-style URLs (http://minio:9000/bucket/key).
+          # Necessário para MinIO — o estilo virtual-hosted (default) não funciona em ambientes locais.
+          # Substituiu "path_style: true" removido no Mimir 3.0 (introduzido em 2.13.0 via -<prefix>.s3.bucket-lookup-type).
+          bucket_lookup_type: path
 
     # ── Blocks Storage ────────────────────────────────────────────────────────
     # Onde o Mimir armazena os blocos TSDB compactados.
@@ -71,6 +78,8 @@ data:
         # Dados aqui são TEMPORÁRIOS — apenas até serem compactados para o MinIO.
         # O PVC do pod garante que o WAL sobrevive a restarts do próprio Mimir.
         dir: /data/tsdb
+        block_ranges_period: ["5m"] # Cria blocos a cada 5 minutos (padrão é 2h)
+        ship_interval: 1m          # Envia para o MinIO a cada 1 minuto (padrão é 1m)
 
     # ── Alertmanager Storage ─────────────────────────────────────────────────
     alertmanager_storage:
@@ -87,6 +96,8 @@ data:
     # antes de compactar para blocos e enviar ao object storage.
     ingester:
       ring:
+        kvstore:
+          store: memberlist
         # 1 réplica: sem redundância. Em produção: 3 (quórum de escrita).
         replication_factor: 1
 
@@ -94,15 +105,32 @@ data:
     # Serve blocos históricos do MinIO para queries de longa data.
     store_gateway:
       sharding_ring:
+        kvstore:
+          store: memberlist
         replication_factor: 1
 
     # ── Compactor ─────────────────────────────────────────────────────────────
     # Compacta blocos pequenos em blocos maiores (reduz custo de query).
     compactor:
+      # data_dir: diretório temporário para operações de compactação.
+      # O padrão ("./data-compactor/") usa o working dir do container, que pode
+      # não ser gravável. Usamos o PVC para garantir acesso de escrita.
+      data_dir: /data/compactor
       sharding_ring:
+        kvstore:
+          store: memberlist
         # wait_stability_min_duration: 0 = inicia compactação imediatamente.
         # Em produção: deixe o padrão (1m) para estabilizar o ring antes.
         wait_stability_min_duration: 0
+
+    # ── Alertmanager ───────────────────────────────────────────────────────────────────
+    # O alertmanager do Mimir permite criar alertas diretamente no Mimir
+    # (além do Alertmanager externo do kube-prometheus-stack).
+    alertmanager:
+      sharding_ring:
+        # Padrão é 3 (para produção com HA). Com 1 instância (monolithic),
+        # manter 3 impede o ring de atingir quórum e bloqueia a inicialização.
+        replication_factor: 1
 
     # ── Limits ───────────────────────────────────────────────────────────────
     # Limites globais por tenant (ou globais com multitenancy_enabled: false).
@@ -116,5 +144,5 @@ data:
       # Kubernetes tem muitas labels por série — o padrão (30) é muito baixo.
       max_label_names_per_series: 50
       # Máximo de entradas de metadata (nome de métricas) por tenant.
-      max_metadata_per_user: 10000
-      max_metadata_per_metric: 10
+      # max_metadata_per_user: 10000
+      # max_metadata_per_metric: 10

@@ -241,7 +241,7 @@ kubectl apply -f apps/00-root-app.yaml
 ### 4.2 — Acompanhar a criação das Applications filhas
 
 Na UI do ArgoCD, você verá primeiro a Application `root` aparecer.
-Em seguida, o ArgoCD detecta os arquivos `01-mario-app.yaml`...`07-mimir-app.yaml`
+Em seguida, o ArgoCD detecta os arquivos `01-mario-app.yaml`...`12-profiler-manifests-app.yaml`
 no repositório e cria cada Application filho automaticamente.
 
 ```bash
@@ -278,6 +278,8 @@ Você verá o gráfico de dependências de cada Application:
 - `prometheus-stack` → Prometheus, Grafana, Alertmanager...
 - `minio` → StatefulSet (sync wave -1, sobe primeiro)
 - `mimir` → StatefulSet (sobe após MinIO)
+- `tempo` + `pyroscope` + `alloy` → traces e profiling
+- `opentelemetry` + `profiler-manifests` → ranking-api + carga automática
 
 ### 5.2 — Verificar via kubectl
 

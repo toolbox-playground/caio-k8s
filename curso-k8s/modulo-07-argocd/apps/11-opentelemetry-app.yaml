@@ -1,26 +1,25 @@
 # ============================================================
-# ArgoCD Application — Monitoring Manifests
+# ArgoCD Application — OpenTelemetry stack
 # ============================================================
-# Aplica os manifests de configuração do monitoring:
-#   - 01-four-golden-signals.yaml  → dashboard Grafana
-#   - 02-blackbox-probe.yaml       → probe de disponibilidade
-#   - 03-grafana-alert-rules.yaml  → regras de alerta
-#   - 04-grafana-datasources.yaml  → datasources Loki/Tempo/Pyroscope
-#
-# Estes são ConfigMaps/YAMLs puros (sem Helm), por isso usam
-# uma única source apontando para o path no repositório.
+# Aplica:
+#   - Service ranking-api
+#   - OTel Collector (ConfigMap/Deployment/Service)
+#   - PodMonitor do Collector
 # ============================================================
 
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: monitoring-manifests
+  name: opentelemetry
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
   labels:
     module: "07"
-    tier: monitoring
+    tier: observability
+  annotations:
+    # Sobe após Tempo/Loki/Prometheus já estarem disponíveis.
+    argocd.argoproj.io/sync-wave: "1"
 
 spec:
   project: default
@@ -29,7 +28,7 @@ spec:
     repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
     # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
     targetRevision: HEAD
-    path: curso-k8s/modulo-07-argocd/stack/monitoring/manifests
+    path: curso-k8s/modulo-07-argocd/stack/opentelemetry/manifests
 
   destination:
     server: https://kubernetes.default.svc

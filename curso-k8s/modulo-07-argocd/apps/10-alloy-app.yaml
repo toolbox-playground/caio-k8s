@@ -1,0 +1,46 @@
+# ============================================================
+# ArgoCD Application — Grafana Alloy (eBPF profiling)
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    module: "07"
+    tier: observability
+  annotations:
+    # Sobe após o Pyroscope para evitar erro de envio inicial.
+    argocd.argoproj.io/sync-wave: "1"
+
+spec:
+  project: default
+
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: alloy
+      targetRevision: "*"
+      helm:
+        releaseName: alloy
+        valueFiles:
+          - $values/curso-k8s/modulo-07-argocd/stack/profiler/helm-values/values-alloy.yaml
+
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+      # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
+      targetRevision: HEAD
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

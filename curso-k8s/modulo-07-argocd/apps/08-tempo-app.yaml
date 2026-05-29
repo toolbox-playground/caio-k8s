@@ -1,0 +1,46 @@
+# ============================================================
+# ArgoCD Application — Tempo
+# ============================================================
+# Instala o Tempo via Helm usando o chart migrado para
+# grafana-community/tempo (jan/2026).
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tempo
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    module: "07"
+    tier: observability
+
+spec:
+  project: default
+
+  sources:
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: tempo
+      targetRevision: "*"
+      helm:
+        releaseName: tempo
+        valueFiles:
+          - $values/curso-k8s/modulo-07-argocd/stack/opentelemetry/helm-values/values-tempo.yaml
+
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+      # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
+      targetRevision: HEAD
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
