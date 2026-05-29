@@ -129,9 +129,13 @@ Acesse em: http://localhost:8081
 ```bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana              https://grafana.github.io/helm-charts
+helm repo add grafana-community    https://grafana-community.github.io/helm-charts
 helm repo add fluent               https://fluent.github.io/helm-charts
 helm repo update
 ```
+
+> **Nota**: o chart `grafana/tempo` foi migrado para `grafana-community/tempo` em jan/2026.
+> Os demais charts (pyroscope, alloy, mimir) continuam em `grafana/`.
 
 ### 0.6 — Instalar Blackbox Exporter
 
@@ -202,16 +206,19 @@ helm upgrade --install fluent-bit fluent/fluent-bit `
 
 ### 0.9 — Instalar Tempo (distributed tracing)
 
+> O chart `grafana/tempo` foi migrado para `grafana-community/tempo` em jan/2026.
+> Use o repo `grafana-community` adicionado no passo 0.5.
+
 ```bash
 # Linux / macOS
-helm upgrade --install tempo grafana/tempo \
+helm upgrade --install tempo grafana-community/tempo \
   --namespace monitoring \
   -f stack/opentelemetry/helm-values/values-tempo.yaml \
   --wait --timeout 3m
 ```
 ```pwsh
 # Windows (PowerShell)
-helm upgrade --install tempo grafana/tempo `
+helm upgrade --install tempo grafana-community/tempo `
   --namespace monitoring `
   -f stack/opentelemetry/helm-values/values-tempo.yaml `
   --wait --timeout 3m

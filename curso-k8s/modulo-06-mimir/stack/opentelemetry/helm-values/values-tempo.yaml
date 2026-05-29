@@ -1,8 +1,10 @@
 # values-tempo.yaml
-# Values para o chart grafana/tempo (modo monolítico — single binary).
+# Values para o chart grafana-community/tempo (modo monolítico — single binary).
 #
-# Instalação:
-#   helm install tempo grafana/tempo -n monitoring -f stack/opentelemetry/helm-values/values-tempo.yaml
+# ATENÇÃO: o chart grafana/tempo foi migrado para grafana-community/helm-charts em jan/2026.
+# Use o novo repo:
+#   helm repo add grafana-community https://grafana-community.github.io/helm-charts
+#   helm install tempo grafana-community/tempo -n monitoring -f stack/opentelemetry/helm-values/values-tempo.yaml
 #
 # Em produção:
 #   - Use grafana/tempo-distributed para escalabilidade horizontal
