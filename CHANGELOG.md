@@ -1,3 +1,12 @@
+## 0.20.0 (2026-06-01)
+
+### Feat
+
+- **monitoring**: adiciona workflow para pré-visualização de bumps de commit em PRs
+- **monitoring**: altera número de réplicas para 2 no deployment super-mario
+- **monitoring**: atualiza número de réplicas para 3 no deployment super-mario
+- **monitoring**: atualiza finalizers para uso do modo foreground em aplicações ArgoCD
+
 ## 0.19.0 (2026-05-29)
 
 ### Feat
