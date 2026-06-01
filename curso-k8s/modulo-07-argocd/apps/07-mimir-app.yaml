@@ -16,7 +16,7 @@ metadata:
   name: mimir
   namespace: argocd
   finalizers:
-    - resources-finalizer.argocd.argoproj.io
+    - resources-finalizer.argocd.argoproj.io/foreground
   labels:
     module: "07"
     tier: storage
@@ -49,3 +49,4 @@ spec:
         duration: 10s
         factor: 2
         maxDuration: 3m
+

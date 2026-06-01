@@ -35,7 +35,7 @@ metadata:
   # todos os recursos filhos também sejam deletados (cascade delete).
   # Para remover sem deletar os recursos: remova o finalizer antes.
   finalizers:
-    - resources-finalizer.argocd.argoproj.io
+    - resources-finalizer.argocd.argoproj.io/foreground
 
 spec:
   project: default
@@ -75,3 +75,4 @@ spec:
       - CreateNamespace=true
       # Usa server-side apply para melhor compatibilidade com CRDs
       - ServerSideApply=true
+

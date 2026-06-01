@@ -14,7 +14,7 @@ metadata:
   name: mario
   namespace: argocd
   finalizers:
-    - resources-finalizer.argocd.argoproj.io
+    - resources-finalizer.argocd.argoproj.io/foreground
 
   # Labels ajudam a filtrar Applications na UI e CLI
   labels:
@@ -43,3 +43,4 @@ spec:
       # Cria o namespace games automaticamente
       - CreateNamespace=true
       - ServerSideApply=true
+

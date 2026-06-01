@@ -20,7 +20,7 @@ metadata:
   name: minio
   namespace: argocd
   finalizers:
-    - resources-finalizer.argocd.argoproj.io
+    - resources-finalizer.argocd.argoproj.io/foreground
   labels:
     module: "07"
     tier: storage
@@ -51,3 +51,4 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+
