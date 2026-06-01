@@ -1,4 +1,4 @@
-# 🚨 Kubernetes - Guia de Referência Rápida
+# 🚨 Kubernetes - Guia de Referência Rápida 
 
 > **Documento de emergência:** Comandos essenciais e conceitos-chave para consulta rápida
 
