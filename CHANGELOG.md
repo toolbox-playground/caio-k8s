@@ -1,3 +1,9 @@
+## 0.20.1 (2026-06-01)
+
+### Fix
+
+- remove extra whitespace in the title of the quick reference guide
+
 ## 0.20.0 (2026-06-01)
 
 ### Feat
