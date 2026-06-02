@@ -1,0 +1,87 @@
+# manifests/02-service-monitor-fixed.yaml
+#
+# ServiceMonitor corrigido para o bad-metrics-app.
+#
+# O que este manifest resolve:
+#   - labeldrop: request_id  → remove o label de alta cardinalidade
+#   - sampleLimit: 5000      → falha o scrape se passar de 5k amostras (fail-fast)
+#   - drop /health e /ready  → paths de liveness não têm valor analítico
+#
+# Após aplicar, verifique:
+#   count by (request_id) (http_requests_total{job="bad-metrics-app"})
+#   → Deve retornar vazio (label removido)
+#
+#   http_requests_total{job="bad-metrics-app"}
+#   → Ainda existe, mas sem o label request_id
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: bad-metrics-app-fixed
+  namespace: monitoring
+  labels:
+    # O kube-prometheus-stack detecta ServiceMonitors com qualquer label
+    # quando serviceMonitorSelectorNilUsesHelmValues: false
+    app: bad-metrics-app
+spec:
+  # Observa Services no namespace games com label app=bad-metrics-app
+  namespaceSelector:
+    matchNames:
+      - games
+  selector:
+    matchLabels:
+      app: bad-metrics-app
+
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+
+      # Limite de amostras: se passar de 5.000, o scrape inteiro falha
+      # Isso é um circuit-breaker: protege o Prometheus de explodir
+      # em vez de deixar a situação piorar silenciosamente.
+      # Monitore via: scrape_samples_post_metric_relabeling{job="bad-metrics-app"}
+      sampleLimit: 5000
+
+      # relabelings: aplicado nos TARGETS (antes do scrape)
+      # Aqui adicionamos metadados úteis ao target
+      relabelings:
+        # Adiciona o namespace como label
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+          action: replace
+
+        # Adiciona o nome do pod como label
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+          action: replace
+
+      # metricRelabelings: aplicado nas AMOSTRAS (após o scrape)
+      # Aqui filtramos e corrigimos as métricas coletadas
+      metricRelabelings:
+        # ─── SOLUÇÃO PRINCIPAL ───────────────────────────────────────────
+        # Remove o label request_id de TODAS as métricas deste job.
+        # Resultado: http_requests_total perde a alta cardinalidade.
+        # As séries existentes serão compactadas no próximo GC do TSDB.
+        - action: labeldrop
+          regex: request_id
+
+        # Também remove outros labels dinâmicos que poderiam aparecer
+        - action: labeldrop
+          regex: trace_id|user_id|session_id|transaction_id
+
+        # ─── PROTEÇÃO ADICIONAL ──────────────────────────────────────────
+        # Remove métricas de liveness e readiness:
+        # - São coletadas a cada 15s mas raramente consultadas em queries
+        # - Geram séries {handler="/health"} que não têm valor analítico
+        - sourceLabels: [handler]
+          regex: '/health|/ready|/live|/ping|/healthz|/readyz'
+          action: drop
+
+        # Remove métricas de debug internas do Go runtime que raramente
+        # são consultadas mas geram centenas de séries
+        # Comente esta regra se você usa profiling de GC
+        - sourceLabels: [__name__]
+          regex: 'go_memstats_gc_sys_bytes|go_memstats_other_sys_bytes|go_memstats_stack_inuse_bytes|go_memstats_stack_sys_bytes|go_memstats_mspan_inuse_bytes|go_memstats_mspan_sys_bytes'
+          action: drop

@@ -1,0 +1,144 @@
+# manifests/01-bad-metrics-app.yaml
+#
+# App que simula um problema real de alta cardinalidade:
+# usa `request_id` (UUID) como label em http_requests_total.
+#
+# Resultado: 10 novas séries por segundo → ~600/min → >36.000 em 1h
+# Use para praticar detecção e correção com metric_relabeling_configs.
+#
+# Remova após o laboratório:
+#   kubectl delete -f manifests/01-bad-metrics-app.yaml
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: games
+  labels:
+    name: games
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-metrics-app
+  namespace: games
+  labels:
+    app: bad-metrics-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bad-metrics-app
+  template:
+    metadata:
+      labels:
+        app: bad-metrics-app
+      annotations:
+        # Anota o pod para que o Prometheus o descubra automaticamente
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: app
+          image: python:3.12-slim
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          command:
+            - python3
+            - -c
+            - |
+              import http.server, uuid, time, threading, random
+
+              # Simula métricas de alta cardinalidade
+              # request_id: UUID único por requisição (NUNCA faça isso em prod)
+              request_store = {}
+
+              # Também tem métricas saudáveis (baixa cardinalidade)
+              healthy_counts = {m: 0 for m in ["GET/200", "POST/200", "GET/404", "POST/500"]}
+
+              def generate_metrics():
+                """Gera 10 novas séries por segundo via request_id."""
+                while True:
+                  for _ in range(10):
+                    req_id = str(uuid.uuid4())
+                    method = random.choice(["GET", "POST"])
+                    request_store[req_id] = {
+                      "method": method,
+                      "status": random.choice(["200", "404", "500"]),
+                      "count": 1
+                    }
+                    key = f"{method}/{random.choice(['200','404','500'])}"
+                    if key in healthy_counts:
+                      healthy_counts[key] += 1
+                  time.sleep(1)
+
+              threading.Thread(target=generate_metrics, daemon=True).start()
+
+              class Handler(http.server.BaseHTTPRequestHandler):
+                def do_GET(self):
+                  if self.path == '/metrics':
+                    lines = []
+                    # Métrica PROBLEMÁTICA: request_id como label
+                    lines.append('# HELP http_requests_total Total de requests processados\n')
+                    lines.append('# TYPE http_requests_total counter\n')
+                    for rid, data in list(request_store.items()):
+                      lines.append(
+                        f'http_requests_total{{request_id="{rid}",'
+                        f'method="{data["method"]}",status="{data["status"]}"}} '
+                        f'{data["count"]}\n'
+                      )
+
+                    # Métrica SAUDÁVEL: apenas method+status (baixa cardinalidade)
+                    lines.append('# HELP api_calls_total Chamadas por método e status\n')
+                    lines.append('# TYPE api_calls_total counter\n')
+                    for key, count in healthy_counts.items():
+                      method, status = key.split('/')
+                      lines.append(
+                        f'api_calls_total{{method="{method}",status_code="{status}"}} {count}\n'
+                      )
+
+                    # Métrica de informação da app
+                    lines.append('# HELP app_info Versão e metadados da aplicação\n')
+                    lines.append('# TYPE app_info gauge\n')
+                    lines.append('app_info{version="1.0.0",env="lab"} 1\n')
+
+                    body = ''.join(lines).encode()
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'text/plain; version=0.0.4')
+                    self.end_headers()
+                    self.wfile.write(body)
+                  elif self.path == '/health':
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(b'ok')
+                  else:
+                    self.send_response(404)
+                    self.end_headers()
+
+                def log_message(self, fmt, *args):
+                  pass  # silencia logs do servidor HTTP
+
+              http.server.HTTPServer(('', 8080), Handler).serve_forever()
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bad-metrics-app
+  namespace: games
+  labels:
+    app: bad-metrics-app
+spec:
+  selector:
+    app: bad-metrics-app
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: 8080

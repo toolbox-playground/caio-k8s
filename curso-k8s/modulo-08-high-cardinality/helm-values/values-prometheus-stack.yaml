@@ -1,0 +1,203 @@
+# helm-values/values-prometheus-stack.yaml
+#
+# Módulo 08 — kube-prometheus-stack OTIMIZADO para produção.
+#
+# Diferenças em relação ao módulo 07:
+#   → retention: 2h  (com Mimir, não precisa de retenção local longa)
+#   → retentionSize: 3GB (cap de disco, proteção contra fill-up)
+#   → scrapeInterval ajustado por tipo de dado
+#   → queueConfig do remote_write com mais shards (evita lag)
+#   → resources com limits explícitos
+#   → label_limit por sample (proteção de overhead de índice)
+#
+# Chart: prometheus-community/kube-prometheus-stack
+#
+# Aplicar:
+#   helm upgrade kind-prometheus prometheus-community/kube-prometheus-stack \
+#     --namespace monitoring \
+#     -f helm-values/values-prometheus-stack.yaml \
+#     --reuse-values
+
+prometheus:
+  service:
+    type: NodePort
+    nodePort: 30090
+
+  prometheusSpec:
+    # ── Seleção de ServiceMonitors ─────────────────────────────────────
+    # Coleta ServiceMonitors de qualquer namespace (não apenas kube-prometheus-stack)
+    serviceMonitorSelectorNilUsesHelmValues: false
+    # Coleta PodMonitors de qualquer namespace
+    podMonitorSelectorNilUsesHelmValues: false
+    # Coleta PrometheusRules de qualquer namespace
+    ruleNamespaceSelector: {}
+    ruleSelectorNilUsesHelmValues: false
+
+    # ── URLs externas ────────────────────────────────────────────────
+    externalUrl: http://localhost:9090
+
+    # ── Intervalos de Coleta ────────────────────────────────────────
+    # Regra geral:
+    #   - Infraestrutura (nodes, kubelet): 60s é suficiente
+    #   - Aplicações com SLO de latência: 15s
+    #   - Alertas críticos: 15s
+    #   - Capacidade/planning: 60s
+    scrapeInterval: 30s          # padrão para a maioria dos jobs
+    scrapeTimeout: 10s           # nunca > scrapeInterval
+    evaluationInterval: 30s      # avaliação de regras de alerta
+
+    # ── Retenção Local ──────────────────────────────────────────────
+    # Com Mimir recebendo tudo via remote_write, o Prometheus local
+    # só precisa manter dados recentes para alertas e queries imediatas.
+    # 2h é suficiente para o Mimir absorver os dados no TSDB do ingester.
+    retention: 2h
+    # Cap de disco: se o TSDB local chegar em 3GB, o Prometheus
+    # descarta os blocos mais antigos (dentro dos 2h). Proteção extra.
+    retentionSize: 3GB
+
+    # ── Limites de Labels ───────────────────────────────────────────
+    # Limita o número máximo de labels por amostra.
+    # Se uma série tiver > 64 labels, o scrape desse sample falha.
+    # Protege o índice do TSDB de overhead excessivo.
+    labelLimit: 64
+    # Comprimento máximo do nome de um label
+    labelNameLengthLimit: 256
+    # Comprimento máximo do valor de um label
+    labelValueLengthLimit: 1024
+
+    # ── Recursos do Pod ─────────────────────────────────────────────
+    # Dimensionamento conservador para Kind (4 CPUs, 8GB RAM disponíveis).
+    # Em produção: ajuste conforme o número de séries ativas.
+    # Referência: cada 1M de séries consome ~2-3GB de RAM.
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+
+    # ── Remote Write para Mimir ──────────────────────────────────────
+    # Configuração otimizada para baixo lag e alta throughput.
+    remoteWrite:
+      - name: mimir
+        url: http://mimir.monitoring.svc.cluster.local:9009/api/v1/push
+
+        # Timeout por request HTTP para o Mimir
+        remoteTimeout: 30s
+
+        # Envia exemplars (pontos de dados ligados a trace_ids) para o Mimir.
+        # Necessário para o Trace-to-Metrics no Grafana. Requer Mimir 2.4+.
+        sendExemplars: true
+
+        # Histogramas nativos: desativado por padrão (requer instrumentação
+        # específica na app). Ative se você usa client_golang >= 1.13 e
+        # Prometheus >= 2.40 com native histogram enabled.
+        sendNativeHistograms: false
+
+        # ── Fila de Envio ──────────────────────────────────────────
+        # O queueConfig controla o buffer entre o Prometheus e o Mimir.
+        # O Prometheus acumula amostras aqui e envia em batches.
+        queueConfig:
+          # Tamanho máximo do buffer em memória (amostras)
+          # Se a fila encher, amostras são descartadas (WAL protege até certo ponto)
+          capacity: 10000
+
+          # Número máximo de goroutines enviando em paralelo
+          # Aumentar se você ver lag crescente e o Mimir tem capacidade
+          maxShards: 200
+          minShards: 5  # Mantém ao menos 5 shards mesmo em carga baixa
+
+          # Amostras por batch HTTP enviado para o Mimir
+          # Maior = menos requests, mais eficiente. Menor = menos latência.
+          maxSamplesPerSend: 2000
+
+          # Tempo máximo aguardando o batch ficar cheio antes de enviar
+          batchSendDeadline: 5s
+
+          # Backoff em caso de erro 5xx do Mimir
+          minBackoff: 30ms
+          maxBackoff: 5s
+
+          # Retry quando o Mimir retorna 429 (rate limit)
+          retryOnRateLimit: true
+
+        # Relabeling antes de enviar para o Mimir
+        # Remove o label __replica__ (adicionado em HA setup) antes do envio
+        writeRelabelConfigs:
+          - regex: '__replica__'
+            action: labeldrop
+
+    # ── Scrape de Jobs Adicionais ────────────────────────────────────
+    # Jobs críticos com intervalo menor (15s) para alertas mais precisos
+    additionalScrapeConfigs:
+      # ranking-api: SLO crítico, coleta a cada 15s
+      - job_name: ranking-api
+        scrape_interval: 15s
+        scrape_timeout: 10s
+        sample_limit: 5000
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [games]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: ranking-api
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            regex: (.+)
+            target_label: __address__
+            replacement: '${1}:8080'
+            action: replace
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+        metric_relabeling_configs:
+          # Remove labels de alta cardinalidade caso apareçam
+          - action: labeldrop
+            regex: request_id|trace_id|user_id|session_id|transaction_id
+          # Remove métricas de health check
+          - source_labels: [handler]
+            regex: '/health|/ready|/live|/ping'
+            action: drop
+
+grafana:
+  service:
+    type: NodePort
+    nodePort: 31000
+  sidecar:
+    alerts:
+      enabled: true
+    dashboards:
+      enabled: true
+      # Detecta ConfigMaps com label grafana_dashboard: "1"
+      label: grafana_dashboard
+      labelValue: "1"
+      # Detecta de qualquer namespace
+      searchNamespace: ALL
+
+alertmanager:
+  service:
+    type: NodePort
+    nodePort: 32000
+  alertmanagerSpec:
+    externalUrl: http://localhost:9093
+
+prometheus-node-exporter:
+  service:
+    type: NodePort
+    nodePort: 32001
+
+# ── kube-state-metrics: reduz coleta de labels desnecessários ─────────
+kube-state-metrics:
+  # Restringe os labels de recursos Kubernetes que o kube-state-metrics expõe.
+  # Por padrão, ele expõe TODOS os labels do Kubernetes como labels de métricas.
+  # Com 50 labels por pod e 200 pods, isso gera séries desnecessárias.
+  metricLabelsAllowlist:
+    # Para pods: mantém apenas os labels mais usados em queries
+    - pods=[app,app.kubernetes.io/name,version,env,team]
+    # Para deployments: idem
+    - deployments=[app,app.kubernetes.io/name,version,env,team]
+    # Para namespaces: nenhum label extra necessário
+    - namespaces=[]

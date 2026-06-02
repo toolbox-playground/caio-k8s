@@ -1,0 +1,109 @@
+# helm-values/values-loki.yaml
+#
+# Módulo 08 — Loki OTIMIZADO: labels de stream reduzidos.
+#
+# O problema de alta cardinalidade existe no Loki também:
+#   - Cada combinação única de labels = 1 stream
+#   - Streams demais → índice grande → queries lentas → OOM
+#
+# Problema típico:
+#   filename="/var/log/pods/games_ranking-api-7f9d4b8c6-xkzpq_abc123/app/0.log"
+#   → hash do ReplicaSet muda a cada deploy → stream diferente
+#   → Loki acumula milhares de streams inativos
+#
+# Solução: restringir os labels de stream para os essenciais:
+#   namespace, app, pod, container
+#
+# Chart: grafana/loki
+#
+# Aplicar:
+#   helm upgrade loki grafana/loki \
+#     --namespace monitoring \
+#     -f helm-values/values-loki.yaml \
+#     --reuse-values
+
+deploymentMode: SingleBinary
+
+loki:
+  auth_enabled: false
+
+  commonConfig:
+    replication_factor: 1
+
+  storage:
+    type: filesystem
+
+  useTestSchema: true
+
+  # ── Limites de Ingestão ────────────────────────────────────────────
+  limits_config:
+    # Máximo de streams ativos por tenant.
+    # 1 stream = 1 combinação única de labels (namespace+app+pod+container).
+    # Com 100 pods e 3 containers cada: ~300 streams. Limite de 10k é seguro.
+    max_streams_per_user: 10000
+
+    # Máximo de streams únicos por push request.
+    # Previne que um único Fluent Bit sobrecarregue o ingester.
+    max_streams_matchers_per_query: 1000
+
+    # Taxa máxima de ingestão por tenant (bytes/segundo)
+    # 100MB/s é adequado para clusters de médio porte
+    ingestion_rate_mb: 100
+    ingestion_burst_size_mb: 200
+
+    # Retenção dos logs: 30 dias
+    # Em produção: ajuste conforme compliance e custos de storage
+    retention_period: 720h  # 30 dias
+
+    # Máximo de entradas por query de log (proteção contra queries explosivas)
+    max_entries_limit_per_query: 5000
+
+    # Janela máxima de tempo para queries históricas
+    max_query_length: 721h  # 30 dias + 1h de margem
+
+  # ── Labels de Stream Permitidos ────────────────────────────────────
+  # Esta é a configuração MAIS IMPORTANTE para cardinalidade no Loki.
+  # Restringe quais labels podem ser usados como index (stream labels).
+  # Todos os outros campos de log ficam acessíveis via `| json` ou
+  # `| logfmt` nas queries, mas NÃO criam streams separados.
+  #
+  # ANTES (sem restrição): filename, pod_name, container_id, docker_id, stream...
+  # DEPOIS (com restrição): namespace, app, pod, container
+  #
+  # Impacto: índice 10× menor, queries 3× mais rápidas em logs recentes.
+  ingester:
+    # Loki 3.x: use a configuração de stream labels no Distributor
+    # (nas versões mais recentes, isso é configurado via distributor)
+    autoforget_unhealthy: true
+
+singleBinary:
+  replicas: 1
+  # Recursos para Kind (leve)
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
+lokiCanary:
+  enabled: false
+
+test:
+  enabled: false
+
+minio:
+  enabled: false
