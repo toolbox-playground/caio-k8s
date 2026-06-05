@@ -1,0 +1,45 @@
+# ============================================================
+# HelmRelease — Tempo
+# ============================================================
+# Equivalente ao ArgoCD Application "tempo" (08-tempo-app.yaml).
+# Chart migrado para grafana-community/tempo (jan/2026).
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tempo
+  namespace: flux-system
+  labels:
+    module: "08"
+    tier: observability
+spec:
+  interval: 10m
+  dependsOn:
+    - name: namespaces
+
+  chart:
+    spec:
+      chart: tempo
+      version: "*"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana-community
+        namespace: flux-system
+      interval: 1h
+
+  targetNamespace: monitoring
+  releaseName: tempo
+
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+
+  valuesFrom:
+    - kind: ConfigMap
+      name: tempo-values
+      valuesKey: values-tempo.yaml

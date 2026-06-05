@@ -1,0 +1,44 @@
+# ============================================================
+# HelmRelease — Pyroscope
+# ============================================================
+# Equivalente ao ArgoCD Application "pyroscope" (09-pyroscope-app.yaml).
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: pyroscope
+  namespace: flux-system
+  labels:
+    module: "08"
+    tier: observability
+spec:
+  interval: 10m
+  dependsOn:
+    - name: namespaces
+
+  chart:
+    spec:
+      chart: pyroscope
+      version: "*"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: flux-system
+      interval: 1h
+
+  targetNamespace: monitoring
+  releaseName: pyroscope
+
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+
+  valuesFrom:
+    - kind: ConfigMap
+      name: pyroscope-values
+      valuesKey: values-pyroscope.yaml

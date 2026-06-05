@@ -1,0 +1,33 @@
+# ============================================================
+# Kustomization — mario
+# ============================================================
+# Equivalente ao ArgoCD Application "mario" (01-mario-app.yaml).
+# Aplica os manifests do Super Mario a partir do diretório
+# stack/mario/ no repositório.
+#
+# ArgoCD → Flux:
+#   Application (git path)  →  Kustomization
+#   syncPolicy.automated    →  interval (Flux sempre reconcilia)
+#   prune: true             →  prune: true
+#   selfHeal: true          →  (sempre ativo no Flux)
+#   CreateNamespace         →  targetNamespace + Kustomization cria o NS
+# ============================================================
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: mario
+  namespace: flux-system
+  labels:
+    module: "08"
+    tier: app
+spec:
+  interval: 5m
+  # O namespace "games" é criado pelo 00-namespaces.yaml
+  dependsOn:
+    - name: namespaces
+  path: ./curso-k8s/modulo-07-argocd/stack/mario
+  sourceRef:
+    kind: GitRepository
+    name: caio-k8s
+  prune: true
+  targetNamespace: games

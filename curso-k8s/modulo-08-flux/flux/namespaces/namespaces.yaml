@@ -1,0 +1,17 @@
+# Namespace: games
+# Criado pelo Flux antes dos apps que dependem dele.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: games
+  labels:
+    managed-by: flux
+---
+# Namespace: monitoring
+# Criado pelo Flux antes dos apps de observabilidade.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    managed-by: flux

@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# O GitRepository "caio-k8s" é criado pelo root-sync.yaml (aplicado manualmente).
+# Aqui ficam apenas os HelmRepository CRDs para os charts Helm.
+resources:
+  - helmrepository-prometheus.yaml
+  - helmrepository-grafana.yaml
+  - helmrepository-grafana-community.yaml
+  - helmrepository-fluent.yaml
+  - helmrepository-minio.yaml
+  - helmrepository-grafana.yaml
+  - helmrepository-grafana-community.yaml
+  - helmrepository-fluent.yaml
+  - helmrepository-minio.yaml

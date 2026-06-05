@@ -1,0 +1,15 @@
+# ============================================================
+# GitRepository — caio-k8s
+# ============================================================
+# Fonte git principal do projeto. Referenciada pelos Kustomizations
+# e HelmReleases nos flux/apps/.
+#
+# Nota: este arquivo NÃO é aplicado por aqui (seria circular).
+# O GitRepository está definido em flux/flux-system/root-sync.yaml
+# e aplicado manualmente na Fase 4 do QUICK-START.
+#
+# Este arquivo existe aqui apenas para documentação e referência.
+# O Source Controller usa o GitRepository do root-sync.yaml.
+# ============================================================
+# O arquivo é intencionalmente vazio de recursos para evitar duplicação.
+# Veja: flux/flux-system/root-sync.yaml

@@ -1,0 +1,86 @@
+# ============================================================
+# Flux — Root Sync
+# ============================================================
+# Este é o único arquivo aplicado manualmente (kubectl apply -f).
+# Tudo o mais é gerenciado pelo próprio Flux a partir do git.
+#
+# Contém:
+#   1. GitRepository: aponta para o Gitea interno
+#   2. Kustomization flux-sources: instala HelmRepositories
+#   3. Kustomization flux-apps: instala todos os apps (HelmReleases + Kustomizations)
+#
+# Aplicar:
+#   kubectl apply -f flux/flux-system/root-sync.yaml
+# ============================================================
+
+---
+# ── 1. GitRepository ─────────────────────────────────────────────────────
+# O Source Controller clona este repositório a cada 1 minuto.
+# Todos os demais recursos (Kustomizations, HelmReleases) referenciam
+# este GitRepository como sua fonte de manifests.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: caio-k8s
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+  # Para usar GitHub em vez do Gitea local:
+  # url: https://github.com/SEU_USUARIO/caio-k8s.git
+  ref:
+    branch: main
+  # Para repositórios privados, adicione um Secret com credenciais:
+  # secretRef:
+  #   name: gitea-credentials
+  # E crie o secret:
+  #   kubectl create secret generic gitea-credentials \
+  #     --from-literal=username=gitops \
+  #     --from-literal=password=gitops-secret \
+  #     -n flux-system
+
+---
+# ── 2. Kustomization: flux-sources ───────────────────────────────────────
+# Aplica o diretório flux/sources/ — que contém os HelmRepository CRDs.
+# Deve ser reconciliado ANTES do flux-apps, pois os HelmReleases
+# precisam que os HelmRepositories existam.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: flux-sources
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./curso-k8s/modulo-08-flux/flux/sources
+  sourceRef:
+    kind: GitRepository
+    name: caio-k8s
+  prune: true
+  # Aguardar HelmRepositories ficarem Ready antes de prosseguir
+  wait: true
+  timeout: 3m
+
+---
+# ── 3. Kustomization: flux-apps ──────────────────────────────────────────
+# Aplica o diretório flux/apps/ — que contém HelmReleases e Kustomizations
+# para todos os apps da stack.
+# Depende de flux-sources para garantir que os HelmRepositories existam.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: flux-apps
+  namespace: flux-system
+spec:
+  # Aguardar flux-sources estar Ready antes de aplicar os apps
+  dependsOn:
+    - name: flux-sources
+  interval: 5m
+  path: ./curso-k8s/modulo-08-flux/flux/apps
+  sourceRef:
+    kind: GitRepository
+    name: caio-k8s
+  prune: true
+  # Não esperar todos os recursos ficarem Ready (podem ter dependências internas)
+  # A ordem interna é gerenciada via dependsOn nos recursos individuais
+  wait: false
+  timeout: 10m

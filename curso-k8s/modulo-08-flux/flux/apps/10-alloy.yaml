@@ -1,0 +1,48 @@
+# ============================================================
+# HelmRelease — Grafana Alloy (eBPF profiling)
+# ============================================================
+# Equivalente ao ArgoCD Application "alloy" (10-alloy-app.yaml).
+#
+# No ArgoCD: sync-wave: 1 → sobe após o Pyroscope.
+# No Flux: dependsOn: [pyroscope] → aguarda Pyroscope estar Ready.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: alloy
+  namespace: flux-system
+  labels:
+    module: "08"
+    tier: observability
+spec:
+  interval: 10m
+  # Sobe após o Pyroscope para evitar erro de envio inicial de dados
+  dependsOn:
+    - name: pyroscope
+
+  chart:
+    spec:
+      chart: alloy
+      version: "*"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: flux-system
+      interval: 1h
+
+  targetNamespace: monitoring
+  releaseName: alloy
+
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+
+  valuesFrom:
+    - kind: ConfigMap
+      name: alloy-values
+      valuesKey: values-alloy.yaml

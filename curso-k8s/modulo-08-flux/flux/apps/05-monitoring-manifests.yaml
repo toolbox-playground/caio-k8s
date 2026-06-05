@@ -1,0 +1,26 @@
+# ============================================================
+# Kustomization — monitoring-manifests
+# ============================================================
+# Equivalente ao ArgoCD Application "monitoring-manifests" (05-monitoring-manifests-app.yaml).
+# Aplica dashboards Grafana + regras de alerta + probes Blackbox.
+#
+# Depende do prometheus-stack (CRDs PrometheusRule, GrafanaDashboard, etc.
+# precisam existir antes dos manifests).
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: monitoring-manifests
+  namespace: flux-system
+  labels:
+    module: "08"
+    tier: monitoring
+spec:
+  interval: 5m
+  dependsOn:
+    - name: prometheus-stack
+  path: ./curso-k8s/modulo-07-argocd/stack/monitoring/manifests
+  sourceRef:
+    kind: GitRepository
+    name: caio-k8s
+  prune: true
+  targetNamespace: monitoring

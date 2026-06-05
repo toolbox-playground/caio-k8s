@@ -1,0 +1,21 @@
+# ============================================================
+# Kustomization — namespaces
+# ============================================================
+# Cria os namespaces usados pela stack antes dos apps.
+# Todos os apps dependem desta Kustomization via dependsOn.
+# ============================================================
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: namespaces
+  namespace: flux-system
+  labels:
+    module: "08"
+    tier: infra
+spec:
+  interval: 10m
+  path: ./curso-k8s/modulo-08-flux/flux/namespaces
+  sourceRef:
+    kind: GitRepository
+    name: caio-k8s
+  prune: false  # Nunca deletar namespaces automaticamente

@@ -1,0 +1,55 @@
+# ============================================================
+# HelmRelease — kube-prometheus-stack
+# ============================================================
+# Equivalente ao ArgoCD Application "prometheus-stack" (02-prometheus-app.yaml).
+#
+# Padrão Flux para "chart de HelmRepo + values do git":
+#   1. HelmRepository "prometheus-community" (criado em flux/sources/)
+#   2. HelmRelease com spec.valuesFrom → ConfigMap gerado pelo Kustomize
+#   3. ConfigMap criado via configMapGenerator em flux/apps/kustomization.yaml
+#
+# ArgoCD multi-source → Flux HelmRelease + configMapGenerator
+# ============================================================
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: prometheus-stack
+  namespace: flux-system
+  labels:
+    module: "08"
+    tier: monitoring
+spec:
+  interval: 10m
+  dependsOn:
+    - name: namespaces
+
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      # "*" = última versão. Em produção: pin para versão específica.
+      version: "*"
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: flux-system
+      interval: 1h
+
+  targetNamespace: monitoring
+  releaseName: kind-prometheus
+
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+
+  # Values vindos do ConfigMap gerado em apps/kustomization.yaml
+  # (configMapGenerator → prometheus-stack-values)
+  valuesFrom:
+    - kind: ConfigMap
+      name: prometheus-stack-values
+      valuesKey: values-prometheus-stack.yaml

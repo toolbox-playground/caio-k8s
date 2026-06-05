@@ -1,0 +1,44 @@
+# ============================================================
+# HelmRelease — Loki
+# ============================================================
+# Equivalente ao ArgoCD Application "loki" (03-loki-app.yaml).
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: loki
+  namespace: flux-system
+  labels:
+    module: "08"
+    tier: monitoring
+spec:
+  interval: 10m
+  dependsOn:
+    - name: namespaces
+
+  chart:
+    spec:
+      chart: loki
+      version: "*"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: flux-system
+      interval: 1h
+
+  targetNamespace: monitoring
+  releaseName: loki
+
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+
+  valuesFrom:
+    - kind: ConfigMap
+      name: loki-values
+      valuesKey: values-loki.yaml

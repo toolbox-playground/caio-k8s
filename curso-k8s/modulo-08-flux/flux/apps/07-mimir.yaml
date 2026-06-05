@@ -1,0 +1,35 @@
+# ============================================================
+# Kustomization — Mimir
+# ============================================================
+# Equivalente ao ArgoCD Application "mimir" (07-mimir-app.yaml).
+# Aplica: ConfigMap de config, StatefulSet, Services, datasource Grafana.
+#
+# No ArgoCD: sync-wave: 0 (padrão) → sobe depois do MinIO (wave -1).
+# No Flux: dependsOn: [minio] → aguarda minio HelmRelease estar Ready.
+#
+# Diferença importante: o `dependsOn` do Flux aguarda o HelmRelease
+# "minio" ficar com status Ready=True antes de aplicar o Mimir.
+# No ArgoCD, o wave garante apenas a ORDEM de apply, não que o
+# recurso esteja Healthy.
+# ============================================================
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: mimir
+  namespace: flux-system
+  labels:
+    module: "08"
+    tier: storage
+spec:
+  interval: 5m
+  # Aguarda o MinIO estar completamente Ready antes de aplicar o Mimir
+  dependsOn:
+    - name: minio
+  path: ./curso-k8s/modulo-07-argocd/stack/mimir/manifests
+  sourceRef:
+    kind: GitRepository
+    name: caio-k8s
+  prune: true
+  targetNamespace: monitoring
+  # Timeout generoso: o Mimir StatefulSet pode demorar para inicializar
+  timeout: 10m

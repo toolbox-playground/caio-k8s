@@ -1,0 +1,82 @@
+# ============================================================
+# Kind Cluster: k8s-essentials (Módulo 08 — com Flux)
+# ============================================================
+# Mesmo cluster do Módulo 07. O Flux não expõe UI por padrão —
+# o controle é feito via CLI (flux) e kubectl.
+#
+# Reutiliza as mesmas portas dos módulos anteriores:
+#   → Gitea (33000): git server local para o GitOps loop
+#   → Grafana (3000), Prometheus (9090), Mario (8081), etc.
+#
+# ⚠️  Se o cluster já existir com outra config, delete e recrie:
+#     kind delete cluster --name k8s-essentials
+#     kind create cluster --config cluster-config.yaml
+# ============================================================
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+
+name: k8s-essentials
+
+# Estende o range de nodePort para incluir portas acima de 32767.
+kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+      extraArgs:
+        service-node-port-range: "30000-40000"
+
+nodes:
+  # ========== CONTROL PLANE ==========
+  - role: control-plane
+    extraPortMappings:
+
+    # ---- Módulo 02: Super Mario App ----
+    - containerPort: 30000
+      hostPort: 8081
+      protocol: TCP
+
+    # ---- Módulo 03: Prometheus ----
+    - containerPort: 30090
+      hostPort: 9090
+      protocol: TCP
+
+    # ---- Módulo 03: Grafana ----
+    - containerPort: 31000
+      hostPort: 3000
+      protocol: TCP
+
+    # ---- Módulo 03: Alertmanager ----
+    - containerPort: 32000
+      hostPort: 9093
+      protocol: TCP
+
+    # ---- Módulo 03: Node Exporter ----
+    - containerPort: 32001
+      hostPort: 9100
+      protocol: TCP
+
+    # ---- Módulo 05: Grafana Pyroscope ----
+    - containerPort: 34040
+      hostPort: 4040
+      protocol: TCP
+
+    # ---- Módulo 06: Grafana Mimir ----
+    - containerPort: 39009
+      hostPort: 9009
+      protocol: TCP
+
+    # ---- Módulo 06: MinIO Console ----
+    - containerPort: 39001
+      hostPort: 9001
+      protocol: TCP
+
+    # ---- Módulo 08: Gitea (git server local para GitOps) ----
+    # Acesse em: http://localhost:33000
+    # Login: gitops / gitops-secret
+    - containerPort: 33000
+      hostPort: 33000
+      protocol: TCP
+
+  # ========== WORKER NODE ==========
+  - role: worker
