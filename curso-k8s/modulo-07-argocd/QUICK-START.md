@@ -63,11 +63,20 @@ helm upgrade --install argocd argo/argo-cd `
 
 ### 1.3 — Obter a senha inicial do admin
 
+> **Método preferido** (ArgoCD CLI — documentado oficialmente desde v2.x):
+
+```bash
+# Linux / macOS e Windows (PowerShell) — requer CLI instalada
+argocd admin initial-password -n argocd
+# Saída: <senha>  (delete this secret after changing password)
+```
+
+> **Método alternativo** (kubectl direto, sem CLI):
+
 ```bash
 # Linux / macOS
 kubectl -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath="{.data.password}" | base64 -d
-# Copie esta senha — será usada no login
 ```
 ```pwsh
 # Windows (PowerShell)
@@ -75,8 +84,10 @@ kubectl -n argocd get secret argocd-initial-admin-secret `
   -o jsonpath="{.data.password}" | ForEach-Object {
     [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_))
   }
-# Copie esta senha — será usada no login
 ```
+
+> Após trocar a senha (Fase 10.1), delete este Secret:
+> `kubectl -n argocd delete secret argocd-initial-admin-secret`
 
 ### 1.4 — Acessar a UI
 
@@ -475,3 +486,562 @@ git push gitea master
 # ou
 git push gitea HEAD:main
 ```
+
+---
+
+## Fase 9 — Conectar ao GitHub (repositório real) ⭐
+
+> **Cenário**: você quer que o ArgoCD monitore um repositório no **GitHub**
+> em vez do Gitea local. Isso é o que você usaria em produção real —
+> o Gitea existe neste curso apenas para evitar dependência de internet e conta.
+>
+> Dois casos: repositório **público** (sem credencial) e **privado** (com Deploy Key ou PAT).
+
+---
+
+### 9.1 — Repositório público no GitHub
+
+Se o seu repositório GitHub for público, o registro é simples:
+
+```bash
+argocd repo add https://github.com/<seu-usuario>/<seu-repo>.git
+```
+
+Verificar:
+```bash
+argocd repo list
+# CONNECTION STATUS = Successful
+```
+
+Para apontar uma Application para o GitHub:
+```yaml
+# apps/00-root-app.yaml
+spec:
+  source:
+    repoURL: https://github.com/<seu-usuario>/<seu-repo>.git
+    targetRevision: main
+    path: apps
+```
+
+---
+
+### 9.2 — Repositório privado: Personal Access Token (PAT)
+
+O método mais simples para repositórios privados — o GitHub gera um token
+que você usa como senha HTTPS.
+
+**Passo 1** — Gere o PAT no GitHub:
+> GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token
+
+Permissões necessárias (mínimas):
+- `Contents: Read-only`
+- `Metadata: Read-only`
+
+**Passo 2** — Registre o repo no ArgoCD com o PAT:
+
+```bash
+# Linux / macOS
+argocd repo add https://github.com/<seu-usuario>/<seu-repo>.git \
+  --username <seu-usuario-github> \
+  --password <seu-PAT>
+```
+```pwsh
+# Windows (PowerShell)
+argocd repo add https://github.com/<seu-usuario>/<seu-repo>.git `
+  --username <seu-usuario-github> `
+  --password <seu-PAT>
+```
+
+> O ArgoCD armazena as credenciais como Secret no namespace `argocd`.
+> O PAT nunca fica em plaintext no seu YAML versionado — apenas o `repoURL`.
+
+---
+
+### 9.3 — Repositório privado: SSH Deploy Key (recomendado em produção)
+
+Deploy Key é uma chave SSH vinculada **apenas** a um repositório específico,
+sem acesso ao restante da sua conta. É mais seguro que um PAT com escopo amplo.
+
+**Passo 1** — Gerar o par de chaves:
+
+```bash
+# Linux / macOS
+ssh-keygen -t ed25519 -f argocd-deploy-key -C "argocd@k8s" -N ""
+# Gera: argocd-deploy-key (privada) e argocd-deploy-key.pub (pública)
+```
+```pwsh
+# Windows (PowerShell)
+ssh-keygen -t ed25519 -f argocd-deploy-key -C "argocd@k8s" -N '""'
+```
+
+**Passo 2** — Registrar a chave pública no GitHub:
+> GitHub → seu repositório → Settings → Deploy keys → Add deploy key
+> - Title: `argocd-k8s`
+> - Key: cole o conteúdo de `argocd-deploy-key.pub`
+> - Allow write access: **NÃO** (read-only é suficiente)
+
+**Passo 3** — Registrar a chave privada no ArgoCD:
+
+```bash
+# Linux / macOS
+argocd repo add git@github.com:<seu-usuario>/<seu-repo>.git \
+  --ssh-private-key-path argocd-deploy-key \
+  --insecure-ignore-host-key
+```
+```pwsh
+# Windows (PowerShell)
+argocd repo add git@github.com:<seu-usuario>/<seu-repo>.git `
+  --ssh-private-key-path argocd-deploy-key `
+  --insecure-ignore-host-key
+```
+
+```bash
+argocd repo list
+# CONNECTION STATUS = Successful
+```
+
+> **Boa prática**: após registrar, delete o arquivo `argocd-deploy-key` local
+> (a chave já está no Secret do Kubernetes). Use `kubectl -n argocd get secrets`
+> para confirmar que o Secret `repo-<hash>` existe.
+
+---
+
+### 9.4 — Webhook: sync imediato no push (sem esperar 3 minutos)
+
+Por padrão, o ArgoCD faz polling a cada 3 minutos. Com um **webhook** do GitHub,
+o sync começa em segundos após o `git push`.
+
+**Passo 1** — Expor o ArgoCD para o GitHub (em ambiente local com kind,
+use [ngrok](https://ngrok.com) ou [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)):
+
+```bash
+# Exemplo com ngrok (apenas para testes)
+ngrok http 8080
+# Anote a URL: https://xxxx.ngrok.io
+```
+
+**Passo 2** — Configurar o webhook no GitHub:
+> GitHub → seu repositório → Settings → Webhooks → Add webhook
+> - Payload URL: `https://xxxx.ngrok.io/api/webhook`
+> - Content type: `application/json`
+> - Secret: (gere um secret forte, ex: `openssl rand -hex 20`)
+> - Events: selecione apenas **Push events**
+
+**Passo 3** — Adicionar o secret do webhook no ArgoCD:
+
+```bash
+# Linux / macOS
+kubectl -n argocd patch secret argocd-secret \
+  --type merge \
+  -p '{"stringData":{"webhook.github.secret":"<seu-webhook-secret>"}}'
+```
+```pwsh
+# Windows (PowerShell)
+kubectl -n argocd patch secret argocd-secret `
+  --type merge `
+  -p '{"stringData":{"webhook.github.secret":"<seu-webhook-secret>"}}'
+```
+
+Após o próximo `git push`, o GitHub notifica o ArgoCD e o sync começa imediatamente.
+
+```bash
+# Verificar nos logs do ArgoCD server
+kubectl -n argocd logs deployment/argocd-server | grep -i webhook
+```
+
+---
+
+## Fase 10 — Segurança: Senhas, RBAC e Proteção da Web UI ⭐
+
+> **Cenário**: em produção, você não quer que qualquer pessoa que acesse
+> `http://seu-argocd/` consiga ver ou sincronizar aplicações.
+> Você precisa de: senha forte para o admin, usuários com permissões limitadas
+> e, opcionalmente, SSO via GitHub OAuth.
+
+---
+
+### 10.1 — Trocar a senha do admin (obrigatório em produção)
+
+A senha inicial gerada pelo Helm é fraca e rotacionada.
+Troque para uma senha forte assim que instalar:
+
+```bash
+# Gerar hash bcrypt da nova senha (Python já incluso no macOS/Linux)
+# Linux / macOS
+NEW_PASSWORD="MinhaS3nh@Forte!"
+BCRYPT_HASH=$(python3 -c "import bcrypt; print(bcrypt.hashpw(b'$NEW_PASSWORD', bcrypt.gensalt(12)).decode())")
+
+kubectl -n argocd patch secret argocd-secret \
+  --type merge \
+  -p "{\"stringData\":{\"admin.password\":\"$BCRYPT_HASH\",\"admin.passwordMtime\":\"$(date +%FT%T%Z)\"}}"
+```
+```pwsh
+# Windows (PowerShell) — usando a CLI do argocd (mais simples)
+argocd account update-password `
+  --current-password "<senha-inicial-do-passo-1.3>" `
+  --new-password "MinhaS3nh@Forte!"
+```
+
+> **Atenção**: a senha do argocd usa **bcrypt** internamente.
+> Sempre use `argocd account update-password` ou a UI — nunca edite o Secret manualmente sem o hash.
+
+---
+
+### 10.2 — Desabilitar o usuário admin (best practice em produção)
+
+Após criar outros usuários ou configurar SSO, desabilite o `admin` genérico:
+
+```bash
+# Linux / macOS
+kubectl -n argocd patch configmap argocd-cm \
+  --type merge \
+  -p '{"data":{"accounts.admin":"login"}}'
+# Para desabilitar completamente:
+kubectl -n argocd patch configmap argocd-cm \
+  --type merge \
+  -p '{"data":{"admin.enabled":"false"}}'
+```
+```pwsh
+# Windows (PowerShell)
+kubectl -n argocd patch configmap argocd-cm `
+  --type merge `
+  -p '{"data":{"admin.enabled":"false"}}'
+```
+
+> Só faça isso **depois** de garantir acesso via outro usuário ou SSO.
+
+---
+
+### 10.3 — Criar usuários locais com permissões específicas
+
+O ArgoCD tem um sistema de usuários locais (sem SSO). Útil para pipelines CI/CD.
+
+**Passo 1** — Criar o usuário no ConfigMap `argocd-cm`:
+
+```yaml
+# Patch no argocd-cm
+# Cada entrada: accounts.<nome> = <capabilities>
+# Capabilities: login (pode logar na UI/CLI) | apiKey (pode gerar tokens)
+data:
+  accounts.alice: login
+  accounts.bob: login, apiKey
+  accounts.ci-bot: apiKey
+```
+
+```bash
+# Aplicar via patch
+# Linux / macOS
+kubectl -n argocd patch configmap argocd-cm \
+  --type merge \
+  -p '{"data":{"accounts.alice":"login","accounts.ci-bot":"apiKey"}}'
+```
+```pwsh
+# Windows (PowerShell)
+kubectl -n argocd patch configmap argocd-cm `
+  --type merge `
+  -p '{"data":{"accounts.alice":"login","accounts.ci-bot":"apiKey"}}'
+```
+
+**Passo 2** — Definir senha para o novo usuário:
+
+```bash
+argocd account update-password \
+  --account alice \
+  --current-password "<senha-admin>" \
+  --new-password "SenhaAlice123!"
+```
+
+**Passo 3** — Verificar usuários existentes:
+
+```bash
+argocd account list
+# NAME     ENABLED  CAPABILITIES
+# admin    true     login
+# alice    true     login
+# ci-bot   true     apiKey
+```
+
+---
+
+### 10.4 — RBAC: definir o que cada usuário pode fazer
+
+O RBAC do ArgoCD usa o ConfigMap `argocd-rbac-cm`.
+A sintaxe usa políticas no estilo **Casbin**:
+
+```
+p, <subject>, <resource>, <action>, <object>
+```
+
+Onde:
+- **subject**: usuário (`alice`) ou grupo (`role:viewer`)
+- **resource**: `applications`, `repositories`, `clusters`, `projects`, `accounts`, etc.
+- **action**: `get`, `create`, `update`, `delete`, `sync`, `action`, `*`
+- **object**: `<project>/<app>` ou `*`
+
+**Exemplo de política completa**:
+
+```yaml
+# kubectl -n argocd edit configmap argocd-rbac-cm
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+data:
+  # Política padrão para usuários sem role explícita
+  policy.default: role:readonly
+
+  policy.csv: |
+    # --- Roles reutilizáveis ---
+
+    # Viewer: pode ver tudo, não pode sincronizar
+    p, role:viewer, applications, get, */*, allow
+    p, role:viewer, repositories, get, *, allow
+    p, role:viewer, clusters, get, *, allow
+
+    # Developer: pode sync, não pode deletar apps nem gerenciar clusters
+    p, role:developer, applications, get,    */*, allow
+    p, role:developer, applications, sync,   */*, allow
+    p, role:developer, applications, update, */*, allow
+    p, role:developer, repositories, get, *, allow
+
+    # Ops: acesso total (mas não é o admin do sistema)
+    p, role:ops, applications, *, */*, allow
+    p, role:ops, repositories, *, *, allow
+    p, role:ops, clusters,      *, *, allow
+    p, role:ops, projects,      *, *, allow
+
+    # --- Vinculação de usuários a roles ---
+    g, alice,  role:developer
+    g, bob,    role:ops
+    g, ci-bot, role:developer
+```
+
+```bash
+# Aplicar o ConfigMap
+kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+data:
+  policy.default: role:readonly
+  policy.csv: |
+    p, role:viewer,    applications, get,    */*, allow
+    p, role:developer, applications, get,    */*, allow
+    p, role:developer, applications, sync,   */*, allow
+    p, role:developer, applications, update, */*, allow
+    p, role:ops,       applications, *,      */*, allow
+    p, role:ops,       clusters,     *,      *, allow
+    g, alice,  role:developer
+    g, bob,    role:ops
+    g, ci-bot, role:developer
+EOF
+```
+
+**Testar a política**:
+
+```bash
+# Sintaxe: argocd admin settings rbac can <subject> <action> <resource> '<project>/<app>' --namespace argocd
+
+# Verifica se alice pode sincronizar a app "mario"
+argocd admin settings rbac can alice sync applications 'default/mario' --namespace argocd
+# Esperado: Yes
+
+# Verifica se alice pode deletar apps
+argocd admin settings rbac can alice delete applications 'default/mario' --namespace argocd
+# Esperado: No
+
+# Verificar via política local (sem precisar do cluster)
+argocd admin settings rbac can alice sync applications 'default/mario' --policy-file argocd-rbac-cm.yaml
+```
+
+> **Alternativa em runtime**: `argocd account can-i sync applications '*'`
+> verifica as permissões do usuário **atualmente logado** na CLI.
+
+---
+
+### 10.5 — SSO com GitHub OAuth (login via conta GitHub)
+
+> Em vez de gerenciar senhas locais, você permite que usuários façam login
+> com a conta deles no GitHub — e define roles baseadas em **organizações ou times** do GitHub.
+
+**Passo 1** — Criar o OAuth App no GitHub:
+> GitHub → Settings → Developer settings → OAuth Apps → New OAuth App
+> - Application name: `ArgoCD`
+> - Homepage URL: `https://argocd.seudominio.com` (ou `http://localhost:8080` para testes)
+> - Authorization callback URL: `https://argocd.seudominio.com/api/dex/callback`
+> - Salve o **Client ID** e gere um **Client Secret**
+
+**Passo 2** — Configurar o Dex (provedor OIDC do ArgoCD) via `values-argocd.yaml`:
+
+```yaml
+# install/values-argocd.yaml
+configs:
+  cm:
+    url: http://localhost:8080   # URL pública do ArgoCD
+    dex.config: |
+      connectors:
+        - type: github
+          id: github
+          name: GitHub
+          config:
+            clientID: <seu-client-id>
+            clientSecret: $dex.github.clientSecret   # referência ao Secret
+            redirectURI: http://localhost:8080/api/dex/callback
+            orgs:
+              - name: <sua-org-github>   # apenas membros desta org podem logar
+```
+
+**Passo 3** — Criar o Secret com o client secret:
+
+```bash
+kubectl -n argocd create secret generic argocd-github-sso \
+  --from-literal=dex.github.clientSecret=<seu-client-secret>
+
+# Referenciar no argocd-secret (patch)
+kubectl -n argocd patch secret argocd-secret \
+  --type merge \
+  -p '{"stringData":{"dex.github.clientSecret":"<seu-client-secret>"}}'
+```
+
+**Passo 4** — RBAC baseado em times do GitHub:
+
+```yaml
+# argocd-rbac-cm
+data:
+  policy.csv: |
+    # Time "devs" da org "minha-empresa" → role developer
+    g, minha-empresa:devs, role:developer
+
+    # Time "sre" da org "minha-empresa" → role ops
+    g, minha-empresa:sre, role:ops
+```
+
+**Passo 5** — Aplicar e reiniciar o Dex:
+
+```bash
+helm upgrade argocd argo/argo-cd \
+  --namespace argocd \
+  -f install/values-argocd.yaml
+
+# Verificar o Dex
+kubectl -n argocd rollout status deployment/argocd-dex-server
+```
+
+Após isso, a tela de login do ArgoCD exibirá o botão **"Log in via GitHub"**.
+
+---
+
+### 10.6 — Gerar token para CI/CD (pipeline sem UI)
+
+Pipelines de CI (GitHub Actions, GitLab CI etc.) precisam fazer `argocd sync`
+sem usuário interativo. Use um **API token**:
+
+```bash
+# Gerar token para o ci-bot (que tem capability apiKey)
+argocd account generate-token --account ci-bot
+# Saída: eyJhbGci... (guarde — aparece só uma vez!)
+```
+
+Use o token no seu pipeline:
+
+```yaml
+# .github/workflows/deploy.yml
+- name: Sync ArgoCD
+  env:
+    ARGOCD_TOKEN: ${{ secrets.ARGOCD_TOKEN }}
+  run: |
+    argocd app sync mario \
+      --server argocd.seudominio.com \
+      --auth-token $ARGOCD_TOKEN \
+      --grpc-web
+```
+
+> Armazene o token como **GitHub Actions Secret** (`ARGOCD_TOKEN`),
+> nunca em plaintext no repositório.
+
+---
+
+### 10.7 — Protegendo via AppProject: namespace isolation
+
+O ArgoCD usa **AppProjects** para isolar times. Um time não consegue
+ver ou alterar os recursos de outro time.
+
+```yaml
+# apps/project-team-a.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: team-a
+  namespace: argocd
+spec:
+  description: "Projeto do Time A (apps de frontend)"
+
+  # Repositórios que este projeto pode usar
+  sourceRepos:
+    - https://github.com/minha-empresa/frontend.git
+
+  # Namespaces de destino permitidos
+  destinations:
+    - namespace: team-a-*
+      server: https://kubernetes.default.svc
+
+  # Recursos Kubernetes que podem ser criados
+  clusterResourceWhitelist: []   # sem acesso a recursos de cluster
+  namespaceResourceWhitelist:
+    - group: apps
+      kind: Deployment
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ConfigMap
+
+  # Roles dentro do projeto
+  roles:
+    - name: developer
+      description: "Desenvolvedores do Time A"
+      policies:
+        - p, proj:team-a:developer, applications, sync, team-a/*, allow
+        - p, proj:team-a:developer, applications, get,  team-a/*, allow
+      groups:
+        - minha-empresa:team-a-devs   # time do GitHub
+```
+
+```bash
+kubectl apply -f apps/project-team-a.yaml
+```
+
+---
+
+### Resumo de Segurança
+
+| Camada | O que protege | Como configurar |
+|--------|--------------|-----------------|
+| Senha forte do admin | Acesso inicial | `argocd account update-password` |
+| Usuários locais | Pipelines CI/CD sem SSO | `argocd-cm` + `argocd-rbac-cm` |
+| RBAC por role | O que cada usuário pode fazer | `policy.csv` no `argocd-rbac-cm` |
+| SSO GitHub OAuth | Login corporativo via GitHub | `dex.config` no `argocd-cm` |
+| AppProject | Isolamento entre times | `AppProject` YAML |
+| Deploy Key SSH | Acesso read-only ao repo | chave por repositório, sem acesso à conta |
+| API Token | Pipelines automatizados | `argocd account generate-token` |
+
+---
+
+## Questões de Fixação — Fases 9 e 10
+
+1. **Qual a diferença entre PAT e Deploy Key para conectar o ArgoCD ao GitHub?
+   Em que situação você prefere cada um?**
+
+2. **Por que o webhook é mais eficiente que o polling padrão de 3 minutos?
+   Qual a limitação do webhook em ambiente local (kind)?**
+
+3. **O que acontece com um usuário que não tem role explícita definida no RBAC?
+   Qual configuração controla esse comportamento?**
+
+4. **Qual o risco de deixar o usuário `admin` habilitado em produção?
+   Quando é seguro desabilitá-lo?**
+
+5. **Você tem um time de frontend e um de backend no mesmo cluster.
+   Como o AppProject impede que o time de frontend delete Deployments do backend?**
