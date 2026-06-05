@@ -24,12 +24,13 @@ metadata:
 spec:
   project: default
 
-  source:
-    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
-    # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
-    targetRevision: HEAD
-    # Diretório com os manifests do Mario neste módulo
-    path: curso-k8s/modulo-07-argocd/stack/mario
+  # ⚠️ v3: campo "source" (singular) depreciado — use "sources" (plural)
+  sources:
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+      # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
+      targetRevision: HEAD
+      # Diretório com os manifests do Mario neste módulo
+      path: curso-k8s/modulo-07-argocd/stack/mario
 
   destination:
     server: https://kubernetes.default.svc

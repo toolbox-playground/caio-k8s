@@ -4,6 +4,13 @@
 > `kubectl apply` e `helm install`. Este módulo faz o mesmo, mas de forma
 > **declarativa e automatizada**: você descreve o estado desejado em arquivos
 > YAML no git, e o ArgoCD garante que o cluster esteja sempre em sincronia.
+>
+> **Versão**: este módulo usa **ArgoCD v3.x** (Helm chart `argo/argo-cd` >= 8.0.0).
+> Principais mudanças em relação ao v2 que afetam este lab:
+> - Todos os Application YAMLs usam `sources:` (plural) — `source:` singular foi depreciado
+> - Server-Side Apply (SSA) é o padrão — `ServerSideApply=true` já nos `syncOptions`
+> - `argocd admin initial-password` é o comando oficial para obter a senha inicial
+> - RBAC com SSO usa `federated_claims.user_id` (não mais o hash `sub` do Dex)
 
 ---
 
@@ -42,14 +49,21 @@ kubectl get nodes
 ```bash
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo update
+
+# Verificar versões disponíveis do chart (8.x.x = ArgoCD v3.x)
+helm search repo argo/argo-cd --versions | head -10
 ```
 
-### 1.2 — Instalar o ArgoCD
+### 1.2 — Instalar o ArgoCD v3
+
+> O Helm chart `argo/argo-cd` **>= 8.0.0** instala o ArgoCD **v3.x**.
+> O flag `--version ">=8.0.0"` garante que não seja instalado o v2 acidentalmente.
 
 ```bash
 # Linux / macOS
 helm upgrade --install argocd argo/argo-cd \
   --namespace argocd --create-namespace \
+  --version ">=8.0.0" \
   -f install/values-argocd.yaml \
   --wait --timeout 5m
 ```
@@ -57,9 +71,18 @@ helm upgrade --install argocd argo/argo-cd \
 # Windows (PowerShell)
 helm upgrade --install argocd argo/argo-cd `
   --namespace argocd --create-namespace `
+  --version ">=8.0.0" `
   -f install/values-argocd.yaml `
   --wait --timeout 5m
 ```
+
+> **Para verificar a versão instalada**:
+> ```bash
+> argocd version --short
+> # Esperado: argocd: v3.x.x
+> kubectl -n argocd get deployment argocd-server -o jsonpath='{.spec.template.spec.containers[0].image}'
+> # Esperado: quay.io/argoproj/argocd:v3.x.x
+> ```
 
 ### 1.3 — Obter a senha inicial do admin
 
@@ -431,6 +454,55 @@ Observe na UI a ordem em que as Applications ficam verdes.
 
 ---
 
+## Migração v2 → v3 (se você já tinha o módulo com ArgoCD v2)
+
+### O que mudou e já está corrigido neste repositório
+
+| Mudança | Arquivos atualizados |
+|---|---|
+| `source:` (singular) → `sources:` (plural) em todos os manifests | `apps/*.yaml` |
+| Helm chart `argo/argo-cd` precisa ser `>= 8.0.0` para o ArgoCD v3 | `values-argocd.yaml` + comandos de install |
+| RBAC `policy.default: role:readonly` declarado explicitamente | `values-argocd.yaml` |
+
+### Upgrade de um cluster já com ArgoCD v2
+
+Se você já tem o ArgoCD v2 rodando, faça o upgrade:
+
+```bash
+# Verificar versão atual
+argocd version --short
+
+# Upgrade (o --reuse-values pega os valores anteriores)
+helm upgrade argocd argo/argo-cd \
+  --namespace argocd \
+  --version ">=8.0.0" \
+  -f install/values-argocd.yaml \
+  --wait --timeout 5m
+```
+
+Após o upgrade, ressincronize a Application `root` para que os manifests
+`sources:` (plural) sejam aplicados:
+
+```bash
+argocd app sync root --force
+```
+
+### Verificar se resources migraram para Server-Side Apply
+
+No v3, todos os resources são gerenciados via SSA. Para checar se algum
+resource ainda usa client-side apply (anotação `kubectl.kubernetes.io/last-applied-configuration`):
+
+```bash
+# Lista Deployments com anotação de client-side apply (devem ser zero após sync)
+kubectl get deployments -A -o json | \
+  jq -r '.items[] | select(.metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"] != null) | .metadata.namespace + "/" + .metadata.name'
+```
+
+O `ClientSideApplyMigration=true` (padrão no v3) migra automaticamente
+no próximo sync — nenhuma ação manual necessária.
+
+---
+
 ## Troubleshooting
 
 ### Application presa em "Unknown" ou "OutOfSync"
@@ -515,12 +587,12 @@ argocd repo list
 
 Para apontar uma Application para o GitHub:
 ```yaml
-# apps/00-root-app.yaml
+# apps/00-root-app.yaml  (⚠️ v3: use sources, plural)
 spec:
-  source:
-    repoURL: https://github.com/<seu-usuario>/<seu-repo>.git
-    targetRevision: main
-    path: apps
+  sources:
+    - repoURL: https://github.com/<seu-usuario>/<seu-repo>.git
+      targetRevision: main
+      path: apps
 ```
 
 ---

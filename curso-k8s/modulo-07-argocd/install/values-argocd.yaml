@@ -1,14 +1,44 @@
 # values-argocd.yaml
 # Helm values do Argo CD para o cluster Kind local.
 #
-# Chart: argo/argo-cd
-# Helm repo: helm repo add argo https://argoproj.github.io/argo-helm
+# Chart : argo/argo-cd  (https://argoproj.github.io/argo-helm)
+# Versão: >= 8.0.0  →  ArgoCD v3.x
 #
-# Instalar:
+# Verificar versões disponíveis:
+#   helm search repo argo/argo-cd --versions | head -10
+#
+# Instalar / atualizar:
+#   helm repo add argo https://argoproj.github.io/argo-helm
+#   helm repo update
+#
+#   # Linux / macOS
 #   helm upgrade --install argocd argo/argo-cd \
 #     --namespace argocd --create-namespace \
+#     --version ">=8.0.0" \
 #     -f install/values-argocd.yaml \
 #     --wait --timeout 5m
+#
+#   # Windows (PowerShell)
+#   helm upgrade --install argocd argo/argo-cd `
+#     --namespace argocd --create-namespace `
+#     --version ">=8.0.0" `
+#     -f install/values-argocd.yaml `
+#     --wait --timeout 5m
+#
+# ── Novidades v3 refletidas neste arquivo ────────────────────────────────
+#   - ServerSideApply é o padrão (Client-Side Apply Migration ativo)
+#   - application.resourceTrackingMethod: annotation  (tracking por label foi
+#     depreciado para garantir rastreamento preciso de resources renomeados)
+#   - global.env: para ENV vars aplicadas a todos os componentes
+#   - applicationSet.metrics: habilitado para o Prometheus scrape
+# ─────────────────────────────────────────────────────────────────────────
+
+# ── Configurações globais ────────────────────────────────────────────────
+global:
+  # Em produção: pin para o tag exato do ArgoCD (ex: "v3.0.3")
+  # image:
+  #   tag: "v3.0.3"
+  env: []   # ENV vars injetadas em todos os Deployments do ArgoCD
 
 # ── Configurações globais do servidor ArgoCD ────────────────────────────────
 configs:
@@ -20,9 +50,30 @@ configs:
 
   # Configurações do ArgoCD (argocd-cm)
   cm:
-    # Permite que o ArgoCD gerencie recursos no mesmo namespace onde está instalado.
-    # Necessário para o padrão App of Apps (onde as Applications ficam em argocd/).
+    # ── Rastreamento por annotation (padrão recomendado no v3) ──────────
+    # Garante rastreamento correto de resources mesmo quando renomeados.
+    # O método "label" foi depreciado no v3.
     application.resourceTrackingMethod: annotation
+
+    # ── Server-Side Apply Migration (padrão no v3) ───────────────────────
+    # O ArgoCD v3 usa SSA por padrão. O campo abaixo garante que resources
+    # criados com client-side apply sejam migrados automaticamente para SSA
+    # no próximo sync. Desabilite apenas se tiver conflitos com outros operators.
+    # Documentado em: https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/
+    # (não é um campo do argocd-cm — é syncOption por Application, já configurado nos YAMLs)
+
+  # ── RBAC (argocd-rbac-cm) ─────────────────────────────────────────────
+  rbac:
+    # Política padrão para usuários sem role explícita.
+    # "role:readonly" permite ver mas não sincronizar — seguro para testes.
+    # Em produção com SSO: considere "" (sem acesso) como padrão.
+    policy.default: role:readonly
+
+    # ── v3: RBAC com Dex usa federated_claims.user_id (não mais "sub") ──
+    # Se usar SSO no futuro, as policies devem referenciar o email legível:
+    #   g, usuario@empresa.com, role:admin
+    # e NÃO o hash base64 do claim "sub".
+
 
 # ── ArgoCD Server (UI + API) ──────────────────────────────────────────────
 server:
