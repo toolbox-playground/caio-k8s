@@ -1,0 +1,53 @@
+# values-aistor-operator.yaml
+# Helm values do AIStor Operator para o cluster Kind local.
+#
+# Chart : minio/aistor-operator  (https://helm.min.io)
+#
+# ⚠️  LICENÇA OBRIGATÓRIA
+#     AIStor é um produto enterprise da MinIO.
+#     Obtenha uma Trial gratuita (30 dias) em: https://subnet.min.io
+#     Após criar a conta, acesse: https://subnet.min.io/health?download-license
+#
+# ── Instalação ─────────────────────────────────────────────────────────────
+#
+# Passo 1 — Adicionar repo e instalar o Operator (UMA VEZ por cluster)
+#
+#   helm repo add minio https://helm.min.io
+#   helm repo update
+#
+#   # Opção A — License inline (simples, não commitar em git)
+#   helm upgrade --install aistor minio/aistor-operator \
+#     --namespace aistor --create-namespace \
+#     --set license="<sua-chave-jwt>" \
+#     --wait --timeout 3m
+#
+#   # Opção B — License via Secret (recomendado para GitOps)
+#   kubectl create namespace aistor --dry-run=client -o yaml | kubectl apply -f -
+#   kubectl -n aistor create secret generic minio-license \
+#     --from-literal=minio.license="<sua-chave-jwt>"
+#
+#   helm upgrade --install aistor minio/aistor-operator \
+#     --namespace aistor --create-namespace \
+#     --wait --timeout 3m
+#
+# Passo 2 — Verificar
+#   kubectl -n aistor get pods
+#   # Esperado: aistor-operator-* Running
+#   kubectl get crd | grep aistor
+#   # Esperado: objectstores.aistor.min.io
+#
+# ── Diferenças em relação ao MinIO open-source ─────────────────────────────
+#   - AIStor é baseado no MinIO Operator + features enterprise
+#   - API S3 100% compatível — nenhuma mudança nos clientes (Mimir, mc, etc.)
+#   - O Operator gerencia o ciclo de vida do ObjectStore via CRD
+#   - Requer licença para operar (trial ou subscriptions)
+# ─────────────────────────────────────────────────────────────────────────
+
+# O Operator não necessita de customização para o Kind.
+# Mantemos este arquivo como documentação e ponto de extensão.
+
+# Opcional: fixar versão do Operator para reproducibilidade
+# image:
+#   tag: "RELEASE.2025-XX-XXT00-00-00Z"
+
+# Sem valores customizados — o chart funciona com os defaults para Kind.

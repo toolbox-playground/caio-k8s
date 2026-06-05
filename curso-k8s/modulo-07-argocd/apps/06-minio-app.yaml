@@ -1,17 +1,26 @@
 # ============================================================
-# ArgoCD Application — MinIO
+# ArgoCD Application — AIStor ObjectStore (substituiu MinIO)
 # ============================================================
-# MinIO provê o object storage S3-compatível para o Mimir.
-# Deve estar sincronizado ANTES do Mimir para que os buckets
-# existam quando o initContainer do Mimir tentar conectar.
+# O AIStor (enterprise MinIO) provê o object storage S3-compatível
+# para o Mimir. API S3 100% compatível — nenhuma mudança nos clientes.
 #
-# Observação: no módulo 6 o MinIO deixou de usar chart Helm
-# (bitnami/minio descontinuado) e passou a usar manifest Kubernetes
-# com imagem oficial minio/minio + Job de criação de buckets.
+# Arquitetura multi-source (v3):
+#   source[0]: Helm chart minio/aistor-objectstore
+#              Cria o CRD ObjectStore gerenciado pelo AIStor Operator.
+#   source[1]: Git — values file (ref: $values)
+#              Permite versionar as configurações do chart no repositório.
+#   source[2]: Git — stack/minio/manifests/
+#              Secret de credenciais + Job de criação de buckets.
 #
-# O campo "syncWave" garante a ordem de sync via annotation:
-#   wave -1 → MinIO sobe primeiro
-#   wave  0 → Mimir sobe depois (padrão)
+# Pré-requisito (fora do ArgoCD):
+#   O AIStor Operator deve estar instalado no namespace "aistor"
+#   ANTES de sincronizar esta Application.
+#   Ver QUICK-START.md Fase 1 — Instalar AIStor Operator.
+#
+# Ordem de sync (sync waves):
+#   wave -2 → Secret de credenciais (manifests/)
+#   wave -1 → ObjectStore chart (esta Application) + Job de buckets
+#   wave  0 → Mimir (padrão)
 # ============================================================
 
 apiVersion: argoproj.io/v1alpha1
@@ -25,17 +34,35 @@ metadata:
     module: "07"
     tier: storage
 
-  # Sync Wave: MinIO precisa estar pronto antes do Mimir.
-  # Waves menores sincronizam primeiro. ArgoCD aguarda cada wave
-  # estar Healthy antes de iniciar a próxima.
+  # Sync Wave: AIStor precisa estar pronto antes do Mimir.
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
 
 spec:
   project: default
 
-  # ⚠️ v3: campo "source" (singular) depreciado — use "sources" (plural)
+  # ⚠️ v3: "sources" (plural) — multi-source canônico no ArgoCD v3.x
   sources:
+    # Source 1: Helm chart do AIStor ObjectStore.
+    # O chart cria o CRD ObjectStore que o Operator converte em pods.
+    - repoURL: https://helm.min.io
+      chart: aistor-objectstore
+      targetRevision: "*"
+      helm:
+        releaseName: minio
+        valueFiles:
+          # Referência ao values file no git ($values = source com ref: $values abaixo)
+          - $values/curso-k8s/modulo-07-argocd/install/values-aistor-objectstore.yaml
+
+    # Source 2: Git — referência para o values file do chart.
+    # O alias "$values" é usado em valueFiles acima.
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+      # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
+      targetRevision: HEAD
+      ref: values
+
+    # Source 3: Git — manifests Kubernetes (Secret + Job de buckets).
+    # O Secret deve existir antes do chart — garantido pelo sync-wave no manifest.
     - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
       # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
       targetRevision: HEAD

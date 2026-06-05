@@ -1,0 +1,81 @@
+# values-aistor-objectstore.yaml
+# AIStor ObjectStore — configuração para Kind (desenvolvimento local)
+#
+# Chart : minio/aistor-objectstore  (https://helm.min.io)
+#
+# Pré-requisitos:
+#   1. AIStor Operator instalado no namespace "aistor"
+#      (ver install/values-aistor-operator.yaml)
+#   2. Secret "aistor-storage-config" presente no namespace "monitoring"
+#      (criado por manifests/00-minio.yaml)
+#
+# ── Instalar / atualizar ───────────────────────────────────────────────────
+#
+#   helm upgrade --install minio minio/aistor-objectstore \
+#     --namespace monitoring --create-namespace \
+#     -f install/values-aistor-objectstore.yaml \
+#     --wait --timeout 5m
+#
+# ── Verificar ──────────────────────────────────────────────────────────────
+#
+#   kubectl -n monitoring get objectstore
+#   # Esperado: minio   Ready
+#
+#   kubectl -n monitoring get pods -l v1.min.io/tenant=minio
+#   # Esperado: minio-pool-0-0   Running
+#
+# ── Endpoint S3 (para o Mimir) ─────────────────────────────────────────────
+#
+#   http://minio.monitoring.svc.cluster.local:80
+#
+#   ⚠️  Com TLS desabilitado (disableAutoCert: true), o AIStor expõe
+#       a API S3 na porta 80 (HTTP), não na 9000 como o MinIO standalone.
+#       O arquivo 01-mimir-config.yaml já está atualizado para usar :80.
+#
+# ── Acesso ao console web ──────────────────────────────────────────────────
+#
+#   http://localhost:9001  (mimir / mimir-supersecret)
+# ─────────────────────────────────────────────────────────────────────────
+
+objectStore:
+  # Nome do ObjectStore.
+  # Define o nome dos Services criados pelo Operator:
+  #   minio.monitoring.svc.cluster.local   → S3 API (porta 80)
+  #   minio-console.monitoring.svc.cluster.local → Console (porta 9090)
+  name: minio
+
+  # ── Storage pools ────────────────────────────────────────────────────────
+  # ⚠️  PRODUÇÃO: mínimo 4 servidores e 4 volumes para erasure coding (EC:4)
+  #     Este módulo usa 1 servidor / 1 volume apenas para desenvolvimento.
+  #     Sem erasure coding, não há redundância. Não use em produção.
+  pools:
+    - name: pool-0
+      servers: 1             # Kind: 1 pod (dev). Produção: ≥ 4
+      volumesPerServer: 1    # 1 PVC por pod
+      size: 5Gi              # Suficiente para métricas do curso
+      storageClassName: standard  # Storage class padrão do Kind
+
+  # Referência ao Secret de credenciais (criado por manifests/00-minio.yaml).
+  # O Operator lê as variáveis MINIO_ROOT_USER / MINIO_ROOT_PASSWORD deste Secret.
+  configuration:
+    name: aistor-storage-config
+
+  # ── TLS / Certificados ───────────────────────────────────────────────────
+  # disableAutoCert: true → HTTP puro na porta 80 (sem TLS).
+  # APENAS para ambiente local. Em produção: remova esta seção e use
+  # cert-manager ou certificados externos.
+  certificates:
+    disableAutoCert: true
+
+  # ── Serviços expostos ────────────────────────────────────────────────────
+  services:
+    # S3 API — apenas acesso interno do Mimir (ClusterIP).
+    # Endpoint: http://minio.monitoring.svc.cluster.local:80
+    minio:
+      serviceType: ClusterIP
+
+    # Console web — acessível externamente via NodePort.
+    # URL: http://localhost:9001  (mapeado no cluster-config.yaml)
+    console:
+      serviceType: NodePort
+      nodePort: 39001  # Corresponde ao hostPort 9001 no cluster-config.yaml

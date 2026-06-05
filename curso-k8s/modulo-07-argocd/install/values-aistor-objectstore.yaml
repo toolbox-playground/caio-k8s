@@ -1,0 +1,61 @@
+# values-aistor-objectstore.yaml
+# AIStor ObjectStore — configuração para Kind (desenvolvimento local)
+#
+# Chart : minio/aistor-objectstore  (https://helm.min.io)
+# Usado pelo ArgoCD Application "minio" (apps/06-minio-app.yaml)
+#
+# Pré-requisitos:
+#   1. AIStor Operator instalado no namespace "aistor"
+#      (instalado antes de subir o ArgoCD — ver QUICK-START.md)
+#   2. Secret "aistor-storage-config" presente no namespace "monitoring"
+#      (gerenciado pelo ArgoCD via apps/06-minio-app.yaml → stack/minio/manifests/)
+#
+# ── Endpoint S3 (para o Mimir) ─────────────────────────────────────────────
+#
+#   http://minio.monitoring.svc.cluster.local:80
+#
+#   ⚠️  Com TLS desabilitado (disableAutoCert: true), o AIStor expõe
+#       a API S3 na porta 80 (HTTP), não na 9000 como o MinIO standalone.
+#       O arquivo stack/mimir/manifests/01-mimir-config.yaml usa :80.
+#
+# ── Acesso ao console web ──────────────────────────────────────────────────
+#
+#   http://localhost:9001  (mimir / mimir-supersecret)
+# ─────────────────────────────────────────────────────────────────────────
+
+objectStore:
+  # Nome do ObjectStore.
+  # Define o nome dos Services criados pelo Operator:
+  #   minio.monitoring.svc.cluster.local   → S3 API (porta 80)
+  #   minio-console.monitoring.svc.cluster.local → Console (porta 9090)
+  name: minio
+
+  # ── Storage pools ────────────────────────────────────────────────────────
+  # ⚠️  PRODUÇÃO: mínimo 4 servidores e 4 volumes para erasure coding (EC:4)
+  #     Este módulo usa 1 servidor / 1 volume apenas para desenvolvimento.
+  pools:
+    - name: pool-0
+      servers: 1             # Kind: 1 pod (dev). Produção: ≥ 4
+      volumesPerServer: 1    # 1 PVC por pod
+      size: 5Gi
+      storageClassName: standard  # Storage class padrão do Kind
+
+  # Referência ao Secret de credenciais.
+  # Secret criado pelo ArgoCD via stack/minio/manifests/ (sync-wave: -2).
+  configuration:
+    name: aistor-storage-config
+
+  # HTTP puro (sem TLS) para ambiente Kind local.
+  # Remover em produção — usar cert-manager ou certificados externos.
+  certificates:
+    disableAutoCert: true
+
+  services:
+    # S3 API — apenas acesso interno (Mimir → AIStor via ClusterIP).
+    minio:
+      serviceType: ClusterIP
+
+    # Console web — NodePort para acesso externo ao Kind.
+    console:
+      serviceType: NodePort
+      nodePort: 39001

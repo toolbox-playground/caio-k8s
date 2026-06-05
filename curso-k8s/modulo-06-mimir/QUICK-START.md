@@ -300,45 +300,118 @@ kubectl apply -f stack/monitoring/manifests/
 
 ---
 
-## Fase 1 — Instalar o MinIO (object storage)
+## Fase 1 — Instalar o AIStor (object storage)
 
-> **Por que MinIO antes do Mimir?**
-> O Mimir precisa dos buckets S3 no MinIO para inicializar.
-> O `initContainer` do StatefulSet aguarda o MinIO subir, mas é
-> melhor tê-lo funcionando antes de aplicar os manifests do Mimir.
+> **AIStor substituiu o MinIO standalone**
+> O AIStor é o produto enterprise da MinIO, com API S3 100% compatível.
+> O MinIO standalone foi descontinuado no Docker Hub em set/2025.
+> O AIStor é gerenciado via **Helm Operator + ObjectStore CRD** — dois passos.
+>
+> ⚠️ **Licença obrigatória**: AIStor é enterprise.
+> Obtenha uma trial gratuita (30 dias) em: https://subnet.min.io
+> Após criar a conta: https://subnet.min.io/health?download-license
 
-> **Nota**: o chart `bitnami/minio` foi descontinuado. Usamos agora a imagem
-> oficial `minio/minio` via manifest Kubernetes (sem dependência de Helm chart externo).
-> O arquivo `manifests/00-minio.yaml` contém: Secret, StatefulSet, Services e um Job
-> que cria os 3 buckets automaticamente via `minio/mc`.
+### 1.0 — Obter licença e adicionar repo Helm
 
-### 1.1 — Instalar o MinIO
+```bash
+helm repo add minio https://helm.min.io
+helm repo update
+
+# Verificar charts disponíveis
+helm search repo minio/aistor
+```
+
+### 1.1 — Instalar o AIStor Operator (UMA VEZ por cluster)
+
+O Operator é um componente de cluster — instalado uma vez, gerencia todos os ObjectStores.
+
+```bash
+# Linux / macOS
+helm upgrade --install aistor minio/aistor-operator \
+  --namespace aistor --create-namespace \
+  --set license="<sua-chave-jwt>" \
+  --wait --timeout 3m
+```
+```pwsh
+# Windows (PowerShell)
+helm upgrade --install aistor minio/aistor-operator `
+  --namespace aistor --create-namespace `
+  --set license="<sua-chave-jwt>" `
+  --wait --timeout 3m
+```
+
+> **Alternativa GitOps** (sem expor a licença em linha de comando):
+> ```bash
+> kubectl create namespace aistor --dry-run=client -o yaml | kubectl apply -f -
+> kubectl -n aistor create secret generic minio-license \
+>   --from-literal=minio.license="<sua-chave-jwt>"
+> helm upgrade --install aistor minio/aistor-operator \
+>   --namespace aistor --create-namespace --wait --timeout 3m
+> ```
+
+Verificar o Operator:
+```bash
+kubectl -n aistor get pods
+# Esperado: aistor-operator-* Running
+
+kubectl get crd | grep aistor
+# Esperado: objectstores.aistor.min.io
+```
+
+### 1.2 — Criar o Secret de credenciais + preparar buckets
 
 ```bash
 kubectl apply -f manifests/00-minio.yaml
 ```
 
-Aguarde o StatefulSet e o Job de criação de buckets:
+Este arquivo cria:
+- `aistor-storage-config` Secret (credenciais do AIStor)
+- `aistor-create-buckets` Job (executa **depois** do AIStor subir)
+
+### 1.3 — Instalar o AIStor ObjectStore
 
 ```bash
-kubectl rollout status statefulset/minio -n monitoring
-
-# Verificar o Job de provisionamento dos buckets
-kubectl wait --for=condition=complete job/minio-create-buckets -n monitoring --timeout=120s
+# Linux / macOS
+helm upgrade --install minio minio/aistor-objectstore \
+  --namespace monitoring \
+  -f install/values-aistor-objectstore.yaml \
+  --wait --timeout 5m
+```
+```pwsh
+# Windows (PowerShell)
+helm upgrade --install minio minio/aistor-objectstore `
+  --namespace monitoring `
+  -f install/values-aistor-objectstore.yaml `
+  --wait --timeout 5m
 ```
 
-### 1.2 — Verificar os buckets provisionados
+Verificar o ObjectStore:
+```bash
+kubectl -n monitoring get objectstore
+# Esperado: minio   1/1   Ready
+
+kubectl -n monitoring get pods -l v1.min.io/tenant=minio
+# Esperado: minio-pool-0-0   Running
+```
+
+### 1.4 — Verificar os buckets provisionados
 
 ```bash
-kubectl get pods -n monitoring -l app=minio
-# Esperado: minio-0 Running 1/1
+# Aguardar o Job de criação de buckets concluir
+kubectl wait --for=condition=complete job/aistor-create-buckets \
+  -n monitoring --timeout=120s
 
-kubectl logs -n monitoring job/minio-create-buckets -c mc
+# Ver logs do Job
+kubectl logs -n monitoring job/aistor-create-buckets -c mc
 # Esperado: "Buckets criados: mimir-blocks, mimir-alertmanager, mimir-ruler"
 ```
 
-Console web (login: mimir / mimir-supersecret):
+Console web (login: `mimir` / `mimir-supersecret`):
 http://localhost:9001
+
+> **Mudança de endpoint**: o AIStor com TLS desabilitado usa **porta 80** (HTTP)
+> em vez da porta 9000 do MinIO standalone. O `01-mimir-config.yaml` já está
+> atualizado: `endpoint: minio.monitoring.svc.cluster.local:80`
 
 ---
 
