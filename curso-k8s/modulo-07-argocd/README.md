@@ -94,15 +94,18 @@ kind: Application
 metadata:
   name: mario
   namespace: argocd
-  # Garante cascade delete ao remover a Application
+  # Garante cascade delete (foreground) ao remover a Application.
+  # /foreground = espera os recursos filhos serem deletados antes de remover a Application.
   finalizers:
-    - resources-finalizer.argocd.argoproj.io
+    - resources-finalizer.argocd.argoproj.io/foreground
 spec:
-  project: default                              # obrigatório
-  source:                                       # ⚠️ v3: depreciado, prefira sources (plural)
-    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
-    targetRevision: HEAD
-    path: curso-k8s/modulo-07-argocd/stack/mario
+  project: default
+  # ⚠️ v3: use sempre "sources" (plural) — "source" singular foi depreciado.
+  # Mesmo para source única, use a lista:
+  sources:
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+      targetRevision: HEAD
+      path: curso-k8s/modulo-07-argocd/stack/mario
   destination:
     server: https://kubernetes.default.svc
     namespace: games
@@ -116,9 +119,10 @@ spec:
       - ApplyOutOfSyncOnly=true # otimiza sync: aplica só o que mudou
 ```
 
-> **⚠️ v3 — `source` vs `sources`**: o campo `source` (singular) ainda funciona
-> mas está **depreciado** no v3. A forma canônica é `sources` (plural), mesmo
-> para source única. Novos manifests devem usar `sources`.
+> **v3 — `sources` (plural) é o padrão canônico**: o campo `source` (singular)
+> foi **depreciado** no ArgoCD v3. Use sempre `sources` como lista, mesmo
+> quando há apenas uma fonte. O campo `source` ainda funciona mas será removido
+> em versão futura.
 
 ---
 
@@ -136,13 +140,16 @@ root (Application)
         └── ...
 ```
 
-**⚠️ v3 — Finalizers no App of Apps**: para que deletar a Application-pai
+**v3 — Finalizers no App of Apps**: para que deletar a Application-pai
 também delete as filhas em cascata, inclua o finalizer:
 
 ```yaml
 metadata:
   finalizers:
-    - resources-finalizer.argocd.argoproj.io
+    # Foreground cascading delete (padrão — espera recursos filhos serem deletados)
+    - resources-finalizer.argocd.argoproj.io/foreground
+    # Alternativa: background cascading delete (mais rápido, não espera)
+    # - resources-finalizer.argocd.argoproj.io/background
 ```
 
 Sem o finalizer, deletar a `root` deixa as Applications filhas órfãs no cluster.
@@ -176,10 +183,11 @@ spec:
       name: '{{.path.basename}}'
     spec:
       project: default
-      source:
-        repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
-        targetRevision: HEAD
-        path: '{{.path.path}}'
+      # ⚠️ v3: use "sources" (plural) mesmo dentro de templates ApplicationSet
+      sources:
+        - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+          targetRevision: HEAD
+          path: '{{.path.path}}'
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{.path.basename}}'
@@ -189,6 +197,7 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
+          - ServerSideApply=true
 ```
 
 > Este módulo usa **App of Apps** por ser mais didático e explícito.
@@ -207,7 +216,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "-1"  # sobe antes dos wave 0
 ```
 
-Neste módulo: MinIO (`wave: -1`) → Mimir (`wave: 0`, padrão).
+Neste módulo: AIStor/MinIO (`wave: -1`) → Mimir (`wave: 0`, padrão).
 
 **Hooks** funcionam em conjunto com waves para ações antes/após o sync:
 
@@ -331,8 +340,10 @@ modulo-07-argocd/
 ├── README.md
 │
 ├── install/
-│   ├── values-argocd.yaml      # Helm values do ArgoCD (NodePort 30080, insecure)
-│   └── values-gitea.yaml       # Helm values do Gitea (NodePort 33000)
+│   ├── values-argocd.yaml              # Helm values do ArgoCD (NodePort 30080, insecure)
+│   ├── values-gitea.yaml               # Helm values do Gitea (NodePort 33000)
+│   ├── values-aistor-operator.yaml     # AIStor Operator (instalar UMA VEZ, namespace aistor)
+│   └── values-aistor-objectstore.yaml  # AIStor ObjectStore (S3 p/ o Mimir)
 │
 ├── apps/                       ← ArgoCD Application manifests
 │   ├── 00-root-app.yaml        # App of Apps — criado manualmente
@@ -341,7 +352,7 @@ modulo-07-argocd/
 │   ├── 03-loki-app.yaml        # Application: Loki (Helm multi-source)
 │   ├── 04-fluent-bit-app.yaml  # Application: Fluent Bit (Helm multi-source)
 │   ├── 05-monitoring-manifests-app.yaml  # Application: dashboards + alerts
-│   ├── 06-minio-app.yaml       # Application: MinIO (sync wave -1)
+│   ├── 06-minio-app.yaml       # Application: AIStor ObjectStore (sync wave -1)
 │   ├── 07-mimir-app.yaml       # Application: Mimir (manifests)
 │   ├── 08-tempo-app.yaml       # Application: Tempo (Helm)
 │   ├── 09-pyroscope-app.yaml   # Application: Pyroscope (Helm)
@@ -383,7 +394,7 @@ modulo-07-argocd/
 | `source` singular **depreciado** → use `sources` (plural) | Migrar YAMLs existentes |
 | Server-Side Apply (SSA) é o **padrão** para novas instâncias | `kubectl.kubernetes.io/last-applied-configuration` não é mais adicionado por padrão |
 | Dex SSO: RBAC usa `federated_claims.user_id` (não mais `sub`) | Policies existentes com hash base64 precisam ser reescritas com email legível |
-| `resourceHealthSource`: saúde persiste no status da Application | `kubectl get application <app> -o jsonpath='{.status.resourceHealthSource}'` para verificar |
+| `resourceHealthSource: appTree` é o padrão — saúde **não persiste** mais por recurso no status | Para persistir (comportamento v2): set `controller.resource.health.persist: true` no argocd-cm |
 | ApplicationSet: `applyNestedSelectors` desabilitado por padrão | ApplicationSets com selector aninhado em generators Matrix/Merge precisam de atualização |
 | `ClientSideApplyMigration=true` habilitado por padrão | Recursos migram automaticamente para SSA no próximo sync |
 
@@ -399,7 +410,7 @@ modulo-07-argocd/
 | Prometheus | http://localhost:9090 | — |
 | Mario | http://localhost:8081 | — |
 | Mimir API | http://localhost:9009 | — |
-| MinIO Console | http://localhost:9001 | mimir / mimir-supersecret |
+| AIStor Console (S3) | http://localhost:9001 | mimir / mimir-supersecret |
 
 ---
 
@@ -418,65 +429,3 @@ modulo-07-argocd/
 - [Upgrading v2.14 → v3.0](https://argo-cd.readthedocs.io/en/stable/operator-manual/upgrading/2.14-3.0/)
 - [GitOps Principles](https://opengitops.dev/)
 
-GitOps é uma prática onde o **repositório git é a fonte de verdade** do
-estado do cluster. Em vez de executar `kubectl apply` ou `helm install`
-manualmente, você:
-
-1. Descreve o estado desejado em YAML no git
-2. Faz commit e push
-3. Uma ferramenta de CD (ArgoCD) detecta a mudança e aplica no cluster
-
-Benefícios concretos:
-- **Auditoria**: todo `git log` é também um log de mudanças no cluster
-- **Rollback**: `git revert` é também um rollback de infraestrutura
-- **Self-healing**: mudanças manuais no cluster são revertidas automaticamente
-- **Multi-ambiente**: um repo git pode gerenciar dev/staging/prod via branches ou paths
-
----
-
-## Arquitetura do Módulo
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Você (developer)                                                │
-│      git push → Gitea (localhost:33000)                          │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │  git clone/pull
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     namespace: argocd                            │
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                   ArgoCD Controller                      │    │
-│  │                                                          │    │
-│  │  Application: root ──watches──▶ apps/ no git            │    │
-│  │                  ├── Application: mario                  │    │
-│  │                  ├── Application: prometheus-stack       │    │
-│  │                  ├── Application: loki                   │    │
-│  │                  ├── Application: fluent-bit             │    │
-│  │                  ├── Application: monitoring-manifests   │    │
-│  │                  ├── Application: minio  (wave -1)       │    │
-│  │                  └── Application: mimir  (wave  0)       │    │
-│  │                  ├── Application: tempo                  │    │
-│  │                  ├── Application: pyroscope              │    │
-│  │                  ├── Application: alloy  (wave  1)       │    │
-│  │                  ├── Application: opentelemetry (wave 1) │    │
-│  │                  └── Application: profiler-manifests (2) │    │
-│  └────────────────────────┬────────────────────────────────┘    │
-│                           │  kubectl apply (server-side)         │
-└───────────────────────────┼─────────────────────────────────────┘
-                            ▼
-         namespaces: games, monitoring (recursos reais)
-```
-
-### Fluxo GitOps
-
-```
-1. Você edita stack/mario/01-deployment-mario.yaml (replicas: 2 → 4)
-2. git commit + git push → Gitea
-3. ArgoCD repo server clona o repositório (poll a cada 3min ou webhook)
-4. ArgoCD compara estado atual do cluster vs estado desejado no git
-5. Detecta diff: Deployment.spec.replicas = 2 (cluster) ≠ 4 (git)
-6. Aplica: kubectl apply (server-side) → Deployment.spec.replicas = 4
-7. Status da Application: Synced + Healthy
-```
