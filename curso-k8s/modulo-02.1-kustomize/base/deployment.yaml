@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: super-mario
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: super-mario
+  template:
+    metadata:
+      labels:
+        app: super-mario
+    spec:
+      containers:
+      - name: super-mario
+        image: pengbai/docker-supermario:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
