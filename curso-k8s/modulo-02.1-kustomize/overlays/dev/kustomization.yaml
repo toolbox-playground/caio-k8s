@@ -8,8 +8,9 @@ namespace: mario-dev
 
 namePrefix: dev-
 
-commonLabels:
-  env: development
+labels:
+  - pairs:
+      env: development
 
 configMapGenerator:
 - name: mario-config

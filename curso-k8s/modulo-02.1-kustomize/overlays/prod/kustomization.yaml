@@ -8,8 +8,9 @@ namespace: mario-prod
 
 namePrefix: prod-
 
-commonLabels:
-  env: production
+labels:
+  - pairs:
+      env: production
 
 patches:
   - target:
