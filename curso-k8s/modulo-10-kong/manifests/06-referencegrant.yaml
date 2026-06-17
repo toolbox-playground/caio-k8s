@@ -1,0 +1,18 @@
+# ReferenceGrant: peça OBRIGATÓRIA do Gateway API para permitir que um
+# HTTPRoute de outro namespace (kong) aponte para um Service aqui em "games".
+# Sem isso, o backendRef cross-namespace é silenciosamente rejeitado e o
+# HTTPRoute fica com status ResolvedRefs=False (Service não encontrado).
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-kong-to-games
+  namespace: games # Mesmo namespace do recurso "alvo" (o Service)
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: kong # Quem está autorizado a referenciar
+  to:
+    - group: ""
+      kind: Service
+      name: super-mario-service # Pode restringir a um Service específico

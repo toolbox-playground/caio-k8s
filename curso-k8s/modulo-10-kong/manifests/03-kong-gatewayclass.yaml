@@ -1,0 +1,22 @@
+# ARQUIVO DE REFERÊNCIA / FALLBACK.
+#
+# No modo padrão e atualmente recomendado pela Kong ("Gateway Discovery"),
+# o próprio Helm chart `kong/ingress` já cria a GatewayClass "kong"
+# automaticamente — você não precisa aplicar este arquivo manualmente.
+# Ele existe aqui só para o caso de precisar recriá-la à mão (ex: ela foi
+# removida por engano) ou para rodar em modo "unmanaged" (controller
+# separado do dataplane), cenário em que esta anotação é obrigatória.
+#
+# BUG CORRIGIDO em relação ao arquivo original enviado:
+#   controllerName estava "konghq.com/gateway-controller" (não existe).
+#   O valor correto é "konghq.com/kic-gateway-controller".
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: kong # Nome que o Gateway "kong-gateway" referencia em gatewayClassName
+  annotations:
+    # Necessário apenas no modo "unmanaged". No modo padrão (Gateway
+    # Discovery) o chart não usa esta anotação; deixá-la aqui é inofensivo.
+    konghq.com/gatewayclass-unmanaged: "true"
+spec:
+  controllerName: konghq.com/kic-gateway-controller
