@@ -1,0 +1,13 @@
+# Tempo single-binary com armazenamento local — suficiente para o lab.
+# Produção: modo distribuído + object storage (S3/GCS/MinIO), veja módulos 04/06.
+tempo:
+  retention: 24h
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+persistence:
+  enabled: false

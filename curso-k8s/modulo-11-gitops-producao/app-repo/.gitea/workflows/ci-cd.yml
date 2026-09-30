@@ -1,0 +1,63 @@
+# ============================================================
+# Variante LOCAL do pipeline (Gitea Actions + act_runner).
+#
+# O Gitea lê .gitea/workflows/ ANTES de .github/workflows/, então este arquivo
+# vale só no laboratório local; no GitHub vale o .github/workflows/ci-cd.yml.
+#
+# Mesmo desenho do pipeline real: test → build/push → atualiza gitops-repo.
+# Diferenças (só o que é específico do GitHub):
+#   GHCR                → registry local  localhost:5001
+#   GitHub App token    → usuário/senha do Gitea (secret GITOPS_PASSWORD)
+#   Trivy/Cosign keyless→ omitidos (Cosign keyless precisa do OIDC do GitHub)
+#   yq                  → sed
+# ============================================================
+name: ci-cd-local
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: localhost:5001        # resolvido pelo daemon Docker do host
+  GITOPS_URL: gitea:3000/gitops/gitops-repo.git   # resolvido pela rede kind
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -q -r requirements-dev.txt
+      - run: python3 -m pytest -q
+
+  build-and-deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build & push (registry local)
+        id: img
+        run: |
+          TAG="sha-$(git rev-parse --short=7 HEAD)"
+          docker build -t "$REGISTRY/webapp:$TAG" .
+          docker push "$REGISTRY/webapp:$TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Atualizar image.tag em envs/dev do gitops-repo
+        env:
+          TAG: ${{ steps.img.outputs.tag }}
+          GITOPS_PASSWORD: ${{ secrets.GITOPS_PASSWORD }}
+        run: |
+          git clone "http://gitops:${GITOPS_PASSWORD}@${GITOPS_URL}" gitops
+          cd gitops
+          sed -i -E "s#^(  tag: ).*#\1\"${TAG}\"#" envs/dev/values.yaml
+          git config user.name  "gitops-bot"
+          git config user.email "gitops-bot@local.dev"
+          git add envs/dev/values.yaml
+          git diff --cached --quiet && { echo "Nada a alterar."; exit 0; }
+          git commit -m "chore(dev): deploy webapp ${TAG}"
+          for i in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            git pull --rebase origin main
+          done
+          exit 1

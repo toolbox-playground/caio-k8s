@@ -1,0 +1,41 @@
+# Valores do chart argo/argo-cd (instalação inicial — único passo imperativo).
+# O upgrade do próprio ArgoCD é um ato deliberado (helm upgrade), não automático.
+global:
+  domain: argocd.local
+
+configs:
+  params:
+    # TLS termina fora do pod (Gateway/Ingress em produção).
+    # No lab acessamos via NodePort em http://localhost:8080.
+    server.insecure: true
+  cm:
+    # Aplica health check de Application (necessário p/ sync-waves no app-of-apps)
+    resource.customizations.health.argoproj.io_Application: |
+      hs = {}
+      hs.status = "Progressing"
+      hs.message = ""
+      if obj.status ~= nil then
+        if obj.status.health ~= nil then
+          hs.status = obj.status.health.status
+          if obj.status.health.message ~= nil then
+            hs.message = obj.status.health.message
+          end
+        end
+      end
+      return hs
+    # Reconcilia a cada 60s (default 180s) — bom para demo; em prod use webhook.
+    timeout.reconciliation: 60s
+
+server:
+  service:
+    type: NodePort
+    nodePortHttp: 30080
+
+# Produção: habilite HA (redis-ha, replicas>=2) e SSO (dex/OIDC).
+# Este lab usa a topologia mínima para caber no kind.
+controller:
+  replicas: 1
+repoServer:
+  replicas: 1
+applicationSet:
+  replicas: 1

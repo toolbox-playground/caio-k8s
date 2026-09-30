@@ -1,0 +1,14 @@
+# Registra o registry OCI do Envoy Gateway (chart publicado apenas em OCI).
+# Aplicado pelo scripts/bootstrap.sh junto com o ArgoCD.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-envoy-gateway-oci
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  name: envoy-gateway-oci
+  url: registry-1.docker.io/envoyproxy
+  type: helm
+  enableOCI: "true"

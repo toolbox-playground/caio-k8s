@@ -1,0 +1,83 @@
+# ============================================================
+# Defaults do chart. Cada ambiente sobrescreve em envs/<env>/values.yaml.
+# Regra de ouro: a automação (CI) só altera `image.tag` nos envs.
+# ============================================================
+nameOverride: ""
+fullnameOverride: ""
+
+# Nome lógico do ambiente (vira label e atributo OTel deployment.environment)
+environment: dev
+
+image:
+  repository: ghcr.io/SEU_ORG/webapp   # ⚠️ TROCAR (minúsculas)
+  tag: ""            # obrigatório: definido em envs/<env>/values.yaml pelo CI
+  digest: ""         # opcional (sha256:...): se definido, tem precedência sobre tag
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+replicaCount: 2
+
+containerPort: 8000
+
+service:
+  type: ClusterIP
+  port: 80
+
+# ---- Gateway API ------------------------------------------------
+gateway:
+  enabled: true
+  parentRef:
+    name: public
+    namespace: envoy-gateway-system
+    sectionName: http
+  hostnames: []      # ex.: [webapp.dev.127.0.0.1.nip.io]
+
+# ---- External Secrets Operator ----------------------------------
+externalSecret:
+  enabled: true
+  refreshInterval: 1h
+  storeRef:
+    name: default
+    kind: ClusterSecretStore
+  # secretKey (chave no Secret k8s) <- remoteKey (caminho no cofre externo)
+  data:
+    - secretKey: API_KEY
+      remoteKey: /webapp/dev/api-key
+
+# ---- Telemetria -------------------------------------------------
+otel:
+  enabled: true
+  endpoint: http://otel-collector.monitoring.svc.cluster.local:4317
+  samplingRatio: "1.0"     # prod: reduza (ex.: 0.1)
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  labels: {}
+
+# ---- Resiliência ------------------------------------------------
+resources:
+  requests: { cpu: 50m, memory: 96Mi }
+  limits: { memory: 192Mi }
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  # Namespaces autorizados a falar com a app (Envoy + Prometheus)
+  allowFromNamespaces:
+    - envoy-gateway-system
+    - monitoring
+
+extraEnv: []
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []

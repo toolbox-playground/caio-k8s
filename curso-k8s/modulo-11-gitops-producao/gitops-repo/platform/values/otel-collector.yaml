@@ -1,0 +1,39 @@
+# Gateway de telemetria: apps falam OTLP com o collector; o collector fala
+# com os backends. Trocar Tempo por Datadog/Honeycomb/etc. = mudar só aqui.
+fullnameOverride: otel-collector
+mode: deployment
+image:
+  repository: otel/opentelemetry-collector-contrib
+command:
+  name: otelcol-contrib
+presets:
+  kubernetesAttributes:
+    enabled: true
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc: { endpoint: 0.0.0.0:4317 }
+        http: { endpoint: 0.0.0.0:4318 }
+  processors:
+    memory_limiter:
+      check_interval: 1s
+      limit_percentage: 75
+      spike_limit_percentage: 20
+    batch: {}
+  exporters:
+    otlp/tempo:
+      endpoint: tempo.monitoring.svc.cluster.local:4317
+      tls: { insecure: true }
+  service:
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [memory_limiter, batch]
+        exporters: [otlp/tempo]
+      # O chart traz pipelines default de metrics/logs; desligamos (apps expõem /metrics).
+      metrics: null
+      logs: null
+resources:
+  requests: { cpu: 50m, memory: 128Mi }
+  limits: { memory: 256Mi }

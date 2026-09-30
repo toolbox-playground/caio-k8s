@@ -1,0 +1,17 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: grafana-admin
+  namespace: monitoring
+spec:
+  refreshInterval: 1h
+  secretStoreRef: { name: default, kind: ClusterSecretStore }
+  target:
+    name: grafana-admin
+    template:
+      data:
+        admin-user: admin
+        admin-password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef: { key: /platform/grafana/admin-password }

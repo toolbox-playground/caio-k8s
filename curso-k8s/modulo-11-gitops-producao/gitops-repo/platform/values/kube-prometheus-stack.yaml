@@ -1,0 +1,25 @@
+# Versão enxuta para kind. Produção: Mimir/Thanos + Alertmanager HA (módulo 06).
+alertmanager: { enabled: false }
+nodeExporter: { enabled: false }
+prometheus:
+  prometheusSpec:
+    retention: 6h
+    # Descobre ServiceMonitors de QUALQUER namespace/label (as apps trazem o seu).
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+grafana:
+  service:
+    type: NodePort
+    nodePort: 30300
+  admin:
+    # Senha vem do ESO (ExternalSecret grafana-admin em platform/config) — nunca do Git.
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  additionalDataSources:
+    - name: Tempo
+      type: tempo
+      uid: tempo
+      url: http://tempo.monitoring.svc.cluster.local:3200
+      access: proxy

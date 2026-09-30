@@ -1,0 +1,12 @@
+# image.tag: promovido via PR (workflow "promote" do app-repo).
+environment: staging
+image:
+  tag: "sha-0000000"
+replicaCount: 2
+gateway:
+  hostnames: [webapp.staging.127.0.0.1.nip.io]
+externalSecret:
+  data:
+    - { secretKey: API_KEY, remoteKey: /webapp/staging/api-key }
+otel:
+  samplingRatio: "0.5"

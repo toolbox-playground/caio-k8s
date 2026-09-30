@@ -1,0 +1,6 @@
+apiVersion: v2
+name: webapp
+description: Chart de referência para APIs HTTP stateless (Gateway API + ESO + OTel)
+type: application
+version: 1.0.0        # versão do CHART (muda quando os templates mudam)
+appVersion: "0.0.0"   # informativo; a versão real da app é image.tag nos values de cada env

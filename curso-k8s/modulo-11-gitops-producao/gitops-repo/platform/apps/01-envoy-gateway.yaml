@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: envoy-gateway
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform
+  sources:
+    - repoURL: registry-1.docker.io/envoyproxy   # sem oci:// (requer bootstrap/02-oci-repo.yaml)
+      chart: gateway-helm
+      targetRevision: 1.9.2      # versão EXATA — upgrades são PRs, nunca surpresa
+      helm:
+        releaseName: envoy-gateway
+        valueFiles:
+          - $values/platform/values/envoy-gateway.yaml
+    - repoURL: https://github.com/SEU_ORG/gitops-repo.git   # ⚠️ TROCAR
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: envoy-gateway-system
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    retry: { limit: 5, backoff: { duration: 10s, factor: 2, maxDuration: 3m } }

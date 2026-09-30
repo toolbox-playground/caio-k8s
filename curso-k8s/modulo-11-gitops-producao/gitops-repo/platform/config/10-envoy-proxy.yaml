@@ -1,0 +1,26 @@
+# Como o Envoy (data plane) é exposto.
+# kind: NodePort fixo (30800 → host 18088, ver cluster-config.yaml).
+# Nuvem: troque `type` para LoadBalancer e remova o patch de nodePort.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: default
+  namespace: envoy-gateway-system
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: NodePort
+        # kind publica a porta no control-plane, mas o pod do Envoy roda em outro nó:
+        # com 'Local' (default do Envoy Gateway) o tráfego seria descartado.
+        externalTrafficPolicy: Cluster
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              ports:
+                - name: http-80
+                  port: 80
+                  targetPort: 10080
+                  nodePort: 30800

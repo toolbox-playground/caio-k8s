@@ -1,0 +1,24 @@
+# ============================================================
+# Kind Cluster: gitops-prod (Módulo 11 — GitOps de produção)
+# ============================================================
+# Cluster NOVO e independente dos módulos anteriores.
+# Mapeamentos de porta:
+#   → localhost:8080  ArgoCD UI/API     (NodePort 30080)
+#   → localhost:18088  Gateway (Envoy)   (NodePort 30800) — tráfego das apps
+#   → localhost:3000  Grafana           (NodePort 30300)
+#
+# ⚠️  ArgoCD usa 8080 e Grafana 3000, iguais aos módulos 03/07.
+#     Se o cluster k8s-essentials estiver rodando, pare-o antes:
+#     kind delete cluster --name k8s-essentials
+# ============================================================
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: gitops-prod
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - { containerPort: 30080, hostPort: 8080, protocol: TCP }
+      - { containerPort: 30800, hostPort: 18088, protocol: TCP }
+      - { containerPort: 30300, hostPort: 3000, protocol: TCP }
+  - role: worker
+  - role: worker

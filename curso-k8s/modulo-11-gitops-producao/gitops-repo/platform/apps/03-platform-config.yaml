@@ -1,0 +1,23 @@
+# CRs que dependem dos CRDs instalados nas waves -3 (Gateway API, EnvoyProxy, ESO).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform
+  sources:
+    - repoURL: https://github.com/SEU_ORG/gitops-repo.git   # ⚠️ TROCAR
+      targetRevision: main
+      path: platform/config
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [ServerSideApply=true, SkipDryRunOnMissingResource=true]
+    retry: { limit: 10, backoff: { duration: 10s, factor: 2, maxDuration: 5m } }

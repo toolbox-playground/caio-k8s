@@ -1,0 +1,20 @@
+# image.tag: promovido via PR com aprovação obrigatória (branch protection/CODEOWNERS).
+# ArgoCD NÃO faz auto-sync em prod: após o merge, um humano clica em SYNC.
+environment: prod
+image:
+  tag: "sha-0000000"
+replicaCount: 3
+gateway:
+  hostnames: [webapp.prod.127.0.0.1.nip.io]
+externalSecret:
+  data:
+    - { secretKey: API_KEY, remoteKey: /webapp/prod/api-key }
+otel:
+  samplingRatio: "0.1"
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+resources:
+  requests: { cpu: 100m, memory: 128Mi }
+  limits: { memory: 256Mi }

@@ -1,0 +1,6 @@
+# Criado aqui (wave -1) para que ExternalSecrets do namespace monitoring
+# existam antes do Grafana (wave 0) tentar montar o secret de admin.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring

@@ -1,0 +1,4 @@
+webapp {{ include "webapp.version" . }} em "{{ .Values.environment }}"
+{{- range .Values.gateway.hostnames }}
+  -> http://{{ . }}
+{{- end }}

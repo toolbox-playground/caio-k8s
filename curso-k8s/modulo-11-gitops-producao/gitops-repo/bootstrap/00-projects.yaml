@@ -1,0 +1,38 @@
+# ============================================================
+# AppProjects — fronteiras de segurança do ArgoCD (RBAC de deploy)
+# ============================================================
+# platform  : times de plataforma; pode criar CRDs/cluster-scoped.
+# workloads : aplicações; SOMENTE namespaces webapp-* e SEM recursos
+#             cluster-scoped. Um values.yaml malicioso não escala privilégio.
+# ============================================================
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform
+  namespace: argocd
+spec:
+  description: Componentes de plataforma (gateway, secrets, observabilidade)
+  sourceRepos: ["*"]
+  destinations:
+    - { server: https://kubernetes.default.svc, namespace: "*" }
+  clusterResourceWhitelist:
+    - { group: "*", kind: "*" }
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: workloads
+  namespace: argocd
+spec:
+  description: Aplicações de negócio — escopo restrito
+  sourceRepos:
+    - https://github.com/SEU_ORG/gitops-repo.git   # ⚠️ TROCAR (bootstrap.sh faz o sed)
+  destinations:
+    - { server: https://kubernetes.default.svc, namespace: "webapp-*" }
+  clusterResourceWhitelist:
+    - { group: "", kind: Namespace }
+  namespaceResourceBlacklist:
+    - { group: "", kind: ResourceQuota }
+    - { group: "", kind: LimitRange }
+  orphanedResources:
+    warn: true

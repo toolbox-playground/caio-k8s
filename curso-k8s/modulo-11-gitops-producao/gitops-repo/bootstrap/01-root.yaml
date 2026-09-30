@@ -1,0 +1,23 @@
+# ============================================================
+# Root Application (app-of-apps) — ÚNICO objeto aplicado à mão.
+# Tudo em platform/apps/ é descoberto e sincronizado a partir daqui.
+# ============================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform
+  sources:
+    - repoURL: https://github.com/SEU_ORG/gitops-repo.git   # ⚠️ TROCAR
+      targetRevision: main
+      path: platform/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [ServerSideApply=true]

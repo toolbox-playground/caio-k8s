@@ -1,0 +1,53 @@
+# ============================================================
+# ApplicationSet — 1 Application por ambiente, gerada de uma lista.
+# Novo ambiente/cluster = novo item aqui + envs/<nome>/values.yaml.
+# Promoção = PR alterando image.tag em envs/<env>/values.yaml.
+# ============================================================
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: webapp
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - { env: dev,     autoSync: "true" }
+          - { env: staging, autoSync: "true" }
+          - { env: prod,    autoSync: "false" }   # prod: sync manual = gate humano extra
+  template:
+    metadata:
+      name: 'webapp-{{ .env }}'
+      labels: { app: webapp, env: '{{ .env }}' }
+      finalizers: [resources-finalizer.argocd.argoproj.io]
+    spec:
+      project: workloads
+      source:
+        repoURL: https://github.com/SEU_ORG/gitops-repo.git   # ⚠️ TROCAR
+        targetRevision: main
+        path: charts/webapp
+        helm:
+          releaseName: webapp
+          valueFiles:
+            - '../../envs/{{ .env }}/values.yaml'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'webapp-{{ .env }}'
+      syncPolicy:
+        syncOptions: [CreateNamespace=true, ServerSideApply=true]
+        managedNamespaceMetadata:
+          labels:
+            gateway-access: "true"
+            pod-security.kubernetes.io/enforce: restricted
+            environment: '{{ .env }}'
+        retry: { limit: 5, backoff: { duration: 10s, factor: 2, maxDuration: 3m } }
+  templatePatch: |
+    {{- if eq .autoSync "true" }}
+    spec:
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+    {{- end }}

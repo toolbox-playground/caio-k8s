@@ -1,0 +1,46 @@
+# Gate de qualidade do gitops-repo: nenhum YAML inválido chega ao ArgoCD.
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  chart:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        env: [dev, staging, prod]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: helm lint
+        run: helm lint charts/webapp -f envs/${{ matrix.env }}/values.yaml
+      - name: Renderizar + validar schemas (inclui CRDs: HTTPRoute, ExternalSecret, ServiceMonitor)
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz
+          helm template webapp charts/webapp -f envs/${{ matrix.env }}/values.yaml \
+            | ./kubeconform -strict -summary -ignore-missing-schemas \
+                -schema-location default \
+                -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+
+  argocd-manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sanidade dos manifests de plataforma
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz
+          ./kubeconform -strict -summary -ignore-missing-schemas \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            bootstrap/0*.yaml platform/apps platform/config platform/workloads
+      - name: Bloquear placeholders esquecidos
+        run: |
+          if grep -rn "SEU_ORG" --include='*.yaml' bootstrap platform envs charts; then
+            echo "::error::Placeholder SEU_ORG ainda presente. Rode scripts/bootstrap.sh ou faça o sed."; exit 1
+          fi

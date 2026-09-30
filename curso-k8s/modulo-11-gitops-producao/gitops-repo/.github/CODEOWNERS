@@ -1,0 +1,10 @@
+# Exige revisão humana onde o risco é maior. Combine com branch protection:
+#   Settings → Branches → main → Require PR + Require review from Code Owners
+#   + Require status checks (validate) + Restrict who can push (só o GitHub App para envs/dev).
+#
+# ⚠️ Troque @SEU_ORG/... pelos seus times reais.
+/envs/prod/       @SEU_ORG/release-managers
+/envs/staging/    @SEU_ORG/devs
+/platform/        @SEU_ORG/platform-team
+/bootstrap/       @SEU_ORG/platform-team
+/charts/          @SEU_ORG/platform-team

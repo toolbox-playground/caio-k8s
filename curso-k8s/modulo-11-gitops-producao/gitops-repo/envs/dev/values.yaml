@@ -1,0 +1,11 @@
+# ⚠️ image.tag é atualizado AUTOMATICAMENTE pelo workflow do app-repo. Não edite à mão.
+environment: dev
+image:
+  tag: "sha-0000000"
+replicaCount: 1
+gateway:
+  hostnames: [webapp.dev.127.0.0.1.nip.io]
+externalSecret:
+  data:
+    - { secretKey: API_KEY, remoteKey: /webapp/dev/api-key }
+pdb: { enabled: false }   # 1 réplica: um PDB bloquearia o drain de nós

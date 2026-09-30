@@ -1,0 +1,26 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "webapp.fullname" . }}
+  labels: {{- include "webapp.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io   # defaults explícitos: evitam falso OutOfSync no ArgoCD
+      kind: Gateway
+      name: {{ .Values.gateway.parentRef.name }}
+      namespace: {{ .Values.gateway.parentRef.namespace }}
+      sectionName: {{ .Values.gateway.parentRef.sectionName }}
+  {{- with .Values.gateway.hostnames }}
+  hostnames: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - matches:
+        - path: { type: PathPrefix, value: / }
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: {{ include "webapp.fullname" . }}
+          port: {{ .Values.service.port }}
+          weight: 1
+{{- end }}

@@ -1,0 +1,4 @@
+# Defaults do chart gateway-helm bastam. O chart já instala os CRDs do
+# Gateway API (Gateway, HTTPRoute, ...) — não os instale separadamente.
+deployment:
+  replicas: 1   # produção: 2+ com PodDisruptionBudget

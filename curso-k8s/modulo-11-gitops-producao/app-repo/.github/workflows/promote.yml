@@ -1,0 +1,87 @@
+# ============================================================
+# Promoção controlada: abre um PULL REQUEST no gitops-repo.
+#
+#   dev (automático) ──► staging (PR) ──► prod (PR + aprovação + sync manual)
+#
+# Guard-rail: só promove imagens ASSINADAS por este repositório (Cosign).
+# Uma imagem construída fora do pipeline não passa.
+#
+# Uso: Actions → promote → Run workflow (tag = a que está em dev, ex.: sha-1a2b3c4)
+# ============================================================
+name: promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag da imagem (ex.: sha-1a2b3c4)"
+        required: true
+      environment:
+        description: "Ambiente de destino"
+        type: choice
+        options: [staging, prod]
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: sigstore/cosign-installer@v3
+
+      - name: Verificar assinatura da imagem
+        env:
+          OWNER: ${{ github.repository_owner }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          image="ghcr.io/$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')/webapp:${TAG}"
+          cosign verify "$image" \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+      - name: Nome do gitops-repo (sem o owner)
+        id: repo
+        run: echo "name=${GITOPS_REPO#*/}" >> "$GITHUB_OUTPUT"
+        env:
+          GITOPS_REPO: ${{ vars.GITOPS_REPO }}
+
+      - name: Token do GitHub App
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.GITOPS_APP_ID }}
+          private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.repo.outputs.name }}
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.GITOPS_REPO }}
+          token: ${{ steps.app-token.outputs.token }}
+          ref: main
+
+      - name: Abrir PR de promoção
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TAG: ${{ inputs.tag }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          branch="promote/${ENVIRONMENT}-${TAG}"
+          git config user.name  "gitops-bot"
+          git config user.email "gitops-bot@users.noreply.github.com"
+          git checkout -b "$branch"
+          yq -i '.image.tag = strenv(TAG)' "envs/${ENVIRONMENT}/values.yaml"
+          git add "envs/${ENVIRONMENT}/values.yaml"
+          git commit -m "chore(${ENVIRONMENT}): promote webapp ${TAG}"
+          git push --force-with-lease origin "$branch"
+          gh pr create \
+            --base main --head "$branch" \
+            --title "chore(${ENVIRONMENT}): promote webapp ${TAG}" \
+            --body "Promoção de \`${TAG}\` para **${ENVIRONMENT}**.
+
+          - Imagem verificada (Cosign) ✅
+          - Origem: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          - Solicitado por: @${{ github.actor }}
+          - Rollback: \`git revert\` deste merge."
