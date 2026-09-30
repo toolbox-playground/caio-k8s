@@ -1,0 +1,141 @@
+# manifests/04-recording-rules.yaml
+#
+# Recording Rules de redução de cardinalidade.
+#
+# Por que isso importa:
+#   kube_pod_info tem ~40 labels por pod. Com 200 pods = 8.000 séries.
+#   A versão "slim" mantém apenas os 5 labels mais usados em dashboards.
+#
+# Convenção de nomenclatura usada:
+#   job:<metric_name>:<operation>
+#   Exemplos:
+#     job:http_requests_total:rate5m
+#     job:kube_pod_info:slim
+#
+# Aplicar: kubectl apply -f manifests/04-recording-rules.yaml
+# Verificar: promql → job:kube_pod_info:slim
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cardinality-recording-rules
+  namespace: monitoring
+  labels:
+    release: kind-prometheus
+spec:
+  groups:
+    # ── Kubernetes Infrastructure: versões slim ─────────────────────────
+    - name: k8s.infra.slim
+      interval: 2m
+      rules:
+        # kube_pod_info ORIGINAL: ~40 labels, 1 série por pod
+        # kube_pod_info SLIM: 6 labels essenciais, mesmas séries
+        # Saving: 85% menos labels = índice menor, queries mais rápidas
+        - record: job:kube_pod_info:slim
+          expr: |
+            label_replace(
+              label_replace(
+                kube_pod_info,
+                "app", "$1", "label_app", "(.+)"
+              ),
+              "app", "$1", "label_app_kubernetes_io_name", "(.+)"
+            )
+          labels:
+            # As recording rules definem explicitamente os labels preservados.
+            # Todos os outros labels do kube_pod_info são descartados.
+            # Para consultar: job:kube_pod_info:slim{namespace="games"}
+
+        # Taxa de requests HTTP por job/método/status (sem pod, sem instance)
+        # Útil para dashboards de visão geral de serviço
+        - record: job:http_requests_total:rate5m
+          expr: |
+            sum by (job, namespace, method, status_code) (
+              rate(http_requests_total[5m])
+            )
+
+        # P99 de latência por serviço (sem endpoint específico)
+        # Reduz de: N_pods × M_endpoints séries → N_services séries
+        - record: job:http_request_duration_seconds_p99:5m
+          expr: |
+            histogram_quantile(0.99,
+              sum by (job, namespace, le) (
+                rate(http_request_duration_seconds_bucket[5m])
+              )
+            )
+
+        # P50 de latência por serviço
+        - record: job:http_request_duration_seconds_p50:5m
+          expr: |
+            histogram_quantile(0.50,
+              sum by (job, namespace, le) (
+                rate(http_request_duration_seconds_bucket[5m])
+              )
+            )
+
+    # ── Kubernetes Resources: agregações por namespace ──────────────────
+    - name: k8s.resources.namespace
+      interval: 2m
+      rules:
+        # CPU usado por namespace (sem granularidade por pod/container)
+        # Para trending e capacity planning mensal
+        - record: namespace:container_cpu_usage_seconds:rate5m
+          expr: |
+            sum by (namespace) (
+              rate(container_cpu_usage_seconds_total{container!=""}[5m])
+            )
+
+        # Memória por namespace
+        - record: namespace:container_memory_working_set_bytes:avg
+          expr: |
+            sum by (namespace) (
+              container_memory_working_set_bytes{container!=""}
+            )
+
+        # Número de pods rodando por namespace e estado
+        - record: namespace:kube_pod_status_phase:count
+          expr: |
+            count by (namespace, phase) (
+              kube_pod_status_phase{phase=~"Running|Pending|Failed"}
+            )
+
+    # ── Four Golden Signals: pré-calculados para dashboards ─────────────
+    - name: golden.signals
+      interval: 1m
+      rules:
+        # LATÊNCIA: P99 por namespace (para SLO dashboard)
+        - record: namespace:latency_p99_seconds:5m
+          expr: |
+            histogram_quantile(0.99,
+              sum by (namespace, le) (
+                rate(http_request_duration_seconds_bucket[5m])
+              )
+            )
+
+        # TRÁFEGO: requests/s por namespace
+        - record: namespace:request_rate:5m
+          expr: |
+            sum by (namespace) (
+              rate(http_requests_total[5m])
+            )
+
+        # ERROS: taxa de requests com status 5xx por namespace
+        - record: namespace:error_rate:5m
+          expr: |
+            sum by (namespace) (
+              rate(http_requests_total{status_code=~"5.."}[5m])
+            )
+            /
+            sum by (namespace) (
+              rate(http_requests_total[5m])
+            )
+
+        # SATURAÇÃO: CPU throttling por namespace (indica pods mal dimensionados)
+        - record: namespace:cpu_throttle_ratio:5m
+          expr: |
+            sum by (namespace) (
+              rate(container_cpu_cfs_throttled_seconds_total{container!=""}[5m])
+            )
+            /
+            sum by (namespace) (
+              rate(container_cpu_cfs_periods_total{container!=""}[5m])
+            )

@@ -1,0 +1,7 @@
+# Namespace dedicado para a aplicação (isolamento lógico)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: games
+  labels:
+    name: games

@@ -1,0 +1,93 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# ============================================================
+# Recursos: todos os HelmReleases e Kustomizations da stack
+# ============================================================
+resources:
+  - 00-namespaces.yaml
+  - 01-mario.yaml
+  - 02-prometheus.yaml
+  - 03-loki.yaml
+  - 04-fluent-bit.yaml
+  - 05-monitoring-manifests.yaml
+  - 06-minio.yaml
+  - 07-mimir.yaml
+  - 08-tempo.yaml
+  - 09-pyroscope.yaml
+  - 10-alloy.yaml
+  - 11-opentelemetry.yaml
+  - 12-profiler-manifests.yaml
+
+# ============================================================
+# configMapGenerator: cria ConfigMaps a partir dos values files
+# que estão no módulo 07 (reutilização da stack existente).
+# Os HelmReleases referenciam esses ConfigMaps via "valuesFrom".
+#
+# Por que configMapGenerator?
+#   → O HelmRelease só aceita values de: spec.values (inline),
+#     valuesFrom (ConfigMap/Secret) ou spec.chart.spec.valuesFiles
+#     (apenas quando a source é GitRepository, não HelmRepository).
+#   → Como usamos HelmRepository para os charts, a única forma de
+#     passar values do git é via ConfigMap criado pelo Kustomize.
+#
+# disableNameSuffixHash: true → mantém o nome exato (sem hash)
+#   para que os HelmReleases possam referenciar por nome fixo.
+# ============================================================
+configMapGenerator:
+
+  # ── Prometheus Stack ──────────────────────────────────────
+  - name: prometheus-stack-values
+    namespace: flux-system
+    files:
+      - values-prometheus-stack.yaml=../../../modulo-07-argocd/stack/monitoring/helm-values/values-prometheus-stack.yaml
+    options:
+      disableNameSuffixHash: true
+
+  # ── Loki ──────────────────────────────────────────────────
+  - name: loki-values
+    namespace: flux-system
+    files:
+      - values-loki.yaml=../../../modulo-07-argocd/stack/monitoring/helm-values/values-loki.yaml
+    options:
+      disableNameSuffixHash: true
+
+  # ── Fluent Bit ────────────────────────────────────────────
+  - name: fluent-bit-values
+    namespace: flux-system
+    files:
+      - values-fluent-bit.yaml=../../../modulo-07-argocd/stack/monitoring/helm-values/values-fluent-bit.yaml
+    options:
+      disableNameSuffixHash: true
+
+  # ── Tempo ─────────────────────────────────────────────────
+  - name: tempo-values
+    namespace: flux-system
+    files:
+      - values-tempo.yaml=../../../modulo-07-argocd/stack/opentelemetry/helm-values/values-tempo.yaml
+    options:
+      disableNameSuffixHash: true
+
+  # ── Pyroscope ─────────────────────────────────────────────
+  - name: pyroscope-values
+    namespace: flux-system
+    files:
+      - values-pyroscope.yaml=../../../modulo-07-argocd/stack/profiler/helm-values/values-pyroscope.yaml
+    options:
+      disableNameSuffixHash: true
+
+  # ── Alloy ─────────────────────────────────────────────────
+  - name: alloy-values
+    namespace: flux-system
+    files:
+      - values-alloy.yaml=../../../modulo-07-argocd/stack/profiler/helm-values/values-alloy.yaml
+    options:
+      disableNameSuffixHash: true
+
+  # ── AIStor / MinIO ────────────────────────────────────────
+  - name: minio-values
+    namespace: flux-system
+    files:
+      - values-aistor-objectstore.yaml=../../../modulo-07-argocd/install/values-aistor-objectstore.yaml
+    options:
+      disableNameSuffixHash: true

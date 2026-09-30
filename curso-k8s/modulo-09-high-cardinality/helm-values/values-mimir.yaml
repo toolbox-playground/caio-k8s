@@ -1,0 +1,115 @@
+# helm-values/values-mimir.yaml
+#
+# Módulo 08 — Grafana Mimir com limites anti-cardinalidade.
+#
+# Diferenças em relação ao módulo 06/07:
+#   → max_global_series_per_metric: 50000  (proteção por métrica)
+#   → max_global_series_per_user: 1500000  (proteção por tenant)
+#   → ingestion_rate com burst configurado
+#   → out_of_order_time_window para tolerância de dados tardios
+#   → runtime_config apontando para ConfigMap editável sem reiniciar
+#
+# Chart: grafana/mimir-distributed
+#
+# Aplicar:
+#   helm upgrade mimir grafana/mimir-distributed \
+#     --namespace monitoring \
+#     -f helm-values/values-mimir.yaml \
+#     --reuse-values
+
+mimir:
+  structuredConfig:
+    # ── Limites por Tenant ─────────────────────────────────────────────
+    # "Tenant" = organização no Mimir. No modo sem multi-tenancy,
+    # tudo vai para o tenant "anonymous" (ou o definido pelo header).
+    limits:
+      # Máximo de séries GLOBAIS por tenant (somando todos os ingesters).
+      # 1.5M é adequado para clusters até ~200 pods bem instrumentados.
+      # Em produção com muitos serviços: 5M–15M.
+      max_global_series_per_user: 1500000
+
+      # Máximo de séries por métrica (por tenant).
+      # Previne que UMA métrica ruim consuma todo o quota.
+      # Se http_requests_total tiver request_id como label e ultrapassar
+      # 50.000 séries, o Mimir rejeita as novas com HTTP 429.
+      max_global_series_per_metric: 50000
+
+      # Máximo de labels por série. Impede métricas com labels excessivos.
+      max_label_names_per_series: 30
+
+      # Comprimento máximo do valor de um label
+      max_label_value_length: 1024
+
+      # Taxa máxima de ingestão (amostras/segundo por tenant).
+      # Com 1M séries e scrape a cada 15s ≈ 66.000 amostras/s.
+      # Margem de 50% para bursts: 100.000.
+      ingestion_rate: 100000
+      ingestion_burst_size: 200000
+
+      # Janela de aceitação de dados fora de ordem.
+      # Useful quando o clock dos pods fica desincronizado ou quando
+      # há atraso no remote_write. 5m é conservador e seguro.
+      out_of_order_time_window: 5m
+
+      # ── Limites de Query ────────────────────────────────────────────
+      # Previne queries que explodem memória no querier.
+
+      # Janela máxima de tempo que uma query pode cobrir
+      max_query_length: 32d
+
+      # Máximo de chunks por query (proteção contra queries muito amplas)
+      max_fetched_chunks_per_query: 2000000
+
+      # Máximo de séries retornadas por query (antes de streaming)
+      max_fetched_series_per_query: 100000
+
+    # ── Runtime Config ────────────────────────────────────────────────
+    # O runtime config permite alterar limites SEM reiniciar o Mimir.
+    # Basta editar o ConfigMap mimir-runtime-config e aguardar 10s.
+    runtime_config:
+      file: /etc/mimir/runtime.yaml
+      period: 10s
+
+    # ── Compactação ───────────────────────────────────────────────────
+    # O compactor consolida blocos pequenos em blocos maiores no object storage.
+    # Melhora performance de queries e reduz custos de storage.
+    compactor:
+      # Janelas de compactação: consolida blocos de 2h em blocos de 24h e 7d
+      block_ranges: [2h, 24h, 168h]
+      # Sharding do compactor (cada instância cuida de um subconjunto de tenants)
+      sharding_enabled: true
+
+# ── Runtime Config via ConfigMap ────────────────────────────────────────
+# Este ConfigMap é montado no pod do Mimir como /etc/mimir/runtime.yaml.
+# Edite-o em tempo real para ajustar limites sem helm upgrade:
+#   kubectl edit configmap mimir-runtime-config -n monitoring
+#
+# O Mimir recarrega automaticamente a cada `period` (10s acima).
+runtimeConfig:
+  # Limites globais de instância do ingester
+  ingester_limits:
+    max_ingestion_rate: 80000
+    max_series: 1500000
+    max_tenants: 1000
+    max_inflight_push_requests: 30000
+
+  # Overrides por tenant: permite quotas diferentes por time/projeto
+  overrides:
+    # Tenant padrão (sem header X-Scope-OrgID, ou header "anonymous")
+    anonymous:
+      max_global_series_per_user: 1500000
+      max_global_series_per_metric: 50000
+      ingestion_rate: 100000
+      ingestion_burst_size: 200000
+
+    # Exemplo: tenant para ambiente de desenvolvimento (quota menor)
+    # Ative criando o header X-Scope-OrgID: dev no remote_write
+    # dev:
+    #   max_global_series_per_user: 100000
+    #   max_global_series_per_metric: 5000
+    #   ingestion_rate: 10000
+
+    # Exemplo: tenant para time de plataforma (quota maior)
+    # platform:
+    #   max_global_series_per_user: 10000000
+    #   ingestion_rate: 500000

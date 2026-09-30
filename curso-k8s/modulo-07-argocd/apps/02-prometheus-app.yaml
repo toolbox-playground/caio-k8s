@@ -5,10 +5,10 @@
 # "multi-source": uma fonte para o chart Helm e outra para
 # o arquivo de values no repositório Git.
 #
-# Multi-source (ArgoCD 2.6+):
-#   → source[0]: chart Helm (prometheus-community)
-#   → source[1]: repositório git com os values (ref: values)
-#   O values file usa "$values" como alias para a fonte[1].
+# Multi-source (estável no ArgoCD v3.x, introduzido no v2.6):
+#   → sources[0]: chart Helm (prometheus-community)
+#   → sources[1]: repositório git com os values (ref: values)
+#   O values file usa "$values" como alias para sources[1].
 # ============================================================
 
 apiVersion: argoproj.io/v1alpha1

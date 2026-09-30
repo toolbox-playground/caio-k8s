@@ -1,0 +1,142 @@
+# helm-values/values-fluent-bit.yaml
+#
+# Módulo 08 — Fluent Bit OTIMIZADO: labels de stream limpos.
+#
+# Diferenças em relação ao módulo 03/04/05/06/07:
+#   → Remove campos de alta cardinalidade ANTES de enviar ao Loki:
+#       container_id (UUID), docker_id, stream (stdout/stderr)
+#   → Mantém apenas os labels essenciais no stream Loki:
+#       namespace, app (via label do pod), pod, container
+#   → Adiciona label `app` extraído do label Kubernetes `app` do pod
+#   → Remove logs de componentes internos do Kubernetes (muito ruído)
+#
+# Por que isso importa:
+#   Sem essa configuração, o Fluent Bit envia `container_id` (UUID) como
+#   label de stream, criando 1 stream por restart de container.
+#   Com 100 pods e 5 restarts/dia: 500 streams novos por dia → índice cresce
+#   indefinidamente com streams inativos.
+#
+# Chart: fluent/fluent-bit
+#
+# Aplicar:
+#   helm upgrade fluent-bit fluent/fluent-bit \
+#     --namespace monitoring \
+#     -f helm-values/values-fluent-bit.yaml \
+#     --reuse-values
+
+config:
+  # ── Filtro Kubernetes ────────────────────────────────────────────────
+  # Enriquece cada linha de log com metadados do pod.
+  # O campo `kubernetes` fica disponível no log como objeto JSON.
+  filters: |
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Merge_Log           On
+        Keep_Log            Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+        # Anota cada log com metadados do pod (namespace, pod_name, etc.)
+        Annotations         Off
+        # Labels do pod: necessários para extrair o label `app` do Kubernetes
+        Labels              On
+
+    # ── Extrai o label `app` do pod para um campo de topo ────────────
+    # O campo kubernetes.labels.app se torna o label de stream `app` no Loki.
+    # Isso permite queries como: {app="ranking-api"} sem especificar o pod.
+    [FILTER]
+        Name   nest
+        Match  kube.*
+        Operation lift
+        Nested_Under kubernetes.labels
+        Add_Prefix   k8s_label_
+
+    # ── Remove campos de alta cardinalidade ───────────────────────────
+    # container_id: UUID que muda a cada restart → stream novo no Loki
+    # docker_id: mesmo problema
+    # stream: sempre "stdout" ou "stderr" → pouco valor, ocupa espaço
+    # logtag: flag interno do Fluent Bit (F/P) → sem valor para o usuário
+    [FILTER]
+        Name  record_modifier
+        Match kube.*
+        Remove_Key kubernetes.container_id
+        Remove_Key kubernetes.docker_id
+        Remove_Key stream
+        Remove_Key logtag
+        Remove_Key kubernetes.pod_id
+        Remove_Key kubernetes.labels.pod-template-hash
+        # O hash do ReplicaSet no nome do pod já está no pod_name,
+        # mas o label pod-template-hash é redundante
+
+    # ── Filtra logs de componentes com muito ruído ────────────────────
+    # kube-system tem logs muito verbosos de componentes internos.
+    # Mantemos apenas os namespaces de aplicações e monitoring.
+    # Comente esta seção se precisar debugar problemas de rede/DNS.
+    [FILTER]
+        Name  grep
+        Match kube.*
+        Exclude kubernetes.namespace_name kube-system|cert-manager|local-path-storage
+
+  # ── Output para Loki ─────────────────────────────────────────────────
+  # Labels de stream enviados ao Loki (devem ser de BAIXA cardinalidade).
+  # Regra: o que você vai usar em {filtro} no Grafana = label de stream.
+  # O que você vai buscar com `|= "texto"` = campo dentro do log.
+  outputs: |
+    [OUTPUT]
+        Name              loki
+        Match             kube.*
+        Host              loki-gateway.monitoring.svc.cluster.local
+        Port              80
+        # ── Labels de Stream (baixa cardinalidade) ───────────────────
+        # APENAS estes 4 labels viram índice no Loki.
+        # namespace: ~5-50 valores
+        # app: ~5-100 valores (nome da aplicação)
+        # pod: ~50-500 valores (nome do pod, inclui hash mas é controlado)
+        # container: ~1-5 valores por pod
+        Labels            job=fluent-bit
+        label_keys        $kubernetes['namespace_name'],$kubernetes['pod_name'],$kubernetes['container_name'],$k8s_label_app
+        # Mapeia os nomes para labels mais limpos no Loki
+        label_map_path    /fluent-bit/etc/loki-label-map.json
+        # Comprime o payload (reduz bandwidth 5-10x)
+        compress          gzip
+        # Timeout de conexão com o Loki
+        http_conn_timeout 10
+        # Remove labels com valor vazio (ex: app quando pod não tem label app)
+        drop_single_key   off
+        line_format       json
+
+# ── Mapeamento de Labels ─────────────────────────────────────────────
+# Renomeia os campos do Fluent Bit para nomes limpos no Loki.
+# kubernetes.namespace_name → namespace
+# kubernetes.pod_name       → pod
+# kubernetes.container_name → container
+# k8s_label_app             → app
+extraFiles:
+  loki-label-map.json: |
+    {
+      "kubernetes": {
+        "namespace_name": "namespace",
+        "pod_name": "pod",
+        "container_name": "container"
+      },
+      "k8s_label_app": "app"
+    }
+
+# ── Recursos ─────────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+# ── Tolerações ───────────────────────────────────────────────────────
+# DaemonSet: roda em todos os nodes, inclusive nodes com taints
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+  - key: node-role.kubernetes.io/master
+    operator: Exists
+    effect: NoSchedule

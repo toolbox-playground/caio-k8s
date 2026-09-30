@@ -1,206 +1,114 @@
 # ============================================================
-# MinIO — StatefulSet + Services + Buckets
+# AIStor — Credenciais + Job de criação de buckets
 # ============================================================
-# Substitui o chart bitnami/minio (descontinuado).
-# Deploy direto via manifest — sem dependência de Helm chart externo.
+# Gerenciado pelo ArgoCD via apps/06-minio-app.yaml (source 3).
 #
-# Componentes:
-#   - Secret: credenciais de acesso (rootUser / rootPassword)
-#   - StatefulSet: MinIO server (API :9000 + Console :9001)
-#   - Service (ClusterIP): acesso interno do Mimir
-#   - Service (NodePort 39001): console web acessível em localhost:9001
-#   - Job: cria os 3 buckets necessários via mc (MinIO client)
+# Este arquivo contém os recursos Kubernetes que acompanham o
+# Helm chart do AIStor ObjectStore:
 #
-# Aplicar:
-#   kubectl apply -f 00-minio.yaml
+#   1. Secret "aistor-storage-config"
+#      Referenciado pelo Helm chart via objectStore.configuration.name.
+#      Deve existir ANTES do chart sincronizar (sync-wave: -2).
 #
-# Verificar:
-#   kubectl rollout status statefulset/minio -n monitoring
-#   kubectl get pods -n monitoring -l app=minio
+#   2. Job "aistor-create-buckets"
+#      Cria os 3 buckets do Mimir após o AIStor estar Ready.
+#      Hook PostSync: executa depois que o ObjectStore estiver Healthy.
+#
+# ── Endpoint S3 (para o Mimir) ─────────────────────────────────────────────
+#   http://minio.monitoring.svc.cluster.local:80
+#   (AIStor com disableAutoCert: true expõe HTTP na porta 80)
 # ============================================================
 
 ---
-# Credenciais do MinIO.
-# Em produção: use um Secret gerenciado externamente (Vault, SOPS, etc.)
+# Credenciais do AIStor ObjectStore.
+# O Operator lê "config.env" deste Secret para configurar o container AIStor.
+# O Job de buckets usa "rootUser" / "rootPassword" como env vars individuais.
+#
+# sync-wave: -2 garante que o Secret exista antes do chart (wave -1).
+#
+# Em produção: use External Secrets Operator + Vault/AWS SSM.
 apiVersion: v1
 kind: Secret
 metadata:
-  name: minio-credentials
+  name: aistor-storage-config
   namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
 type: Opaque
 stringData:
+  # Formato config.env: lido pelo AIStor Operator
+  config.env: |
+    export MINIO_ROOT_USER="mimir"
+    export MINIO_ROOT_PASSWORD="mimir-supersecret"
+  # Chaves individuais: usadas pelo Job de criação de buckets
   rootUser: mimir
   rootPassword: mimir-supersecret
 
 ---
-# StatefulSet garante identidade estável (minio-0) e PVC para os dados.
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: minio
-  namespace: monitoring
-  labels:
-    app: minio
-    app.kubernetes.io/name: minio
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: minio
-  serviceName: minio
-
-  template:
-    metadata:
-      labels:
-        app: minio
-        app.kubernetes.io/name: minio
-    spec:
-      containers:
-        - name: minio
-          # Imagem oficial do MinIO — atualizar a tag conforme necessário.
-          # ⚠️  Docker Hub arquivado em set/2025. Última tag válida: RELEASE.2025-09-07T16-13-09Z
-          # Verifique tags disponíveis: https://hub.docker.com/r/minio/minio/tags
-          image: minio/minio:RELEASE.2025-09-07T16-13-09Z
-          imagePullPolicy: IfNotPresent
-          args:
-            - server
-            - /data
-            - --console-address
-            - ":9001"
-          env:
-            - name: MINIO_ROOT_USER
-              valueFrom:
-                secretKeyRef:
-                  name: minio-credentials
-                  key: rootUser
-            - name: MINIO_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: minio-credentials
-                  key: rootPassword
-          ports:
-            - name: api
-              containerPort: 9000
-            - name: console
-              containerPort: 9001
-          readinessProbe:
-            httpGet:
-              path: /minio/health/ready
-              port: 9000
-            initialDelaySeconds: 10
-            periodSeconds: 5
-          livenessProbe:
-            httpGet:
-              path: /minio/health/live
-              port: 9000
-            initialDelaySeconds: 30
-            periodSeconds: 20
-          volumeMounts:
-            - name: data
-              mountPath: /data
-
-  volumeClaimTemplates:
-    - metadata:
-        name: data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 5Gi
-
----
-# ClusterIP — acesso interno do Mimir ao MinIO (porta 9000).
-apiVersion: v1
-kind: Service
-metadata:
-  name: minio
-  namespace: monitoring
-  labels:
-    app: minio
-spec:
-  selector:
-    app: minio
-  ports:
-    - name: api
-      port: 9000
-      targetPort: 9000
-  type: ClusterIP
-
----
-# NodePort — console web do MinIO acessível em http://localhost:9001
-apiVersion: v1
-kind: Service
-metadata:
-  name: minio-console
-  namespace: monitoring
-  labels:
-    app: minio
-spec:
-  selector:
-    app: minio
-  ports:
-    - name: console
-      port: 9001
-      targetPort: 9001
-      nodePort: 39001  # requer service-node-port-range: 30000-40000 no cluster-config.yaml
-  type: NodePort
-
----
-# Job que cria os 3 buckets necessários pelo Mimir.
-# Aguarda o MinIO estar ready antes de tentar criar os buckets.
-# O Job é idempotente: pode ser reaplicado sem problemas (buckets já existentes são ignorados).
+# Job que cria os 3 buckets do Mimir após o AIStor estar Ready.
+# Hook PostSync: o ArgoCD executa este Job depois que o sync completa
+# e o ObjectStore está Healthy.
+# BeforeHookCreation: recria o Job em cada novo sync (idempotente).
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: minio-create-buckets
+  name: aistor-create-buckets
   namespace: monitoring
   labels:
-    app: minio
+    app: aistor-mimir
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
-  # backoffLimit alto para aguardar o MinIO subir em ambientes lentos.
   backoffLimit: 10
   template:
     metadata:
       labels:
-        app: minio
+        app: aistor-mimir
     spec:
       restartPolicy: OnFailure
+
       initContainers:
-        # Aguarda o MinIO estar ready antes de tentar criar os buckets.
-        - name: wait-minio
+        # Aguarda o AIStor S3 API estar healthy.
+        # Com disableAutoCert: true → HTTP na porta 80 (sem porta explícita = 80).
+        - name: wait-aistor
           image: busybox:1.36
           command:
             - sh
             - -c
             - |
-              until wget -q -O- http://minio.monitoring.svc.cluster.local:9000/minio/health/ready; do
-                echo "Aguardando MinIO..."
+              echo "Aguardando AIStor S3 API..."
+              until wget -q --spider http://minio.monitoring.svc.cluster.local/minio/health/ready; do
+                echo "  ainda não está pronto — aguardando 3s..."
                 sleep 3
               done
+              echo "AIStor ready!"
+
       containers:
         - name: mc
-          # MinIO client oficial para criação de buckets.
+          # MinIO Client — API S3 do AIStor é 100% compatível com mc.
           image: minio/mc:RELEASE.2025-08-13T08-35-41Z
           env:
             - name: MINIO_ROOT_USER
               valueFrom:
                 secretKeyRef:
-                  name: minio-credentials
+                  name: aistor-storage-config
                   key: rootUser
             - name: MINIO_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: minio-credentials
+                  name: aistor-storage-config
                   key: rootPassword
           command:
             - sh
             - -c
             - |
-              mc alias set local http://minio.monitoring.svc.cluster.local:9000 \
-                $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+              # Configura alias: AIStor com TLS desabilitado usa porta 80 (HTTP).
+              mc alias set local http://minio.monitoring.svc.cluster.local \
+                "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
 
               # Cria os 3 buckets necessários pelo Mimir.
-              # mb --ignore-existing: não falha se o bucket já existe.
+              # --ignore-existing: idempotente (não falha se já existem).
               mc mb --ignore-existing local/mimir-blocks
               mc mb --ignore-existing local/mimir-alertmanager
               mc mb --ignore-existing local/mimir-ruler

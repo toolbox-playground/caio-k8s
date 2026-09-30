@@ -1,0 +1,164 @@
+# manifests/03-cardinality-alerts.yaml
+#
+# PrometheusRule com alertas proativos para alta cardinalidade.
+#
+# Estes alertas devem existir em QUALQUER cluster de produção.
+# Eles detectam o problema antes do OOMKill.
+#
+# Alertas incluídos:
+#   - PrometheusHighCardinalityGrowth: crescimento > 20% em 1h (warning)
+#   - PrometheusCardinalityTooHigh: > 2M séries (critical)
+#   - PrometheusScrapeSlowness: scrape demora > 80% do intervalo (warning)
+#   - PrometheusScrapeSampleLimit: job chegou perto do sampleLimit (warning)
+#   - MimirSeriesLimitApproaching: Mimir com > 70% do limite de séries (warning)
+#   - MimirIngestionRejections: Mimir rejeitando amostras (critical)
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: high-cardinality-alerts
+  namespace: monitoring
+  labels:
+    # Label necessário para o kube-prometheus-stack carregar a rule
+    release: kind-prometheus
+spec:
+  groups:
+    # ── Alertas de Cardinalidade do Prometheus ──────────────────────────
+    - name: prometheus.cardinality
+      interval: 2m
+      rules:
+        # Alerta quando o total de séries cresce mais de 20% em 1 hora.
+        # Indica um novo deploy com labels problemáticos.
+        - alert: PrometheusHighCardinalityGrowth
+          expr: |
+            (
+              prometheus_tsdb_head_series
+              / prometheus_tsdb_head_series offset 1h
+            ) > 1.20
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Cardinalidade crescendo >20% em 1h"
+            description: >
+              O Prometheus tem {{ $value | humanizePercentage }} mais séries
+              do que há 1 hora ({{ $value | humanize }} séries totais).
+              Verifique novos deployments com labels de alta cardinalidade:
+              curl http://localhost:9090/api/v1/status/tsdb
+
+        # Alerta crítico quando o total de séries passa de 2 milhões.
+        # Com 4GB de RAM no pod do Prometheus, OOMKill acontece por volta de 3-4M.
+        - alert: PrometheusCardinalityTooHigh
+          expr: prometheus_tsdb_head_series > 2000000
+          for: 5m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "Cardinalidade crítica: {{ $value | humanize }} séries"
+            description: >
+              O Prometheus está com {{ $value | humanize }} séries ativas.
+              Risco de OOMKill. Execute imediatamente:
+              curl http://localhost:9090/api/v1/status/tsdb | jq
+              '.data.seriesCountByMetricName | sort_by(.count) | reverse | .[0:10]'
+
+        # Alerta quando um job demora mais de 80% do seu intervalo de scrape.
+        # Indica que o target está sobrecarregado ou tem muitas séries.
+        - alert: PrometheusScrapeSlowness
+          expr: |
+            scrape_duration_seconds{job!=""}
+            > (scrape_interval_seconds{job!=""} * 0.80)
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Scrape lento: {{ $labels.job }} / {{ $labels.instance }}"
+            description: >
+              O scrape de {{ $labels.job }} ({{ $labels.instance }})
+              está demorando {{ $value | humanizeDuration }}, que é >80%
+              do intervalo configurado. Considere reduzir a cardinalidade
+              ou aumentar o scrapeInterval para este job.
+
+        # Alerta quando um job está chegando perto do sampleLimit configurado.
+        # Indica que em breve o scrape vai começar a falhar por limite.
+        - alert: PrometheusScrapeSampleLimitApproaching
+          expr: |
+            scrape_samples_post_metric_relabeling > 4500
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Job {{ $labels.job }} próximo do sampleLimit (4500/5000)"
+            description: >
+              O job {{ $labels.job }} está coletando {{ $value | humanize }}
+              amostras por scrape. O limite configurado é 5000. Acima disso,
+              o scrape inteiro falha. Revise as métricas expostas pelo target.
+
+    # ── Alertas do Mimir ────────────────────────────────────────────────
+    - name: mimir.limits
+      interval: 5m
+      rules:
+        # Alerta quando o Mimir está usando mais de 70% do limite de séries.
+        - alert: MimirSeriesLimitApproaching
+          expr: |
+            (
+              cortex_ingester_memory_series
+              / cortex_ingester_instance_limits{limit="max_series"}
+            ) > 0.70
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Mimir usando {{ $value | humanizePercentage }} do limite de séries"
+            description: >
+              O ingester do Mimir está com
+              {{ $value | humanizePercentage }} do limite de séries configurado.
+              Limite atual: {{ with query "cortex_ingester_instance_limits{limit='max_series'}" }}{{ . | first | value | humanize }}{{ end }} séries.
+              Considere aumentar o limite ou reduzir a cardinalidade.
+
+        # Alerta crítico quando o Mimir começa a rejeitar amostras.
+        # Isso significa que métricas estão sendo PERDIDAS.
+        - alert: MimirIngestionRejections
+          expr: |
+            rate(cortex_ingester_instance_limits_rejections_total[5m]) > 0
+          for: 2m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "Mimir rejeitando ingestão: {{ $value | humanize }} rejeições/s"
+            description: >
+              O Mimir está rejeitando amostras a {{ $value | humanize }} por segundo.
+              MÉTRICAS ESTÃO SENDO PERDIDAS. Verifique:
+              cortex_ingester_instance_limits{limit="max_series"}
+              Aumente o limite no runtime config ou reduza a cardinalidade.
+
+    # ── Alertas de Remote Write (lag Prometheus → Mimir) ────────────────
+    - name: prometheus.remote_write
+      interval: 1m
+      rules:
+        # Alerta quando o lag do remote_write passa de 2 minutos.
+        # Indica que o Mimir não está consumindo rápido o suficiente.
+        - alert: PrometheusRemoteWriteLag
+          expr: |
+            (
+              prometheus_remote_storage_highest_timestamp_in_seconds
+              - prometheus_remote_storage_queue_highest_sent_timestamp_seconds
+            ) > 120
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Remote write com lag de {{ $value | humanizeDuration }}"
+            description: >
+              O Prometheus está com {{ $value | humanizeDuration }} de lag
+              no envio para o Mimir. Dados podem estar atrasados no Grafana
+              quando consultando via Mimir. Verifique:
+              - Se o Mimir está com CPU/memória alta
+              - Se o queueConfig precisa de mais shards (maxShards)
+              - Se a rede entre Prometheus e Mimir está com latência

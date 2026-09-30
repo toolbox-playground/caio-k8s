@@ -1,0 +1,38 @@
+# values-gitea.yaml
+# Gitea — git server leve para uso local com Flux.
+#
+# Mesmo Gitea do módulo 07 (ArgoCD).
+# O Flux dentro do cluster acessa via DNS interno:
+#   http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+#
+# Em produção: substitua por GitHub, GitLab ou Gitea auto-hospedado.
+# Só muda o url no GitRepository do Flux.
+#
+# Chart: gitea-charts/gitea
+# Helm repo: helm repo add gitea-charts https://dl.gitea.com/charts/
+
+# ── Administrador ─────────────────────────────────────────────────────────
+gitea:
+  admin:
+    username: gitops
+    password: gitops-secret
+    email: gitops@local.dev
+
+  config:
+    APP_NAME: "GitOps Local"
+    service:
+      DISABLE_REGISTRATION: true
+
+# ── Service: NodePort 33000 ───────────────────────────────────────────────
+service:
+  http:
+    type: NodePort
+    port: 3000
+    nodePort: 33000
+  ssh:
+    type: ClusterIP
+
+# ── Persistência ─────────────────────────────────────────────────────────
+persistence:
+  enabled: true
+  size: 2Gi

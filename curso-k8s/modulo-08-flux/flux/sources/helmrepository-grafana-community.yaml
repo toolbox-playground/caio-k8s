@@ -1,0 +1,12 @@
+# ============================================================
+# HelmRepository — grafana-community
+# ============================================================
+# Usado por: tempo (migrado para este repo em jan/2026)
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: grafana-community
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://grafana-community.github.io/helm-charts

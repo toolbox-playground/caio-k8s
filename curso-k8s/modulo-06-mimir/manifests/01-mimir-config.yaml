@@ -55,17 +55,20 @@ data:
       storage:
         backend: s3
         s3:
-          # DNS interno do MinIO no cluster. Funciona porque ambos estão
-          # no namespace monitoring e o Kubernetes resolve via CoreDNS.
-          endpoint: minio.monitoring.svc.cluster.local:9000
+          # ⚠️  AIStor (antes MinIO standalone): o endpoint usa PORTA 80 (HTTP)
+          # quando TLS está desabilitado (disableAutoCert: true no objectstore).
+          # MinIO standalone usava porta 9000 — esta é a única mudança de config.
+          #
+          # DNS interno: <nome-do-objectstore>.<namespace>.svc.cluster.local
+          # ObjectStore name "minio", namespace "monitoring" → minio.monitoring.svc.cluster.local
+          endpoint: minio.monitoring.svc.cluster.local:80
           access_key_id: mimir
           secret_access_key: mimir-supersecret
-          # insecure: true = HTTP (não HTTPS). Seguro dentro do cluster Kind.
+          # insecure: true = HTTP (não HTTPS). AIStor com disableAutoCert: true.
           # Em produção: use HTTPS e certificados válidos.
           insecure: true
-          # bucket_lookup_type: "path" = path-style URLs (http://minio:9000/bucket/key).
-          # Necessário para MinIO — o estilo virtual-hosted (default) não funciona em ambientes locais.
-          # Substituiu "path_style: true" removido no Mimir 3.0 (introduzido em 2.13.0 via -<prefix>.s3.bucket-lookup-type).
+          # bucket_lookup_type: "path" = path-style URLs (http://host:80/bucket/key).
+          # Necessário para AIStor/MinIO em ambientes locais sem DNS virtual-hosted.
           bucket_lookup_type: path
 
     # ── Blocks Storage ────────────────────────────────────────────────────────

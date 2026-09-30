@@ -1,0 +1,26 @@
+# HTTPRoute: liga o Gateway "kong-gateway" ao Service do jogo.
+# Mora no mesmo namespace do Gateway ("kong"), e referencia o Service
+# "super-mario-service" que está no namespace "games" (cross-namespace).
+#
+# IMPORTANTE: backendRefs cruzando namespace só funciona com uma
+# ReferenceGrant correspondente no namespace de destino (veja 06-referencegrant.yaml)
+# e com o namespace de destino rotulado para o KIC aceitar (veja 00-namespace-games.yaml
+# e a anotação abaixo).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mario-route
+  namespace: kong
+spec:
+  parentRefs:
+    - name: kong-gateway
+      namespace: kong
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: / # O jogo responde direto na raiz
+      backendRefs:
+        - name: super-mario-service
+          namespace: games # Cross-namespace: exige ReferenceGrant em "games"
+          port: 8080

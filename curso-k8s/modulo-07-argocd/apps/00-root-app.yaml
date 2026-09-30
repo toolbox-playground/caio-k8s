@@ -40,22 +40,23 @@ metadata:
 spec:
   project: default
 
-  source:
-    # ── ATENÇÃO: substitua pela URL do SEU repositório ──
-    # Opção A (Gitea local — recomendado para Kind):
-    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
-    # Opção B (GitHub):
-    # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
+  # ⚠️ v3: campo "source" (singular) depreciado — use "sources" (plural)
+  sources:
+    - # ── ATENÇÃO: substitua pela URL do SEU repositório ──
+      # Opção A (Gitea local — recomendado para Kind):
+      repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitops/caio-k8s.git
+      # Opção B (GitHub):
+      # repoURL: https://github.com/SEU_USUARIO/caio-k8s.git
 
-    # Aponta para o branch principal
-    targetRevision: HEAD
+      # Aponta para o branch principal
+      targetRevision: HEAD
 
-    # Diretório com os arquivos de Application filhos
-    path: curso-k8s/modulo-07-argocd/apps
+      # Diretório com os arquivos de Application filhos
+      path: curso-k8s/modulo-07-argocd/apps
 
-    directory:
-      # Não processa subdiretórios (evita processar arquivos em stack/ acidentalmente)
-      recurse: false
+      directory:
+        # Não processa subdiretórios (evita processar arquivos em stack/ acidentalmente)
+        recurse: false
 
   destination:
     # O cluster local — dentro do cluster, sempre este endereço

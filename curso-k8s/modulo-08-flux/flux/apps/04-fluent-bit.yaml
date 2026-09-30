@@ -1,0 +1,45 @@
+# ============================================================
+# HelmRelease — Fluent Bit
+# ============================================================
+# Equivalente ao ArgoCD Application "fluent-bit" (04-fluent-bit-app.yaml).
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: fluent-bit
+  namespace: flux-system
+  labels:
+    module: "08"
+    tier: monitoring
+spec:
+  interval: 10m
+  dependsOn:
+    - name: namespaces
+    - name: loki        # Fluent Bit envia logs para o Loki
+
+  chart:
+    spec:
+      chart: fluent-bit
+      version: "*"
+      sourceRef:
+        kind: HelmRepository
+        name: fluent
+        namespace: flux-system
+      interval: 1h
+
+  targetNamespace: monitoring
+  releaseName: fluent-bit
+
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+
+  valuesFrom:
+    - kind: ConfigMap
+      name: fluent-bit-values
+      valuesKey: values-fluent-bit.yaml

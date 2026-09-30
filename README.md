@@ -104,55 +104,80 @@ Aprenda a criar e gerenciar clusters Kubernetes locais usando Kind (Kubernetes i
 ---
 
 ### 🎮 Módulo 02: Deploy de Aplicação e Resiliência
-**Intermediário** | **Duração:** 1h15min | **✨ NOVO!**
+**Intermediário** | **Duração:** 1h15min
 
-Vá além da criação de clusters! Faça deploy de aplicações reais (**jogos Super Mario e 2048**) e explore os recursos de **auto-healing** e **auto-scaling** do Kubernetes.
+Aprenda a fazer deploy de aplicações reais e explore auto-healing e auto-scaling.
 
 📖 [Ir para módulo →](./curso-k8s/modulo-02-deploy-app/)
 
+---
+
+### 🧩 Módulo 02.1: Kustomize - Gestão de Configuração
+**Intermediário** | **Duração:** 45min | **✨ NOVO!**
+
+O elo perdido entre YAMLs estáticos e GitOps. Aprenda a gerenciar múltiplos ambientes (Dev/Prod) usando Bases e Overlays sem duplicar código.
+
+📖 [Ir para módulo →](./curso-k8s/modulo-02.1-kustomize/)
+
 **O que você vai aprender:**
-- ✅ Fazer deploy de aplicações containerizadas
-- ✅ Expor serviços para acesso externo (ClusterIP + port-forward)
-- ✅ Compreender auto-healing na prática
-- ✅ Configurar Horizontal Pod Autoscaler (HPA)
-- ✅ Executar testes de carga e resiliência
-- ✅ Monitorar métricas em tempo real
+- ✅ Bases e Overlays (Estrutura profissional)
+- ✅ Patches JSON6902 e Strategic Merge
+- ✅ ConfigMapGenerator (Hash automático)
+- ✅ Gerenciamento de múltiplos ambientes (Dev vs Prod)
 
-**Guia prático:**
-- 📚 [Manifests README: Guia Completo](./curso-k8s/modulo-02-deploy-app/manifests/README.md)
+---
 
-**Destaques do módulo:**
-- 🎮 **Aplicação real**: Super Mario rodando em Kubernetes!
-- 🔧 **Auto-healing**: Delete pods e veja a recuperação automática
-- 📈 **Auto-scaling**: Gere carga e observe o scaling em tempo real
-- 📊 **Metrics Server**: Configuração e uso de métricas
-- 🔥 **Testes de stress**: Use Fortio para gerar carga profissional
+### 📊 Módulo 03: Monitoramento com Helm e Prometheus Stack
+**Intermediário** | **Duração:** 1h30min
 
-**Início rápido com Super Mario:**
-```powershell
-# 1. Criar cluster local com Kind
-kind create cluster --config curso-k8s/modulo-01-kind/manifests/cluster-config.yaml
+Aprenda a instalar e configurar uma stack de observabilidade completa usando Helm.
 
-# 2. Instalar Metrics Server
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
-kubectl wait --for=condition=available --timeout=120s deployment/metrics-server -n kube-system
+📖 [Ir para módulo →](./curso-k8s/modulo-03-monitoring/)
 
-# 3. Deploy do Super Mario
-kubectl create namespace games
-kubectl apply -f curso-k8s/modulo-02-deploy-app/manifests/01-deployment-mario.yaml
-kubectl apply -f curso-k8s/modulo-02-deploy-app/manifests/02-service-mario.yaml
-kubectl apply -f curso-k8s/modulo-02-deploy-app/manifests/03-hpa.yaml
+---
 
-# 4. Acessar o Super Mario
-Start-Process "http://localhost:8080"   
+### 🔍 Módulo 04: Observabilidade com OpenTelemetry
+**Avançado** | **Duração:** 2h
 
-# 5. Alternativa: Port-Forward se não abrir automaticamente
-kubectl port-forward -n games service/super-mario-service 8080:8080
+Instrumentação de aplicações, coleta de métricas e rastreamento distribuído (Tracing).
 
-# 6. Abrir no navegador
-Start-Process "http://localhost:8080"
-```
+📖 [Ir para módulo →](./curso-k8s/modulo-04-opentelemetry/)
+
+---
+
+### ⏲️ Módulo 05: Continuous Profiling com Pyroscope
+**Avançado** | **Duração:** 1h
+
+Analise o consumo de CPU e memória a nível de linha de código em tempo real.
+
+📖 [Ir para módulo →](./curso-k8s/modulo-05-profiler/)
+
+---
+
+### 📈 Módulo 06: Mimir - Armazenamento de Métricas em Larga Escala
+**Avançado** | **Duração:** 1h
+
+Gerencie métricas de longa duração e alta disponibilidade com Grafana Mimir.
+
+📖 [Ir para módulo →](./curso-k8s/modulo-06-mimir/)
+
+---
+
+### 🐙 Módulo 07: GitOps com ArgoCD
+**Especialista** | **Duração:** 2h
+
+Automatize a sincronização do seu repositório Git com o cluster usando a ferramenta líder do mercado.
+
+📖 [Ir para módulo →](./curso-k8s/modulo-07-argocd/)
+
+---
+
+### 🌊 Módulo 08: GitOps com Flux CD
+**Especialista** | **Duração:** 2h
+
+Domine o Flux CD v2 para automação Cloud Native e integração modular com Gitea.
+
+📖 [Ir para módulo →](./curso-k8s/modulo-08-flux/)
 
 ---
 

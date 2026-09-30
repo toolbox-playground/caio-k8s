@@ -1,0 +1,12 @@
+# ============================================================
+# HelmRepository — minio
+# ============================================================
+# Usado por: aistor-objectstore (AIStor MinIO enterprise)
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: minio
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://helm.min.io

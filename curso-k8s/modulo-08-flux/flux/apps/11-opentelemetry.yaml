@@ -1,0 +1,30 @@
+# ============================================================
+# Kustomization — OpenTelemetry stack
+# ============================================================
+# Equivalente ao ArgoCD Application "opentelemetry" (11-opentelemetry-app.yaml).
+# Aplica: Service ranking-api, OTel Collector (ConfigMap/Deployment/Service),
+# PodMonitor do Collector.
+#
+# No ArgoCD: sync-wave: 1 → sobe após Tempo/Loki/Prometheus.
+# No Flux: dependsOn explícito por nome.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: opentelemetry
+  namespace: flux-system
+  labels:
+    module: "08"
+    tier: observability
+spec:
+  interval: 5m
+  # Aguarda os backends de telemetria estarem prontos
+  dependsOn:
+    - name: prometheus-stack
+    - name: loki
+    - name: tempo
+  path: ./curso-k8s/modulo-07-argocd/stack/opentelemetry/manifests
+  sourceRef:
+    kind: GitRepository
+    name: caio-k8s
+  prune: true
+  targetNamespace: monitoring
