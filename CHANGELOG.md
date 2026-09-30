@@ -1,3 +1,17 @@
+## 0.21.0 (2026-09-30)
+
+### Feat
+
+- modulo kong
+- atualiza estrutura de labels nos manifests para usar 'labels' em vez de 'commonLabels'
+- adiciona módulo Kustomize com suporte a múltiplos ambientes e configurações específicas
+- add manifests for high cardinality monitoring module
+- atualiza README.md para refletir mudanças no ArgoCD v3, substituindo 'source' por 'sources' e ajustando finalizers
+- atualiza documentação e manifests para AIStor, substituindo MinIO e ajustando configurações de buckets e credenciais
+- atualiza manifests e documentação para ArgoCD v3, substituindo "source" por "sources" e adicionando novas instruções de migração
+- atualiza documentação do ArgoCD com novos métodos de autenticação e práticas recomendadas
+- add manifests for high cardinality metrics handling
+
 ## 0.20.1 (2026-06-01)
 
 ### Fix
